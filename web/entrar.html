@@ -1,61 +1,97 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Entrar</title>
+<title>Livia</title>
 <link rel="icon" href="data:,">
 <style>
-  :root {
-    --paper: #fbfaf7; --surface: #ffffff; --line: #e7e3da;
-    --ink: #26241f; --ink-soft: #736d63; --ink-faint: #9d9689;
-    --accent: #3f6b87; --danger: #a4503f;
-    --serif: "Iowan Old Style", Georgia, serif;
-  }
   :root[data-theme="dark"] {
-    --paper: #1a1917; --surface: #211f1d; --line: #35322d;
-    --ink: #eae6de; --ink-soft: #a09a8f; --ink-faint: #7c766c;
-    --accent: #83b3ca; --danger: #d98b78;
+    --fundo: #0d0707; --painel: rgba(46,22,25,.72); --sunk: rgba(18,9,11,.7);
+    --linha: rgba(179,23,62,.22); --linha-forte: rgba(179,23,62,.45);
+    --texto: #f1e2d0; --suave: #c9a99a; --fraco: #8f6f66;
+    --rubi: #b3173e; --brilho: #e95a7a; --dourado: #c08a4a; --creme: #f1e2d0;
+    --luz-topo: inset 0 1px 0 rgba(255,190,190,.10);
+  }
+  :root[data-theme="light"] {
+    --fundo: #f7efe6; --painel: rgba(255,252,249,.9); --sunk: rgba(226,210,199,.5);
+    --linha: rgba(142,15,42,.18); --linha-forte: rgba(142,15,42,.36);
+    --texto: #33191a; --suave: #7a5750; --fraco: #a98d84;
+    --rubi: #a01235; --brilho: #c93a5c; --dourado: #a4703a; --creme: #3a1c18;
+    --luz-topo: inset 0 1px 0 rgba(255,255,255,.85);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; display: flex;
     align-items: center; justify-content: center; padding: 24px;
-    font: 16px/1.7 system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: var(--paper); color: var(--ink);
+    font: 15.5px/1.7 "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--fundo); color: var(--texto); position: relative; overflow: hidden;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(900px 640px at 20% -10%, rgba(179,23,62,.22), transparent 62%),
+      radial-gradient(760px 560px at 82% 110%, rgba(166,101,58,.16), transparent 60%);
   }
   .cartao {
-    width: 100%; max-width: 372px; background: var(--surface);
-    border: 1px solid var(--line); border-radius: 16px; padding: 34px 30px;
+    position: relative; width: 100%; max-width: 392px;
+    background: linear-gradient(165deg, var(--painel), rgba(18,9,11,.5));
+    border: 1px solid var(--linha-forte); border-radius: 20px; padding: 38px 34px 32px;
+    box-shadow: var(--luz-topo), 0 24px 64px rgba(0,0,0,.5), 0 0 44px rgba(142,15,42,.16);
+    text-align: center;
   }
+  .gema { width: 62px; height: 62px; margin: 0 auto 16px; display: block;
+          filter: drop-shadow(0 0 18px rgba(179,23,62,.6)); }
   h1 {
-    font-family: var(--serif); font-size: 27px; font-weight: 400;
-    margin: 0 0 6px;
+    font-size: 27px; font-weight: 600; letter-spacing: .2em; margin: 0 0 4px;
+    background: linear-gradient(100deg, var(--creme) 8%, var(--brilho) 50%, var(--dourado));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  p.sub { color: var(--ink-soft); font-size: 14.5px; margin: 0 0 24px; }
+  p.sub { color: var(--fraco); font-size: 13px; margin: 0 0 26px;
+          letter-spacing: .09em; text-transform: uppercase; }
   input {
-    width: 100%; padding: 12px 14px; font: inherit; font-size: 15.5px;
-    border: 1px solid var(--line); border-radius: 10px;
-    background: var(--paper); color: var(--ink); outline: none;
+    width: 100%; padding: 13px 16px; font: inherit; font-size: 15px; text-align: center;
+    letter-spacing: .04em; border: 1px solid var(--linha); border-radius: 12px;
+    background: var(--sunk); color: var(--texto); outline: none;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,.3); transition: border-color .18s, box-shadow .18s;
   }
-  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--fraco); letter-spacing: .02em; }
+  input:focus { border-color: var(--rubi); box-shadow: inset 0 1px 4px rgba(0,0,0,.3), 0 0 20px rgba(179,23,62,.28); }
   button {
-    width: 100%; margin-top: 10px; padding: 12px; border: none;
-    border-radius: 10px; background: var(--accent); color: #fff;
-    font: inherit; font-size: 15.5px; font-weight: 500; cursor: pointer;
+    width: 100%; margin-top: 11px; padding: 13px; border: 1px solid rgba(233,90,122,.4);
+    border-radius: 12px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+    color: #fff; background: linear-gradient(160deg, #d4285a, #b3173e 40%, #8e0f2a);
+    box-shadow: var(--luz-topo), 0 6px 22px rgba(142,15,42,.45);
+    transition: transform .16s, filter .16s;
   }
-  button:hover:not(:disabled) { filter: brightness(1.08); }
-  button:disabled { opacity: .5; cursor: default; }
-  .erro {
-    color: var(--danger); font-size: 14px; min-height: 22px;
-    margin-top: 12px; text-align: center;
-  }
+  button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.12); }
+  button:disabled { opacity: .4; cursor: default; }
+  .erro { color: var(--brilho); font-size: 13.5px; min-height: 22px; margin-top: 14px; }
 </style>
 </head>
 <body>
   <div class="cartao">
-    <h1 id="titulo">Livia</h1>
-    <p class="sub">Digite a senha para continuar.</p>
+    <svg class="gema" viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
+        </linearGradient>
+        <linearGradient id="b" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
+        </linearGradient>
+        <radialGradient id="c" cx=".5" cy=".42" r=".5">
+          <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
+          <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#b)"/>
+      <path d="M14 7h20l8 11H6z" fill="url(#a)"/>
+      <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".3"/>
+      <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
+      <circle cx="24" cy="20" r="10" fill="url(#c)"/>
+    </svg>
+    <h1 id="titulo">LIVIA</h1>
+    <p class="sub">acesso restrito</p>
     <input id="senha" type="password" placeholder="senha" autofocus autocomplete="current-password">
     <button id="btn" onclick="entrar()">Entrar</button>
     <div class="erro" id="erro"></div>
@@ -65,8 +101,8 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 
-if (localStorage.getItem("livia-tema") === "dark") {
-  document.documentElement.dataset.theme = "dark";
+if (localStorage.getItem("livia-tema") === "light") {
+  document.documentElement.dataset.theme = "light";
 }
 
 async function entrar() {
