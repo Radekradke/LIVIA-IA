@@ -25,7 +25,7 @@ from starlette.responses import (
 )
 from starlette.routing import Route
 
-from . import auth, backup, brain, config, context, db, learner, persona, web
+from . import auth, backup, biblioteca, brain, config, context, db, learner, persona, web
 from .store import memory, skills
 
 AJUDA = """\
@@ -141,6 +141,30 @@ async def chat(request: Request) -> Response:
         history = db.get_messages(conversation_id, limit=config.HISTORY_TURNS)
         system_prompt = context.build_system_prompt()
 
+        # Contexto extra que será colado antes da pergunta. É uma LISTA de
+        # propósito: biblioteca e web podem disparar na mesma pergunta, e
+        # sobrescrever uma com a outra descartaria material relevante em
+        # silêncio — que foi exatamente o bug da primeira versão disto.
+        blocos: list[str] = []
+
+        # --- biblioteca ----------------------------------------------------
+        # Busca sempre (é local e barato); injeta só o que passar do limiar.
+        if not biblioteca.vazia():
+            try:
+                achados = await biblioteca.buscar(message)
+            except Exception:
+                achados = []
+            if achados:
+                blocos.append(biblioteca.formatar(achados))
+                vistos: list[str] = []
+                for a in achados:
+                    rotulo = str(a["livro"])
+                    if a["pagina"]:
+                        rotulo += f" p.{a['pagina']}"
+                    if rotulo not in vistos:
+                        vistos.append(rotulo)
+                yield _sse({"type": "livros", "trechos": vistos})
+
         # --- web -----------------------------------------------------------
         # Link colado na mensagem: o modelo lê direto, sem busca nenhuma.
         tem_link = config.WEB_ENABLED and bool(web.urls_em(message))
@@ -159,11 +183,7 @@ async def chat(request: Request) -> Response:
             yield _sse({"type": "status", "text": f"buscando: {consulta}"})
             resultados = await web.buscar(consulta, config.WEB_RESULTS)
             if resultados:
-                bloco = web.formatar(consulta, resultados)
-                history = [*history[:-1], {
-                    "role": "user",
-                    "content": f"{bloco}\n---\n\n{message}",
-                }]
+                blocos.append(web.formatar(consulta, resultados))
                 yield _sse({
                     "type": "sources",
                     "label": "resultados da busca",
@@ -173,6 +193,13 @@ async def chat(request: Request) -> Response:
                 yield _sse({"type": "status", "text": "a busca não devolveu nada"})
         elif tem_link:
             yield _sse({"type": "status", "text": "abrindo o link…"})
+
+        # Aplica tudo de uma vez, preservando cada fonte que contribuiu.
+        if blocos:
+            history = [*history[:-1], {
+                "role": "user",
+                "content": "\n\n".join(blocos) + f"\n---\n\n{message}",
+            }]
 
         fontes: list[str] = []
         usados: list[str] = []
@@ -339,6 +366,43 @@ async def save_persona(request: Request) -> Response:
     return JSONResponse({"text": persona.read()})
 
 
+async def listar_livros(request: Request) -> Response:
+    return JSONResponse({"livros": biblioteca.listar()})
+
+
+async def apagar_livro(request: Request) -> Response:
+    ok = biblioteca.remover(request.path_params["slug"])
+    return JSONResponse({"ok": ok})
+
+
+async def enviar_livro(request: Request) -> Response:
+    """Recebe o arquivo e relata o progresso enquanto processa.
+
+    Um livro de 500 páginas leva ~30s. Sem retorno visual, a pessoa acha que
+    travou e recarrega a página no meio — por isso o progresso vai por SSE,
+    como no chat.
+    """
+    nome = request.headers.get("x-nome-arquivo", "documento.pdf")
+    dados = await request.body()
+    if not dados:
+        return JSONResponse({"error": "arquivo vazio"}, status_code=400)
+
+    async def eventos() -> AsyncIterator[bytes]:
+        try:
+            async for passo in biblioteca.adicionar(nome, dados):
+                yield _sse(passo)
+        except biblioteca.BibliotecaError as exc:
+            yield _sse({"etapa": "erro", "texto": str(exc)})
+        except Exception as exc:
+            yield _sse({"etapa": "erro", "texto": f"Falha inesperada: {exc}"})
+
+    return StreamingResponse(
+        eventos(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 async def baixar_backup(request: Request) -> Response:
     dados, nome = backup.exportar()
     return Response(
@@ -498,6 +562,9 @@ routes = [
     Route("/api/conversations/{conversation_id:int}", conversation_messages),
     Route("/api/conversations/{conversation_id:int}", delete_conversation, methods=["DELETE"]),
     Route("/saude", saude),
+    Route("/api/biblioteca", listar_livros),
+    Route("/api/biblioteca", enviar_livro, methods=["POST"]),
+    Route("/api/biblioteca/{slug:str}", apagar_livro, methods=["DELETE"]),
     Route("/api/backup", baixar_backup),
     Route("/api/backup", restaurar_backup, methods=["POST"]),
     Route("/api/persona", get_persona),

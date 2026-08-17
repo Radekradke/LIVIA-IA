@@ -171,6 +171,20 @@
   }
   .fontes a:hover { color: var(--accent); background: var(--accent-soft); }
 
+  .fontes .fonte-txt {
+    font-size: 12.5px; color: var(--ink-soft);
+    background: var(--sunk); padding: 3px 10px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .btn-livro {
+    width: 100%; padding: 10px; border-radius: 9px; font-size: 14px;
+    background: var(--accent); color: #fff; font-weight: 500;
+  }
+  .btn-livro:hover { filter: brightness(1.08); }
+  .livro-status { font-size: 13px; margin-top: 9px; text-align: center; min-height: 20px; color: var(--ink-faint); }
+  .livro-status.ativo { color: var(--accent); }
+  .livro-status.erro { color: var(--danger); text-align: left; line-height: 1.5; }
+
   .learned {
     display: inline-flex; align-items: center; gap: 7px; margin-top: 14px;
     font-size: 13px; color: var(--ink-soft);
@@ -346,6 +360,7 @@
   <div class="tabs">
     <button class="tab active" data-kind="memories" onclick="trocarAba('memories')">Memórias</button>
     <button class="tab" data-kind="skills" onclick="trocarAba('skills')">Skills</button>
+    <button class="tab" data-kind="livros" onclick="trocarAba('livros')">Livros</button>
     <button class="tab" data-kind="persona" onclick="trocarAba('persona')">Jeito</button>
   </div>
   <div id="docs"></div>
@@ -495,14 +510,16 @@ function mostrarStatus(bolha, texto, fixo) {
   descer();
 }
 
-function mostrarFontes(bolha, rotulo, urls) {
+function mostrarFontes(bolha, rotulo, urls, texto) {
   const status = bolha.querySelector(".status");
   if (status && !status.classList.contains("fixo")) status.remove();
   if (!urls || !urls.length) return;
 
   const box = document.createElement("div");
   box.className = "fontes";
+  // "texto" = rotulos comuns (livro, pagina), nao enderecos clicaveis.
   const itens = urls.map((u) => {
+    if (texto) return `<span class="fonte-txt">${escapar(u)}</span>`;
     let host = u;
     try { host = new URL(u).hostname.replace(/^www\./, ""); } catch {}
     return `<a href="${escapar(u)}" target="_blank" rel="noopener" title="${escapar(u)}">${escapar(host)}</a>`;
@@ -578,6 +595,8 @@ async function enviar() {
           descer();
         } else if (evt.type === "status") {
           mostrarStatus(bolha, evt.text, evt.fixo);
+        } else if (evt.type === "livros") {
+          mostrarFontes(bolha, "dos seus livros", evt.trechos, true);
         } else if (evt.type === "sources") {
           mostrarFontes(bolha, evt.label, evt.urls);
         } else if (evt.type === "learned") {
@@ -654,9 +673,101 @@ function trocarAba(kind) {
   abaAtual = kind;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.kind === kind));
-  $("addForm").style.display = kind === "persona" ? "none" : "";
+  $("addForm").style.display = (kind === "persona" || kind === "livros") ? "none" : "";
   if (kind === "persona") carregarPersona();
+  else if (kind === "livros") carregarLivros();
   else carregarDocs();
+}
+
+/* ---------- biblioteca ---------- */
+async function carregarLivros() {
+  const { livros } = await (await fetch("/api/biblioteca")).json();
+
+  const lista = livros.length
+    ? livros.map((l) => `
+        <div class="doc">
+          <div class="doc-top">
+            <span class="doc-name">${escapar(l.titulo)}</span>
+            <button class="x" onclick="apagarLivro('${escapar(l.slug)}')" title="remover">×</button>
+          </div>
+          <div class="doc-body" style="margin-top:5px">
+            ${l.paginas} páginas · ${l.trechos} trechos · ${escapar(l.criado)}
+          </div>
+        </div>`).join("")
+    : `<div class="none">Nenhum livro ainda.<br>Envie um PDF e ela passa a consultá-lo.</div>`;
+
+  $("docs").innerHTML = `
+    <p class="persona-ajuda">
+      Ela não decora o livro. Quando você pergunta, ela procura os trechos que
+      respondem e lê <b>aqueles</b> antes de responder — citando livro e página.
+      Aceita PDF, TXT e Markdown.
+    </p>
+    ${lista}
+    <div style="margin-top:12px">
+      <button class="btn-livro" onclick="$('arqLivro').click()">Enviar arquivo</button>
+      <input type="file" id="arqLivro" accept=".pdf,.txt,.md,.markdown"
+             style="display:none" onchange="enviarLivro(this)">
+      <div id="livroStatus" class="livro-status"></div>
+    </div>`;
+}
+
+async function apagarLivro(slug) {
+  await fetch(`/api/biblioteca/${encodeURIComponent(slug)}`, { method: "DELETE" });
+  carregarLivros();
+}
+
+async function enviarLivro(input) {
+  const arquivo = input.files[0];
+  if (!arquivo) return;
+  input.value = "";
+
+  const status = $("livroStatus");
+  status.className = "livro-status ativo";
+  status.textContent = "enviando…";
+
+  try {
+    const r = await fetch("/api/biblioteca", {
+      method: "POST",
+      headers: { "x-nome-arquivo": encodeURIComponent(arquivo.name).replace(/%20/g, " ") },
+      body: arquivo,
+    });
+    if (!r.body) throw new Error("o servidor não respondeu");
+
+    const leitor = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await leitor.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const partes = buffer.split("\n\n");
+      buffer = partes.pop() || "";
+
+      for (const parte of partes) {
+        const linha = parte.split("\n").find((l) => l.startsWith("data:"));
+        if (!linha) continue;
+        let evt;
+        try { evt = JSON.parse(linha.slice(5).trim()); } catch { continue; }
+
+        if (evt.etapa === "erro") {
+          status.className = "livro-status erro";
+          status.textContent = evt.texto;
+          return;
+        }
+        if (evt.etapa === "pronto") {
+          status.className = "livro-status";
+          status.textContent = "";
+          carregarLivros();
+          return;
+        }
+        status.textContent = evt.texto || evt.etapa;
+      }
+    }
+  } catch (e) {
+    status.className = "livro-status erro";
+    status.textContent = e.message;
+  }
 }
 
 /* ---------- personalidade ---------- */
