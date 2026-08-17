@@ -14,7 +14,10 @@ services:
     name: livia
     runtime: docker
     plan: free
-    region: oregon
+    # Virginia é a região mais próxima do Brasil entre as gratuitas.
+    # Oregon (padrão de muitos exemplos) fica na outra ponta dos EUA e
+    # acrescenta uns 80ms em cada ida e volta, o que se nota no chat.
+    region: virginia
     healthCheckPath: /saude
     envVars:
       # Segredos: preenchidos no painel do Render, nunca no repositório.
