@@ -25,7 +25,10 @@ from starlette.responses import (
 )
 from starlette.routing import Route
 
-from . import auth, backup, biblioteca, brain, config, context, db, learner, persona, web
+from . import (
+    auth, backup, biblioteca, brain, config, context, db, ferramentas,
+    learner, persona, web,
+)
 from .store import memory, skills
 
 AJUDA = """\
@@ -200,6 +203,42 @@ async def chat(request: Request) -> Response:
                 "role": "user",
                 "content": "\n\n".join(blocos) + f"\n---\n\n{message}",
             }]
+
+        # --- ferramentas ----------------------------------------------------
+        # O modelo pode pedir ações antes de responder: ler um arquivo, listar
+        # a pasta, calcular. Cada rodada executa o que ele pediu e devolve o
+        # resultado; quando ele para de pedir, a resposta final sai em
+        # streaming como sempre.
+        if config.TOOLS_ENABLED:
+            for _ in range(config.TOOLS_MAX_ROUNDS):
+                try:
+                    chamadas, eco = await brain.com_ferramentas(
+                        system_prompt, history, ferramentas.CATALOGO
+                    )
+                except brain.BrainError as exc:
+                    yield _sse({"type": "error", "message": str(exc)})
+                    return
+                except Exception:
+                    break  # ferramenta é bônus; se falhar, responde sem ela
+
+                if not chamadas:
+                    break
+
+                history = [*history, *eco]
+                for chamada in chamadas:
+                    yield _sse({
+                        "type": "acao",
+                        "texto": ferramentas.resumir(chamada["nome"], chamada["args"]),
+                    })
+                    resultado, ok = ferramentas.executar(chamada["nome"], chamada["args"])
+                    if not ok:
+                        yield _sse({"type": "acao", "texto": f"⚠ {resultado}", "falhou": True})
+                    history.append({
+                        "role": "ferramenta",
+                        "id": chamada["id"],
+                        "nome": chamada["nome"],
+                        "resultado": resultado,
+                    })
 
         fontes: list[str] = []
         usados: list[str] = []

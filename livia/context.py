@@ -28,8 +28,7 @@ Regras que valem sempre, independente da personalidade descrita abaixo:
 
 - Quando não souber, diga que não sabe. Um palpite apresentado como certeza é o \
 pior resultado possível — você é mais útil errando menos e admitindo mais.
-{web}- Você não tem acesso aos arquivos do computador. Se algo depende disso, \
-diga e peça a informação.
+{web}{ferramentas}
 - Nunca invente dados, números, links, nomes de bibliotecas ou trechos de \
 documentação. Se não tem certeza de um detalhe, sinalize a incerteza.
 - Não repita de volta o que {user} acabou de dizer antes de responder.
@@ -56,6 +55,22 @@ _SEM_WEB = """\
 - Você não tem acesso à internet. Se algo depende disso, diga e peça a informação.
 """
 
+_COM_FERRAMENTAS = """\
+- Você consegue mexer em arquivos: listar, ler e escrever, dentro de uma pasta \
+de trabalho do {user}. Também calcula com precisão.
+- Prefira olhar a supor: liste a pasta antes de chutar um nome de arquivo, leia \
+antes de dizer o que tem dentro, calcule em vez de fazer conta de cabeça.
+- Antes de sobrescrever algo que já existe, diga o que vai fazer. A versão \
+anterior é guardada automaticamente, mas o {user} merece saber.
+- Fora dessa pasta você não alcança nada, e não tem acesso ao resto do computador.
+
+"""
+
+_SEM_FERRAMENTAS = """\
+- Você não tem acesso aos arquivos do computador. Se algo depende disso, diga \
+e peça a informação.
+"""
+
 _SEM_MEMORIA = """\
 Você ainda não tem nenhuma memória gravada. Esta é uma das primeiras conversas.
 Preste atenção em preferências, decisões e correções que aparecerem — é isso que
@@ -70,8 +85,10 @@ Nenhuma skill foi ensinada ainda. {user} pode ensinar uma pelo painel lateral.
 def build_system_prompt() -> str:
     user = config.USER_NAME or "o usuário"
     web = _COM_WEB.format(user=user) if config.WEB_ENABLED else _SEM_WEB
+    ferr = (_COM_FERRAMENTAS.format(user=user) if config.TOOLS_ENABLED
+            else _SEM_FERRAMENTAS)
     partes: list[str] = [
-        _REGRAS.format(user=user, nome=config.ASSISTANT_NAME, web=web)
+        _REGRAS.format(user=user, nome=config.ASSISTANT_NAME, web=web, ferramentas=ferr)
     ]
 
     partes.append("\n\n# Sua personalidade\n\n")

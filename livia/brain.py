@@ -105,14 +105,42 @@ def _provedores() -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def _gemini_contents(messages: Iterable[dict[str, str]]) -> list[dict[str, object]]:
+def _gemini_contents(messages: Iterable[dict[str, object]]) -> list[dict[str, object]]:
     saida: list[dict[str, object]] = []
     for m in messages:
-        texto = (m.get("content") or "").strip()
+        papel_bruto = m.get("role")
+
+        # Pedido de ferramenta feito pelo modelo
+        if papel_bruto == "assistant" and m.get("ferramentas"):
+            saida.append({
+                "role": "model",
+                "parts": [
+                    {"functionCall": {"name": c["nome"], "args": c["args"]}}
+                    for c in m["ferramentas"]
+                ],
+            })
+            continue
+
+        # Resultado que devolvemos para ele
+        if papel_bruto == "ferramenta":
+            saida.append({
+                "role": "user",
+                "parts": [{
+                    "functionResponse": {
+                        "name": m.get("nome", ""),
+                        "response": {"resultado": m.get("resultado", "")},
+                    }
+                }],
+            })
+            continue
+
+        texto = str(m.get("content") or "").strip()
         if not texto:
             continue
-        papel = "model" if m.get("role") == "assistant" else "user"
-        saida.append({"role": papel, "parts": [{"text": texto}]})
+        saida.append({
+            "role": "model" if papel_bruto == "assistant" else "user",
+            "parts": [{"text": texto}],
+        })
     return saida
 
 
@@ -237,16 +265,47 @@ async def _gemini_structured(
 
 
 def _groq_messages(
-    system_prompt: str, messages: Iterable[dict[str, str]]
-) -> list[dict[str, str]]:
-    saida = []
+    system_prompt: str, messages: Iterable[dict[str, object]]
+) -> list[dict[str, object]]:
+    saida: list[dict[str, object]] = []
     if system_prompt.strip():
         saida.append({"role": "system", "content": system_prompt})
+
     for m in messages:
-        texto = (m.get("content") or "").strip()
+        papel_bruto = m.get("role")
+
+        if papel_bruto == "assistant" and m.get("ferramentas"):
+            saida.append({
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": c["id"] or f"c{i}",
+                        "type": "function",
+                        "function": {
+                            "name": c["nome"],
+                            "arguments": json.dumps(c["args"], ensure_ascii=False),
+                        },
+                    }
+                    for i, c in enumerate(m["ferramentas"])
+                ],
+            })
+            continue
+
+        if papel_bruto == "ferramenta":
+            saida.append({
+                "role": "tool",
+                "tool_call_id": m.get("id") or "c0",
+                "content": str(m.get("resultado", "")),
+            })
+            continue
+
+        texto = str(m.get("content") or "").strip()
         if texto:
-            papel = "assistant" if m.get("role") == "assistant" else "user"
-            saida.append({"role": papel, "content": texto})
+            saida.append({
+                "role": "assistant" if papel_bruto == "assistant" else "user",
+                "content": texto,
+            })
     return saida
 
 
@@ -419,6 +478,100 @@ async def stream(
                 + "\n\nSe for limite de cota, ele reseta sozinho. "
                 "Espere alguns minutos e tente de novo."
             )
+
+
+async def com_ferramentas(
+    system_prompt: str,
+    messages: list[dict[str, object]],
+    catalogo: list[dict[str, object]],
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """Uma rodada de conversa em que o modelo pode pedir ferramentas.
+
+    Devolve (chamadas pedidas, mensagens a acrescentar ao histórico). Lista de
+    chamadas vazia significa que o modelo não quis ferramenta nenhuma — hora
+    de gerar a resposta final, em streaming.
+
+    Não é streaming de propósito: pedidos de ferramenta chegam picotados no
+    stream e remontá-los é frágil nos dois formatos. Como esta etapa não
+    produz texto para o usuário ler, o ganho seria zero e o risco real.
+    """
+    for provedor in _provedores():
+        try:
+            if provedor == "groq":
+                return await _groq_ferramentas(system_prompt, messages, catalogo)
+            return await _gemini_ferramentas(system_prompt, messages, catalogo)
+        except (ProvedorIndisponivel, httpx.HTTPError):
+            continue
+        except BrainError:
+            raise
+    raise BrainError("Nenhum provedor conseguiu responder agora.")
+
+
+async def _groq_ferramentas(system_prompt, messages, catalogo):
+    corpo = {
+        "model": config.GROQ_MODEL,
+        "messages": _groq_messages(system_prompt, messages),
+        "temperature": 0.4,
+        "tools": [{"type": "function", "function": f} for f in catalogo],
+        "tool_choice": "auto",
+    }
+    headers = {"Authorization": f"Bearer {config.GROQ_API_KEY}", "Content-Type": "application/json"}
+
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        resp = await client.post(GROQ_URL, json=corpo, headers=headers)
+        if resp.status_code >= 400:
+            raise _classificar("groq", resp.status_code, resp.text, config.GROQ_MODEL)
+        msg = resp.json()["choices"][0]["message"]
+
+    brutas = msg.get("tool_calls") or []
+    if not brutas:
+        return [], []
+
+    chamadas = []
+    for c in brutas:
+        fn = c.get("function", {})
+        try:
+            args = json.loads(fn.get("arguments") or "{}")
+        except json.JSONDecodeError:
+            args = {}
+        chamadas.append({"id": c.get("id", ""), "nome": fn.get("name", ""), "args": args})
+
+    # Formato neutro: o histórico não fica preso ao fornecedor que atendeu.
+    # Se a Groq cair no meio, o Gemini continua de onde ela parou.
+    return chamadas, [{"role": "assistant", "ferramentas": chamadas}]
+
+
+async def _gemini_ferramentas(system_prompt, messages, catalogo):
+    corpo: dict[str, object] = {
+        "contents": _gemini_contents(messages),
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "tools": [{"functionDeclarations": catalogo}],
+        "generationConfig": {"temperature": 0.4},
+    }
+    url = f"{GEMINI_URL}/{config.MODEL}:generateContent"
+    headers = {"x-goog-api-key": config.GEMINI_API_KEY, "Content-Type": "application/json"}
+
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        resp = await client.post(url, json=corpo, headers=headers)
+        if resp.status_code >= 400:
+            raise _classificar("gemini", resp.status_code, resp.text, config.MODEL)
+        dados = resp.json()
+
+    partes = []
+    try:
+        partes = dados["candidates"][0]["content"]["parts"]
+    except (KeyError, IndexError, TypeError):
+        return [], []
+
+    chamadas = []
+    for i, parte in enumerate(partes):
+        fc = parte.get("functionCall") if isinstance(parte, dict) else None
+        if fc:
+            chamadas.append({"id": f"g{i}", "nome": fc.get("name", ""), "args": fc.get("args") or {}})
+
+    if not chamadas:
+        return [], []
+    return chamadas, [{"role": "assistant", "ferramentas": chamadas}]
 
 
 async def structured(

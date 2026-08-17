@@ -324,6 +324,19 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .fontes a:hover { color: var(--creme); border-color: var(--linha-forte); box-shadow: 0 0 14px rgba(179,23,62,.24); }
 
+/* Cada ferramenta usada vira uma linha visível na resposta. Ficam à mostra
+   de propósito: se ela mexeu num arquivo seu, você precisa saber qual. */
+.acoes { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+.acao {
+  font-size: 12.5px; color: var(--texto-suave); font-family: var(--mono);
+  padding: 5px 13px; border-radius: 8px;
+  background: var(--sunk); border: 1px solid var(--linha);
+  display: flex; align-items: center; gap: 8px;
+}
+.acao::before { content: "▸"; color: var(--brilho); }
+.acao.falhou { color: var(--brilho); border-color: var(--linha-forte); }
+.acao.falhou::before { content: ""; }
+
 .learned {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 15px;
   font-size: 12.5px; color: var(--texto-suave);
@@ -786,6 +799,23 @@ function descer() {
   t.scrollTop = t.scrollHeight;
 }
 
+/* ---------- ações ---------- */
+// Cada ferramenta usada vira uma linha permanente na resposta. Ficam à vista
+// de propósito: se ela mexeu num arquivo seu, você tem que saber qual.
+function mostrarAcao(bolha, texto, falhou) {
+  let lista = bolha.querySelector(".acoes");
+  if (!lista) {
+    lista = document.createElement("div");
+    lista.className = "acoes";
+    bolha.querySelector(".who").after(lista);
+  }
+  const linha = document.createElement("div");
+  linha.className = "acao" + (falhou ? " falhou" : "");
+  linha.textContent = texto;
+  lista.appendChild(linha);
+  descer();
+}
+
 /* ---------- web: status e fontes ---------- */
 function mostrarStatus(bolha, texto, fixo) {
   let el = bolha.querySelector(".status");
@@ -886,6 +916,8 @@ async function enviar() {
           acumulado += evt.text;
           corpo.innerHTML = renderizar(acumulado);
           descer();
+        } else if (evt.type === "acao") {
+          mostrarAcao(bolha, evt.texto, evt.falhou);
         } else if (evt.type === "status") {
           mostrarStatus(bolha, evt.text, evt.fixo);
         } else if (evt.type === "livros") {

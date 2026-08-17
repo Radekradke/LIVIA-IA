@@ -162,6 +162,49 @@ Modelos testados na Groq, em agosto de 2026:
 
 ---
 
+## Ferramentas: o que ela consegue fazer
+
+Além de conversar, ela age. Quando a resposta depende de olhar ou mexer em
+algo, ela pede a ação e usa o resultado:
+
+| Ferramenta | Para quê |
+|---|---|
+| `listar_arquivos` | ver o que existe antes de chutar um nome |
+| `ler_arquivo` | ler o conteúdo em vez de supor |
+| `escrever_arquivo` | criar ou atualizar um arquivo de texto |
+| `calcular` | conta exata — modelo erra aritmética de cabeça |
+
+Cada ação aparece como uma linha na resposta. Ficam à vista de propósito: se
+ela mexeu num arquivo seu, você precisa saber qual.
+
+### O confinamento
+
+**Tudo acontece dentro de uma pasta só**, definida em `LIVIA_WORKSPACE`
+(padrão: `data/workspace`). Antes de qualquer leitura ou escrita o caminho é
+resolvido para a forma canônica e conferido — `../`, caminho absoluto e link
+simbólico são recusados.
+
+Isso não é paranoia: o caminho vem do modelo, e modelo erra. Um `../.env`
+pedido sem má intenção nenhuma leria a sua chave de API.
+
+Se quiser que ela trabalhe num projeto real, aponte `LIVIA_WORKSPACE` para
+lá — sabendo que ela poderá sobrescrever arquivos daquela pasta. **Toda
+sobrescrita guarda uma cópia** da versão anterior ao lado, com carimbo de
+data no nome.
+
+### O que ela NÃO faz
+
+**Executar código.** Não existe jeito honesto de isolar isso em Python puro:
+código gerado pelo modelo teria exatamente os seus poderes na máquina. Fazer
+direito exige contêiner ou aprovação humana a cada execução — e isso é
+decisão sua, não padrão silencioso.
+
+A calculadora, por isso, não usa `eval`: ela interpreta a árvore sintática e
+só aceita `+ - * / // % **` sobre números. `__import__('os').system(...)` é
+recusado como expressão inválida.
+
+---
+
 ## Acesso à web
 
 Funciona de três formas, e você não precisa pedir nas duas primeiras:

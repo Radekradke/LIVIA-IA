@@ -88,5 +88,14 @@ WEB_RESULTS = _int_env("LIVIA_WEB_RESULTS", 5)
 # link (leitura direta, sem custo extra) ou usando /buscar.
 WEB_AUTO = os.getenv("LIVIA_WEB_AUTO", "1").strip() != "0"
 
+# Ferramentas: deixa a Livia ler, escrever e listar arquivos, e calcular.
+# TODA operação de arquivo fica confinada a WORKSPACE — caminho para fora é
+# recusado. Aponte para uma pasta de projeto se quiser que ela trabalhe nela,
+# ciente de que ela poderá sobrescrever arquivos lá dentro (com cópia de
+# segurança automática ao lado de cada arquivo alterado).
+TOOLS_ENABLED = os.getenv("LIVIA_TOOLS", "1").strip() != "0"
+WORKSPACE = Path(os.getenv("LIVIA_WORKSPACE", "").strip() or DATA_DIR / "workspace")
+TOOLS_MAX_ROUNDS = _int_env("LIVIA_TOOLS_ROUNDS", 5)
+
 for _d in (DATA_DIR, MEMORY_DIR, SKILLS_DIR):
     _d.mkdir(parents=True, exist_ok=True)
