@@ -1,0 +1,53 @@
+# Livia em servidor. Use:  docker compose up -d
+#
+# O volume "dados" é o que impede a perda das memórias. Ele sobrevive a
+# `docker compose down`, a rebuilds e a reinícios da máquina. Só some se você
+# rodar `docker compose down -v` — não faça isso sem ter um backup.
+
+services:
+  livia:
+    build: .
+    restart: unless-stopped
+    ports:
+      # Só localhost. Quem fala com a internet é o túnel, não esta porta —
+      # assim não há porta aberta para varredura de robô.
+      - "127.0.0.1:8100:8100"
+    volumes:
+      - dados:/data
+    env_file:
+      - .env
+    environment:
+      LIVIA_DATA_DIR: /data
+      LIVIA_HOST: 0.0.0.0
+      LIVIA_HTTPS: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8100/saude')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Túnel do Cloudflare: dá um endereço HTTPS público sem abrir porta nenhuma
+  # na VM e sem precisar de domínio próprio.
+  #
+  # Por que assim, e não abrindo a porta 443 direto: a Oracle tem DUAS camadas
+  # de firewall (Security List na nuvem + iptables no sistema), e esquecer a
+  # segunda é o erro mais comum de quem sobe algo lá. O túnel sai de dentro
+  # para fora, então não esbarra em nenhuma das duas.
+  #
+  # Para usar: crie o túnel em https://one.dash.cloudflare.com (Zero Trust >
+  # Networks > Tunnels), copie o token e ponha em CLOUDFLARE_TUNNEL_TOKEN
+  # no .env. Aponte o túnel para  http://livia:8100
+  tunel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - livia
+    profiles: ["tunel"]
+
+volumes:
+  dados:

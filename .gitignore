@@ -1,0 +1,27 @@
+# NUNCA comite o .env. Ele tem suas chaves de API e a senha de acesso.
+# Chave em repositório é chave vazada, mesmo em repositório privado — basta
+# um convite, um fork, ou o repositório virar público sem querer.
+.env
+.env.*
+!.env.example
+
+# Seus dados. Memórias e conversas são pessoais e não pertencem ao código.
+data/
+*.db
+*.sqlite3
+
+# Backups baixados pelo painel
+livia-backup-*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Editor e sistema
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

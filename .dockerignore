@@ -1,0 +1,13 @@
+# Nada disto entra na imagem.
+# O .env em especial: chave de API não vai dentro de imagem Docker — ela é
+# injetada em tempo de execução, pelo env_file do compose.
+.env
+data/
+*.db
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.claude/
+README.md
+deploy/

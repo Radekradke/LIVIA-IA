@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --paper: #fbfaf7; --surface: #ffffff; --line: #e7e3da;
+    --ink: #26241f; --ink-soft: #736d63; --ink-faint: #9d9689;
+    --accent: #3f6b87; --danger: #a4503f;
+    --serif: "Iowan Old Style", Georgia, serif;
+  }
+  :root[data-theme="dark"] {
+    --paper: #1a1917; --surface: #211f1d; --line: #35322d;
+    --ink: #eae6de; --ink-soft: #a09a8f; --ink-faint: #7c766c;
+    --accent: #83b3ca; --danger: #d98b78;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex;
+    align-items: center; justify-content: center; padding: 24px;
+    font: 16px/1.7 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--paper); color: var(--ink);
+  }
+  .cartao {
+    width: 100%; max-width: 372px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 16px; padding: 34px 30px;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 27px; font-weight: 400;
+    margin: 0 0 6px;
+  }
+  p.sub { color: var(--ink-soft); font-size: 14.5px; margin: 0 0 24px; }
+  input {
+    width: 100%; padding: 12px 14px; font: inherit; font-size: 15.5px;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--paper); color: var(--ink); outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    width: 100%; margin-top: 10px; padding: 12px; border: none;
+    border-radius: 10px; background: var(--accent); color: #fff;
+    font: inherit; font-size: 15.5px; font-weight: 500; cursor: pointer;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: default; }
+  .erro {
+    color: var(--danger); font-size: 14px; min-height: 22px;
+    margin-top: 12px; text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="cartao">
+    <h1 id="titulo">Livia</h1>
+    <p class="sub">Digite a senha para continuar.</p>
+    <input id="senha" type="password" placeholder="senha" autofocus autocomplete="current-password">
+    <button id="btn" onclick="entrar()">Entrar</button>
+    <div class="erro" id="erro"></div>
+  </div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+if (localStorage.getItem("livia-tema") === "dark") {
+  document.documentElement.dataset.theme = "dark";
+}
+
+async function entrar() {
+  const senha = $("senha").value;
+  if (!senha) return;
+  $("btn").disabled = true;
+  $("erro").textContent = "";
+
+  try {
+    const r = await fetch("/api/entrar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ senha }),
+    });
+    if (r.ok) { location.href = "/"; return; }
+    const d = await r.json().catch(() => ({}));
+    $("erro").textContent = d.error || "não deu certo";
+  } catch {
+    $("erro").textContent = "não consegui falar com o servidor";
+  }
+  $("btn").disabled = false;
+  $("senha").select();
+}
+
+$("senha").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") entrar();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Livia</title>
+<link rel="icon" href="data:,">
+<style>
+  /* Paleta clara "papel". O modo escuro é quente também, para não trocar
+     o clima do app quando o sistema está no escuro. */
+  :root {
+    --paper:   #fbfaf7;
+    --surface: #ffffff;
+    --sunk:    #f1eee8;
+    --line:    #e7e3da;
+    --line-soft: #efece5;
+    --ink:     #26241f;
+    --ink-soft:#736d63;
+    --ink-faint:#9d9689;
+    --accent:  #3f6b87;
+    --accent-soft: #eaf1f5;
+    --danger:  #a4503f;
+    --serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  /* Escuro em dois casos: quando você escolhe, ou quando o sistema está
+     escuro E você não escolheu claro explicitamente. O padrão de fábrica é
+     claro (definido no JS), então o modo escuro do Windows não sequestra o
+     visual sem você pedir. */
+  :root[data-theme="dark"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --paper:   #1a1917;
+    --surface: #211f1d;
+    --sunk:    #2a2825;
+    --line:    #35322d;
+    --line-soft: #2c2926;
+    --ink:     #eae6de;
+    --ink-soft:#a09a8f;
+    --ink-faint:#7c766c;
+    --accent:  #83b3ca;
+    --accent-soft: #223039;
+    --danger:  #d98b78;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.7;
+    background: var(--paper);
+    color: var(--ink);
+    display: flex;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+  /* ---------------- coluna esquerda ---------------- */
+  #sidebar {
+    width: 244px; flex: none;
+    display: flex; flex-direction: column;
+    padding: 26px 14px 0;
+  }
+  .brand {
+    font-family: var(--serif); font-size: 23px; font-weight: 400;
+    letter-spacing: .01em; padding: 0 10px 20px; color: var(--ink);
+  }
+  .btn-new {
+    margin-bottom: 22px; padding: 10px 14px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line);
+    font-size: 14.5px; color: var(--ink-soft); text-align: left;
+    transition: color .12s, border-color .12s;
+  }
+  .btn-new:hover { color: var(--accent); border-color: var(--accent); }
+
+  .secao {
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); padding: 0 10px 8px; font-weight: 600;
+  }
+  #convos { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px 16px; }
+  .convo {
+    display: flex; align-items: center; gap: 4px;
+    padding: 7px 10px; border-radius: 8px; font-size: 14.5px;
+    color: var(--ink-soft); line-height: 1.45;
+  }
+  .convo:hover { background: var(--sunk); color: var(--ink); }
+  .convo.active { background: var(--accent-soft); color: var(--ink); }
+  .convo span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .convo .x { opacity: 0; font-size: 17px; line-height: 1; padding: 0 3px; color: var(--ink-faint); }
+  .convo:hover .x { opacity: .55; }
+  .convo .x:hover { opacity: 1; color: var(--danger); }
+
+  .foot {
+    padding: 14px 10px 18px; margin-top: auto;
+    border-top: 1px solid var(--line-soft);
+    font-size: 12.5px; color: var(--ink-faint);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .foot button { font-size: 12.5px; color: var(--ink-soft); }
+  .foot button:hover { color: var(--accent); }
+
+  /* ---------------- centro ---------------- */
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #thread { flex: 1; overflow-y: auto; padding: 44px 0 10px; }
+  .wrap { max-width: 706px; margin: 0 auto; padding: 0 32px; }
+
+  .msg { margin-bottom: 34px; }
+  .who {
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 8px; font-weight: 600;
+  }
+  .msg.user .body {
+    color: var(--ink-soft);
+    border-left: 2px solid var(--line);
+    padding-left: 16px;
+  }
+  .body > *:first-child { margin-top: 0; }
+  .body > *:last-child { margin-bottom: 0; }
+  .body p { margin: 0 0 14px; }
+  .body ul, .body ol { margin: 0 0 14px; padding-left: 24px; }
+  .body li { margin-bottom: 6px; }
+  .body h3 {
+    font-family: var(--serif); font-size: 18px; font-weight: 400;
+    margin: 26px 0 10px;
+  }
+  .body code {
+    font-family: var(--mono); font-size: .85em;
+    background: var(--sunk); padding: 2px 6px; border-radius: 5px;
+  }
+  .body pre {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; padding: 15px 17px; overflow-x: auto;
+    margin: 0 0 14px; line-height: 1.55;
+  }
+  .body pre code { background: none; padding: 0; font-size: 13.5px; }
+  .body blockquote {
+    margin: 0 0 14px; padding-left: 16px;
+    border-left: 2px solid var(--line); color: var(--ink-soft); font-style: italic;
+  }
+  .body a { color: var(--accent); text-underline-offset: 3px; }
+
+  .status {
+    font-size: 13.5px; color: var(--ink-faint); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); animation: pulsar 1.3s ease-in-out infinite;
+  }
+  .status.fixo::before { animation: none; opacity: .5; }
+  @keyframes pulsar { 50% { opacity: .25; } }
+
+  .fontes {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
+    margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--line-soft);
+  }
+  .fontes-rot {
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 600; margin-right: 3px;
+  }
+  .fontes a {
+    font-size: 12.5px; color: var(--ink-soft); text-decoration: none;
+    background: var(--sunk); padding: 3px 10px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .fontes a:hover { color: var(--accent); background: var(--accent-soft); }
+
+  .learned {
+    display: inline-flex; align-items: center; gap: 7px; margin-top: 14px;
+    font-size: 13px; color: var(--ink-soft);
+    background: var(--accent-soft); border-radius: 999px; padding: 5px 14px;
+  }
+  .learned b { color: var(--ink); font-weight: 600; }
+  .error {
+    border-left: 2px solid var(--danger); padding: 10px 16px;
+    background: var(--surface); border-radius: 0 8px 8px 0;
+    color: var(--danger); font-size: 15px; white-space: pre-wrap;
+  }
+  .cursor::after {
+    content: "▍"; color: var(--accent); font-weight: 300;
+    animation: blink 1.1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .empty { padding: 64px 0 24px; }
+  .empty h2 {
+    font-family: var(--serif); font-size: 30px; font-weight: 400;
+    margin: 0 0 16px; letter-spacing: .01em;
+  }
+  .empty p { color: var(--ink-soft); margin: 0 0 12px; max-width: 52ch; }
+  .empty code {
+    font-family: var(--mono); font-size: .85em;
+    background: var(--sunk); padding: 2px 6px; border-radius: 5px;
+  }
+  .empty a { color: var(--accent); }
+
+  /* ---------------- caixa de envio ---------------- */
+  #composer { padding: 10px 0 26px; background: var(--paper); }
+  .box {
+    display: flex; gap: 10px; align-items: flex-end;
+    border: 1px solid var(--line); border-radius: 14px;
+    background: var(--surface); padding: 11px 11px 11px 18px;
+    transition: border-color .12s;
+  }
+  .box:focus-within { border-color: var(--accent); }
+  #input {
+    flex: 1; border: none; background: none; color: inherit;
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    resize: none; outline: none; max-height: 200px; padding: 4px 0;
+  }
+  #input::placeholder { color: var(--ink-faint); }
+  #send {
+    padding: 8px 18px; border-radius: 9px; background: var(--accent);
+    color: #fff; font-size: 14.5px; font-weight: 500; flex: none;
+  }
+  #send:hover:not(:disabled) { filter: brightness(1.08); }
+  #send:disabled { opacity: .35; cursor: default; }
+  .hint { font-size: 12.5px; color: var(--ink-faint); margin-top: 10px; padding-left: 4px; }
+  .hint code { font-family: var(--mono); font-size: .92em; }
+
+  /* ---------------- coluna direita ---------------- */
+  #panel {
+    width: 328px; flex: none; background: var(--surface);
+    border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+  }
+  #panel.hidden { display: none; }
+  .tabs { display: flex; padding: 0 10px; border-bottom: 1px solid var(--line); }
+  .tab {
+    flex: 1; padding: 17px 4px 14px; font-size: 13.5px;
+    color: var(--ink-faint); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--ink-soft); }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+  #docs { flex: 1; overflow-y: auto; padding: 16px; }
+
+  .doc {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: 14px;
+  }
+  .doc-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .doc-name { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+  .doc .x { color: var(--ink-faint); font-size: 16px; line-height: 1; }
+  .doc .x:hover { color: var(--danger); }
+  .doc-desc { margin-top: 5px; line-height: 1.5; }
+  .doc-body {
+    margin-top: 8px; color: var(--ink-soft); white-space: pre-wrap;
+    font-size: 13px; line-height: 1.5;
+  }
+  .none { color: var(--ink-faint); font-size: 14px; text-align: center; padding: 44px 16px; line-height: 1.6; }
+
+  .add { border-top: 1px solid var(--line); padding: 14px 16px 16px; }
+  .add input, .add textarea {
+    width: 100%; margin-bottom: 8px; padding: 9px 11px;
+    font-family: var(--sans); font-size: 14px;
+    border: 1px solid var(--line); border-radius: 9px;
+    background: var(--paper); color: var(--ink); outline: none;
+  }
+  .add input::placeholder, .add textarea::placeholder { color: var(--ink-faint); }
+  .add input:focus, .add textarea:focus { border-color: var(--accent); }
+  .add textarea { resize: vertical; min-height: 62px; line-height: 1.5; }
+  .add button {
+    width: 100%; padding: 9px; border-radius: 9px;
+    background: var(--sunk); font-size: 14px; color: var(--ink-soft);
+  }
+  .add button:hover { background: var(--accent); color: #fff; }
+
+  .persona { display: flex; flex-direction: column; height: 100%; }
+  .persona-ajuda {
+    font-size: 13px; line-height: 1.6; color: var(--ink-soft);
+    margin: 0 0 12px; padding: 11px 13px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .persona-ajuda b { color: var(--ink); font-weight: 600; }
+  #personaTxt {
+    flex: 1; min-height: 280px; resize: vertical;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+    padding: 12px 13px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--paper); color: var(--ink); outline: none;
+  }
+  #personaTxt:focus { border-color: var(--accent); }
+  .persona-botoes { display: flex; gap: 8px; margin-top: 10px; }
+  .persona-botoes button {
+    flex: 1; padding: 9px; border-radius: 9px; font-size: 13.5px;
+    background: var(--sunk); color: var(--ink-soft);
+  }
+  .persona-botoes button:hover { color: var(--ink); }
+  .persona-botoes .primario { background: var(--accent); color: #fff; }
+  .persona-botoes .primario:hover { filter: brightness(1.08); color: #fff; }
+  .persona-aviso {
+    font-size: 13px; color: var(--accent); min-height: 20px;
+    margin-top: 9px; text-align: center;
+  }
+  .backup { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+
+  ::-webkit-scrollbar { width: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  @media (max-width: 1020px) {
+    #sidebar { display: none; }
+    #panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 20; box-shadow: -8px 0 32px rgba(0,0,0,.08); }
+  }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="brand" id="brand">Livia</div>
+  <button class="btn-new" onclick="novaConversa()">Nova conversa</button>
+  <div class="secao">Conversas</div>
+  <div id="convos"></div>
+  <div class="foot">
+    <span id="stats">—</span>
+    <span>
+      <button onclick="trocarTema()" id="btnTema" title="claro / escuro">claro</button>
+      <span style="color:var(--line)"> · </span>
+      <button onclick="togglePanel()">painel</button>
+    </span>
+  </div>
+</aside>
+
+<main id="main">
+  <div id="thread">
+    <div class="wrap" id="messages"></div>
+  </div>
+  <div id="composer">
+    <div class="wrap">
+      <div class="box">
+        <textarea id="input" rows="1" placeholder="Escreva aqui…"></textarea>
+        <button id="send" onclick="enviar()">Enviar</button>
+      </div>
+      <div class="hint">Enter envia · Shift+Enter quebra linha · <code>/ajuda</code> lista os comandos</div>
+    </div>
+  </div>
+</main>
+
+<aside id="panel" class="hidden">
+  <div class="tabs">
+    <button class="tab active" data-kind="memories" onclick="trocarAba('memories')">Memórias</button>
+    <button class="tab" data-kind="skills" onclick="trocarAba('skills')">Skills</button>
+    <button class="tab" data-kind="persona" onclick="trocarAba('persona')">Jeito</button>
+  </div>
+  <div id="docs"></div>
+  <div class="add" id="addForm">
+    <input id="dName" placeholder="nome curto (ex: prefere-postgres)">
+    <input id="dDesc" placeholder="descrição em uma frase">
+    <textarea id="dBody" placeholder="detalhes (opcional)"></textarea>
+    <button onclick="salvarDoc()">Adicionar</button>
+  </div>
+</aside>
+
+<script>
+"use strict";
+
+let conversaAtual = null;
+let abaAtual = "memories";
+let ocupado = false;
+let nomeAssistente = "Livia";
+
+const $ = (id) => document.getElementById(id);
+
+/* ---------- markdown mínimo ---------- */
+function escapar(s) {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function renderizar(texto) {
+  const blocos = [];
+  // Tira blocos de código antes de qualquer outra coisa, para não mexer neles.
+  let t = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    blocos.push(`<pre><code>${escapar(code.replace(/\n$/, ""))}</code></pre>`);
+    return `\n@@BLOCO${blocos.length - 1}@@\n`;
+  });
+
+  t = escapar(t);
+  t = t.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  t = t.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+  t = t.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<i>$2</i>");
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  const linhas = t.split("\n");
+  const out = [];
+  let lista = null;
+
+  const fecharLista = () => { if (lista) { out.push(`</${lista}>`); lista = null; } };
+
+  for (const linha of linhas) {
+    const l = linha.trim();
+    if (!l) { fecharLista(); continue; }
+
+    if (/^@@BLOCO\d+@@$/.test(l)) { fecharLista(); out.push(l); continue; }
+
+    const h = l.match(/^(#{1,4})\s+(.*)$/);
+    if (h) { fecharLista(); out.push(`<h3>${h[2]}</h3>`); continue; }
+
+    if (l.startsWith("&gt;")) {
+      fecharLista();
+      out.push(`<blockquote>${l.slice(4).trim()}</blockquote>`);
+      continue;
+    }
+
+    const ul = l.match(/^[-*]\s+(.*)$/);
+    if (ul) {
+      if (lista !== "ul") { fecharLista(); out.push("<ul>"); lista = "ul"; }
+      out.push(`<li>${ul[1]}</li>`);
+      continue;
+    }
+
+    const ol = l.match(/^\d+\.\s+(.*)$/);
+    if (ol) {
+      if (lista !== "ol") { fecharLista(); out.push("<ol>"); lista = "ol"; }
+      out.push(`<li>${ol[1]}</li>`);
+      continue;
+    }
+
+    fecharLista();
+    out.push(`<p>${l}</p>`);
+  }
+  fecharLista();
+
+  return out.join("").replace(/@@BLOCO(\d+)@@/g, (_, i) => blocos[i]);
+}
+
+/* ---------- tema ---------- */
+function aplicarTema(tema) {
+  document.documentElement.dataset.theme = tema;
+  localStorage.setItem("livia-tema", tema);
+  const btn = $("btnTema");
+  if (btn) btn.textContent = tema === "dark" ? "escuro" : "claro";
+  // O ícone da aba usa a cor de destaque, que muda com o tema.
+  aplicarIdentidade(nomeAssistente);
+}
+
+function trocarTema() {
+  aplicarTema(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+}
+
+/* ---------- identidade ---------- */
+function aplicarIdentidade(nome) {
+  nomeAssistente = (nome || "Livia").trim() || "Livia";
+  document.title = nomeAssistente;
+  $("brand").textContent = nomeAssistente;
+
+  // Ícone da aba: um monograma gerado na hora, sem arquivo externo.
+  const letra = escapar(nomeAssistente[0].toUpperCase());
+  const cor = getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent").trim() || "#3f6b87";
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+    `<rect width="64" height="64" rx="15" fill="${cor}"/>` +
+    '<text x="32" y="46" text-anchor="middle" fill="#fff"' +
+    ` font-family="Georgia,serif" font-size="38">${letra}</text></svg>`;
+  document.querySelector("link[rel=icon]").href =
+    "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
+/* ---------- mensagens ---------- */
+function addMensagem(quem, texto) {
+  const div = document.createElement("div");
+  div.className = "msg " + quem;
+  div.innerHTML =
+    `<div class="who">${quem === "user" ? "Você" : escapar(nomeAssistente)}</div>` +
+    `<div class="body">${renderizar(texto)}</div>`;
+  $("messages").appendChild(div);
+  descer();
+  return div;
+}
+
+function descer() {
+  const t = $("thread");
+  t.scrollTop = t.scrollHeight;
+}
+
+/* ---------- web: status e fontes ---------- */
+function mostrarStatus(bolha, texto, fixo) {
+  let el = bolha.querySelector(".status");
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "status";
+    bolha.querySelector(".who").after(el);
+  }
+  // "fixo" fica na tela depois da resposta (ex: qual provedor respondeu);
+  // o resto é indicador de progresso e some quando o trabalho termina.
+  el.classList.toggle("fixo", !!fixo);
+  el.textContent = texto;
+  descer();
+}
+
+function mostrarFontes(bolha, rotulo, urls) {
+  const status = bolha.querySelector(".status");
+  if (status && !status.classList.contains("fixo")) status.remove();
+  if (!urls || !urls.length) return;
+
+  const box = document.createElement("div");
+  box.className = "fontes";
+  const itens = urls.map((u) => {
+    let host = u;
+    try { host = new URL(u).hostname.replace(/^www\./, ""); } catch {}
+    return `<a href="${escapar(u)}" target="_blank" rel="noopener" title="${escapar(u)}">${escapar(host)}</a>`;
+  }).join("");
+  box.innerHTML = `<span class="fontes-rot">${escapar(rotulo)}</span>${itens}`;
+  bolha.appendChild(box);
+  descer();
+}
+
+function vazio() {
+  $("messages").innerHTML = `
+    <div class="empty">
+      <h2>Sobre o que vamos trabalhar?</h2>
+      <p>Ela lembra do que você contar em conversas anteriores — preferências,
+         decisões de projeto e correções que você fizer nela.</p>
+      <p>Digite <code>/ajuda</code> para ver os comandos, ou abra o painel para
+         mudar o jeito dela.</p>
+    </div>`;
+}
+
+/* ---------- envio ---------- */
+async function enviar() {
+  if (ocupado) return;
+  const input = $("input");
+  const texto = input.value.trim();
+  if (!texto) return;
+
+  const inicial = $("messages").querySelector(".empty");
+  if (inicial) inicial.remove();
+
+  input.value = "";
+  input.style.height = "auto";
+  ocupado = true;
+  $("send").disabled = true;
+
+  addMensagem("user", texto);
+
+  const bolha = addMensagem("assistant", "");
+  const corpo = bolha.querySelector(".body");
+  corpo.classList.add("cursor");
+  let acumulado = "";
+
+  try {
+    const resp = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: texto, conversation_id: conversaAtual }),
+    });
+
+    if (!resp.ok || !resp.body) throw new Error("O servidor recusou a requisição.");
+
+    const leitor = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await leitor.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const partes = buffer.split("\n\n");
+      buffer = partes.pop() || "";
+
+      for (const parte of partes) {
+        const linha = parte.split("\n").find((l) => l.startsWith("data:"));
+        if (!linha) continue;
+        let evt;
+        try { evt = JSON.parse(linha.slice(5).trim()); } catch { continue; }
+
+        if (evt.type === "delta") {
+          acumulado += evt.text;
+          corpo.innerHTML = renderizar(acumulado);
+          descer();
+        } else if (evt.type === "status") {
+          mostrarStatus(bolha, evt.text, evt.fixo);
+        } else if (evt.type === "sources") {
+          mostrarFontes(bolha, evt.label, evt.urls);
+        } else if (evt.type === "learned") {
+          const nomes = evt.memories.map((m) => m.name).join(", ");
+          const tag = document.createElement("div");
+          tag.className = "learned";
+          tag.innerHTML = `✓ memorizei <b>${escapar(nomes)}</b>`;
+          bolha.appendChild(tag);
+          carregarDocs();
+        } else if (evt.type === "done") {
+          conversaAtual = evt.conversation_id;
+          if (evt.stats) mostrarStats(evt.stats);
+          carregarConversas();
+        } else if (evt.type === "error") {
+          corpo.innerHTML = `<div class="error">${escapar(evt.message)}</div>`;
+        }
+      }
+    }
+  } catch (e) {
+    corpo.innerHTML = `<div class="error">${escapar(e.message)}</div>`;
+  } finally {
+    corpo.classList.remove("cursor");
+    ocupado = false;
+    $("send").disabled = false;
+    $("input").focus();
+    descer();
+  }
+}
+
+/* ---------- conversas ---------- */
+function novaConversa() {
+  conversaAtual = null;
+  vazio();
+  carregarConversas();
+  $("input").focus();
+}
+
+async function carregarConversas() {
+  try {
+    const r = await fetch("/api/conversations");
+    const { conversations } = await r.json();
+    if (!conversations.length) {
+      $("convos").innerHTML = '<div class="none" style="padding:20px 10px">Nenhuma ainda.</div>';
+      return;
+    }
+    $("convos").innerHTML = conversations.map((c) => `
+      <div class="convo ${c.id === conversaAtual ? "active" : ""}">
+        <span onclick="abrirConversa(${c.id})" title="${escapar(c.title)}">${escapar(c.title)}</span>
+        <button class="x" onclick="apagarConversa(${c.id})" title="apagar">×</button>
+      </div>`).join("");
+  } catch { /* servidor caiu; a lista só fica desatualizada */ }
+}
+
+async function abrirConversa(id) {
+  const r = await fetch(`/api/conversations/${id}`);
+  if (!r.ok) return;
+  const { messages } = await r.json();
+  conversaAtual = id;
+  $("messages").innerHTML = "";
+  messages.forEach((m) => addMensagem(m.role === "user" ? "user" : "assistant", m.content));
+  carregarConversas();
+}
+
+async function apagarConversa(id) {
+  await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+  if (id === conversaAtual) novaConversa();
+  else carregarConversas();
+}
+
+/* ---------- painel ---------- */
+function togglePanel() { $("panel").classList.toggle("hidden"); }
+
+function trocarAba(kind) {
+  abaAtual = kind;
+  document.querySelectorAll(".tab").forEach((t) =>
+    t.classList.toggle("active", t.dataset.kind === kind));
+  $("addForm").style.display = kind === "persona" ? "none" : "";
+  if (kind === "persona") carregarPersona();
+  else carregarDocs();
+}
+
+/* ---------- personalidade ---------- */
+async function carregarPersona() {
+  const r = await fetch("/api/persona");
+  const { text } = await r.json();
+  $("docs").innerHTML = `
+    <div class="persona">
+      <p class="persona-ajuda">
+        Isto entra no prompt de toda conversa. Descreva o <b>jeito</b> dela —
+        tom, formato de resposta, manias. As regras de honestidade e os limites
+        ficam no código e não são afetados por este texto.
+      </p>
+      <textarea id="personaTxt" spellcheck="false"></textarea>
+      <div class="persona-botoes">
+        <button class="primario" onclick="salvarPersona()">Salvar</button>
+        <button onclick="restaurarPersona()">Restaurar padrão</button>
+      </div>
+      <div id="personaAviso" class="persona-aviso"></div>
+
+      <div class="backup">
+        <div class="secao" style="padding:0 0 8px">Backup</div>
+        <p class="persona-ajuda" style="margin-bottom:10px">
+          Baixa memórias, skills, personalidade e conversas num arquivo só.
+          Faça isso de vez em quando se estiver rodando em hospedagem
+          gratuita — o disco delas costuma ser apagado sem aviso.
+        </p>
+        <div class="persona-botoes">
+          <button onclick="baixarBackup()">Baixar</button>
+          <button onclick="$('arqBackup').click()">Restaurar</button>
+        </div>
+        <input type="file" id="arqBackup" accept=".zip" style="display:none"
+               onchange="enviarBackup(this)">
+      </div>
+    </div>`;
+  $("personaTxt").value = text;
+}
+
+function avisarPersona(msg) {
+  const el = $("personaAviso");
+  if (!el) return;
+  el.textContent = msg;
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 3000);
+}
+
+async function salvarPersona() {
+  const text = $("personaTxt").value;
+  const r = await fetch("/api/persona", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  const data = await r.json();
+  if (!r.ok) { avisarPersona(data.error || "não deu para salvar"); return; }
+  avisarPersona("Salvo. Vale já na próxima mensagem.");
+}
+
+async function restaurarPersona() {
+  const r = await fetch("/api/persona", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reset: true }),
+  });
+  const { text } = await r.json();
+  $("personaTxt").value = text;
+  avisarPersona("Voltou ao padrão.");
+}
+
+/* ---------- backup ---------- */
+function baixarBackup() {
+  // O navegador cuida do download; nada precisa passar pelo JS.
+  window.location.href = "/api/backup";
+  avisarPersona("Baixando…");
+}
+
+async function enviarBackup(input) {
+  const arquivo = input.files[0];
+  if (!arquivo) return;
+  input.value = "";
+  avisarPersona("Restaurando…");
+
+  const r = await fetch("/api/backup", { method: "POST", body: arquivo });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { avisarPersona(d.error || "não deu para restaurar"); return; }
+
+  const c = d.restaurado || {};
+  avisarPersona(`Restaurado: ${c.memorias || 0} memórias, ${c.skills || 0} skills.`);
+  if (d.stats) mostrarStats(d.stats);
+  carregarConversas();
+}
+
+/* ---------- memórias e skills ---------- */
+async function carregarDocs() {
+  if (abaAtual === "persona") return;
+  try {
+    const r = await fetch(`/api/store/${abaAtual}`);
+    const { items } = await r.json();
+    if (!items.length) {
+      $("docs").innerHTML = `<div class="none">${
+        abaAtual === "memories"
+          ? "Nada memorizado ainda.<br>Conversem um pouco — ela guarda sozinha."
+          : "Nenhuma skill ensinada.<br>Use o formulário abaixo."
+      }</div>`;
+      return;
+    }
+    $("docs").innerHTML = items.map((d) => `
+      <div class="doc">
+        <div class="doc-top">
+          <span class="doc-name">${escapar(d.name)}</span>
+          <button class="x" onclick="apagarDoc('${escapar(d.name)}')" title="apagar">×</button>
+        </div>
+        <div class="doc-desc">${escapar(d.description)}</div>
+        ${d.body.trim() ? `<div class="doc-body">${escapar(d.body.trim().slice(0, 300))}</div>` : ""}
+      </div>`).join("");
+  } catch { /* idem */ }
+}
+
+async function salvarDoc() {
+  const name = $("dName").value.trim();
+  const description = $("dDesc").value.trim();
+  const body = $("dBody").value;
+  if (!name || !description) {
+    alert("Nome e descrição são obrigatórios.");
+    return;
+  }
+  const r = await fetch(`/api/store/${abaAtual}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, description, body }),
+  });
+  if (r.ok) {
+    const { stats } = await r.json();
+    $("dName").value = $("dDesc").value = $("dBody").value = "";
+    mostrarStats(stats);
+    carregarDocs();
+  }
+}
+
+async function apagarDoc(name) {
+  const r = await fetch(`/api/store/${abaAtual}/${encodeURIComponent(name)}`, { method: "DELETE" });
+  if (r.ok) {
+    const { stats } = await r.json();
+    mostrarStats(stats);
+  }
+  carregarDocs();
+}
+
+function mostrarStats(s) {
+  const plural = (n, um, muitos) => `${n} ${n === 1 ? um : muitos}`;
+  $("stats").textContent =
+    `${plural(s.memories, "memória", "memórias")} · ${plural(s.skills, "skill", "skills")}`;
+}
+
+/* ---------- início ---------- */
+$("input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); }
+});
+$("input").addEventListener("input", (e) => {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+});
+
+(async function iniciar() {
+  // Padrão de fábrica: claro. Sua escolha fica guardada no navegador.
+  aplicarTema(localStorage.getItem("livia-tema") || "light");
+  vazio();
+  carregarConversas();
+  carregarDocs();
+  try {
+    const s = await (await fetch("/api/status")).json();
+    aplicarIdentidade(s.name);
+    mostrarStats(s);
+    if (!s.has_key) {
+      $("messages").innerHTML = `
+        <div class="empty">
+          <h2>Falta a chave da API</h2>
+          <p>Pegue uma gratuita em
+             <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>,
+             copie <code>.env.example</code> para <code>.env</code> e cole a chave lá.</p>
+          <p>Depois reinicie o servidor.</p>
+        </div>`;
+    }
+  } catch { /* status é enfeite; a interface funciona sem */ }
+  $("input").focus();
+})();
+</script>
+</body>
+</html>

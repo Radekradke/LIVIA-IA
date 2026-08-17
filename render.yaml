@@ -1,0 +1,50 @@
+# Configuração para o Render (https://render.com).
+#
+# ATENÇÃO — DISCO EFÊMERO: no plano gratuito o sistema de arquivos volta ao
+# estado da imagem sempre que o serviço reinicia, e ele reinicia sozinho depois
+# de alguns minutos sem acesso. Na prática, memórias e conversas duram enquanto
+# você estiver usando e somem quando você para. Baixe backups pelo painel
+# (aba "Jeito") antes de fechar, se quiser guardar algo.
+#
+# As chaves têm sync: false — o Render pergunta o valor de cada uma no painel
+# e não guarda nada disso no repositório.
+
+services:
+  - type: web
+    name: livia
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /saude
+    envVars:
+      # Segredos: preenchidos no painel do Render, nunca no repositório.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LIVIA_PASSWORD
+        sync: false
+
+      # Configuração comum, sem segredo nenhum.
+      - key: LIVIA_USER
+        value: André
+      - key: LIVIA_NAME
+        value: Livia
+      - key: LIVIA_MODEL
+        value: gemini-3.6-flash
+      - key: LIVIA_FAST_MODEL
+        value: gemini-3.5-flash-lite
+      - key: LIVIA_GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: LIVIA_GROQ_FAST_MODEL
+        value: openai/gpt-oss-20b
+      - key: LIVIA_PROVIDERS
+        value: gemini,groq
+      - key: LIVIA_WEB
+        value: "1"
+      - key: LIVIA_WEB_AUTO
+        value: "1"
+      - key: LIVIA_HOST
+        value: 0.0.0.0
+      - key: LIVIA_DATA_DIR
+        value: /data
