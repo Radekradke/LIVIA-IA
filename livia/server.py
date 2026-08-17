@@ -211,8 +211,22 @@ async def chat(request: Request) -> Response:
                 ler_urls=config.WEB_ENABLED,
                 fontes=fontes,
                 usados=usados,
+                # Só o Gemini abre links. Com um URL na mensagem, mandamos
+                # para ele mesmo que a Groq seja a padrão — e se ele estiver
+                # fora, a fila normal assume e a resposta sai sem a leitura.
+                preferir="gemini" if tem_link else None,
             ):
-                if not chunks and usados and usados[0] != config.PROVIDERS[0]:
+                if not chunks and tem_link and usados and usados[0] != "gemini":
+                    # Pediu leitura de link, mas quem respondeu não sabe abrir
+                    # páginas. Sem este aviso a resposta sai confiante sobre uma
+                    # página que ninguém leu — o pior tipo de erro que existe.
+                    yield _sse({
+                        "type": "status",
+                        "text": "não consegui abrir o link (o provedor que lê "
+                                "páginas está indisponível) — respondendo sem ele",
+                        "fixo": True,
+                    })
+                elif not chunks and usados and usados[0] != config.PROVIDERS[0]:
                     # O principal falhou e o reserva assumiu. Vale avisar, para
                     # a pessoa entender se a resposta vier com outra cara.
                     yield _sse({

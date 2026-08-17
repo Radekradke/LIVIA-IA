@@ -42,7 +42,7 @@ services:
       - key: LIVIA_GROQ_FAST_MODEL
         value: openai/gpt-oss-20b
       - key: LIVIA_PROVIDERS
-        value: gemini,groq
+        value: groq,gemini
       - key: LIVIA_WEB
         value: "1"
       - key: LIVIA_WEB_AUTO

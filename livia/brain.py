@@ -341,13 +341,21 @@ async def stream(
     ler_urls: bool = False,
     fontes: list[str] | None = None,
     usados: list[str] | None = None,
+    preferir: str | None = None,
 ) -> AsyncIterator[str]:
     """Gera a resposta em pedaços, trocando de provedor se algum falhar.
 
     Em `usados`, se você passar uma lista, é anotado quem de fato respondeu —
     serve para a interface avisar quando o reserva entrou em campo.
+
+    `preferir` põe um provedor na frente só nesta chamada, sem mexer na
+    configuração. Serve para rotear por capacidade: quem abre links é o
+    Gemini, então uma mensagem com URL vai para ele mesmo que a Groq seja a
+    padrão. Os demais continuam na fila como reserva.
     """
     disponiveis = _provedores()
+    if preferir and preferir in disponiveis:
+        disponiveis = [preferir] + [p for p in disponiveis if p != preferir]
     if not disponiveis:
         raise BrainError(
             "Nenhuma chave de API configurada. Crie um .env na pasta do projeto "

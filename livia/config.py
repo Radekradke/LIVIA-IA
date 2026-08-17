@@ -30,12 +30,17 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 GROQ_MODEL = os.getenv("LIVIA_GROQ_MODEL", "openai/gpt-oss-120b").strip()
 GROQ_FAST_MODEL = os.getenv("LIVIA_GROQ_FAST_MODEL", "openai/gpt-oss-20b").strip()
 
-# Ordem de tentativa. O Gemini vem primeiro porque é o único que sabe abrir
-# links sozinho; a Groq é bem mais rápida. Inverta se preferir velocidade a
-# leitura de páginas.
+# Ordem de tentativa. A Groq vem primeiro por três motivos medidos:
+# responde em ~1,2s contra ~3,5s do Gemini, publica o quanto resta da cota em
+# cabeçalho a cada resposta, e o limite dela (1000 pedidos/dia) é folgado.
+#
+# Isso não custa a leitura de links: quando a mensagem tem uma URL, o servidor
+# manda aquela chamada específica para o Gemini, que é quem sabe abrir páginas
+# (ver `preferir` em brain.stream). O roteamento é por capacidade, não por
+# ordem fixa.
 PROVIDERS = [
     p.strip().lower()
-    for p in os.getenv("LIVIA_PROVIDERS", "gemini,groq").split(",")
+    for p in os.getenv("LIVIA_PROVIDERS", "groq,gemini").split(",")
     if p.strip()
 ]
 USER_NAME = os.getenv("LIVIA_USER", "").strip()
