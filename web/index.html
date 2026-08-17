@@ -7,493 +7,450 @@
 <link rel="icon" href="data:,">
 <style>
 /* ══════════════════════════════════════════════════════════════════
-   LIVIA — tema rubi
-   Superfícies em três camadas: pedra (fundo), vidro fumê (painéis),
-   gema lapidada (botões e destaques). O brilho vem sempre de dentro
-   para fora, nunca de uma sombra chapada por cima.
+   LIVIA — rubi sobre bronze
+
+   Três materiais, aplicados com consistência:
+     PEDRA   fundo bronze quente com malha tecida
+     METAL   painéis escovados, luz vindo do topo
+     GEMA    molduras e botões em rubi lapidado, com brilho externo
+
+   Regra de ouro do tema: TUDO é emoldurado. Nada flutua solto — cada
+   elemento tem sua moldura de rubi, como peça encaixada em joia.
    ══════════════════════════════════════════════════════════════════ */
 
 :root[data-theme="dark"] {
-  --rubi:        #b3173e;
-  --rubi-fundo:  #8e0f2a;
-  --bordo:       #5a0d1a;
-  --bronze:      #8b5a2b;
-  --cobre:       #a6653a;
-  --dourado:     #c08a4a;
-  --marrom:      #2a140f;
-  --preto:       #120909;
+  --rubi:       #b3173e;
+  --rubi-claro: #d4285a;
+  --brilho:     #e95a7a;
+  --bordo:      #5a0d1a;
+  --cobre:      #a6653a;
+  --dourado:    #c08a4a;
+  --creme:      #f6ecdd;
 
-  --brilho:      #e95a7a;
-  --creme:       #f1e2d0;
+  --base-1: #4a2c1c;   /* bronze iluminado */
+  --base-2: #2e1a12;   /* bronze médio     */
+  --base-3: #170d0a;   /* sombra profunda  */
 
-  --fundo:       #0d0707;
-  --painel:      rgba(32, 16, 18, .72);
-  --painel-alto: rgba(46, 22, 25, .82);
-  --sunk:        rgba(18, 9, 11, .68);
+  --metal:     linear-gradient(158deg, rgba(96,60,40,.58), rgba(38,22,16,.86));
+  --metal-alto:linear-gradient(158deg, rgba(122,78,52,.62), rgba(52,30,21,.88));
+  --sunk:      linear-gradient(158deg, rgba(24,13,10,.82), rgba(38,22,16,.62));
 
-  --linha:       rgba(179, 23, 62, .20);
-  --linha-forte: rgba(179, 23, 62, .42);
+  --texto:       #f6ecdd;
+  --texto-suave: #d8b6a2;
+  --texto-fraco: #a07d6b;
 
-  --texto:       #f1e2d0;
-  --texto-suave: #c9a99a;
-  --texto-fraco: #8f6f66;
-
-  --sombra-baixa: 0 1px 2px rgba(0,0,0,.5);
-  --sombra-alta:  0 18px 48px rgba(0,0,0,.55);
-  --luz-topo:     inset 0 1px 0 rgba(255,190,190,.10);
-  --gema:         linear-gradient(160deg, #d4285a 0%, #b3173e 38%, #8e0f2a 72%, #6d0b20 100%);
+  --moldura:      rgba(179,23,62,.62);
+  --moldura-forte:rgba(233,90,122,.9);
+  --aura:         0 0 22px rgba(179,23,62,.42);
+  --aura-forte:   0 0 34px rgba(233,90,122,.55);
+  --bisel:        inset 0 1px 0 rgba(255,214,205,.22), inset 0 -1px 0 rgba(0,0,0,.45);
+  --gema:         linear-gradient(162deg, #e13a63 0%, #b3173e 42%, #7d0f26 100%);
 }
 
-/* Variante clara: mesma joia sob luz do dia — marfim quente, rubi
-   mantido como acento. Não é um tema frio; é a mesma identidade. */
 :root[data-theme="light"] {
-  --rubi:        #a01235;
-  --rubi-fundo:  #8e0f2a;
-  --bordo:       #6d0b20;
-  --bronze:      #8b5a2b;
-  --cobre:       #a6653a;
-  --dourado:     #a4703a;
-  --marrom:      #43231c;
-  --preto:       #2a140f;
+  --rubi:       #a01235;
+  --rubi-claro: #c02147;
+  --brilho:     #c93a5c;
+  --bordo:      #6d0b20;
+  --cobre:      #8b5a2b;
+  --dourado:    #a4703a;
+  --creme:      #3a1c18;
 
-  --brilho:      #c93a5c;
-  --creme:       #3a1c18;
+  --base-1: #f3e3d2;
+  --base-2: #e8d3bf;
+  --base-3: #d9bfa8;
 
-  --fundo:       #f7efe6;
-  --painel:      rgba(255, 252, 249, .86);
-  --painel-alto: #fffdfb;
-  --sunk:        rgba(226, 210, 199, .55);
-
-  --linha:       rgba(142, 15, 42, .16);
-  --linha-forte: rgba(142, 15, 42, .34);
+  --metal:      linear-gradient(158deg, rgba(255,252,248,.94), rgba(240,225,210,.8));
+  --metal-alto: linear-gradient(158deg, #fffdfa, rgba(246,234,222,.9));
+  --sunk:       linear-gradient(158deg, rgba(226,207,190,.7), rgba(240,228,215,.55));
 
   --texto:       #33191a;
   --texto-suave: #7a5750;
-  --texto-fraco: #a98d84;
+  --texto-fraco: #a3857a;
 
-  --sombra-baixa: 0 1px 2px rgba(90,13,26,.10);
-  --sombra-alta:  0 16px 40px rgba(90,13,26,.14);
-  --luz-topo:     inset 0 1px 0 rgba(255,255,255,.85);
-  --gema:         linear-gradient(160deg, #c02147 0%, #a01235 42%, #8e0f2a 100%);
+  --moldura:       rgba(160,18,53,.5);
+  --moldura-forte: rgba(160,18,53,.8);
+  --aura:          0 0 18px rgba(160,18,53,.20);
+  --aura-forte:    0 0 26px rgba(160,18,53,.32);
+  --bisel:         inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(150,110,90,.22);
+  --gema:          linear-gradient(162deg, #c02147, #a01235 45%, #7d0f26);
 }
 
-:root { --raio: 14px; --raio-p: 10px;
+:root {
+  --r: 14px; --r-p: 10px;
   --sans: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
   --serif: "Iowan Old Style", Georgia, serif;
-  --mono: ui-monospace, "Cascadia Code", Consolas, monospace; }
+  --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 
 body {
-  font-family: var(--sans);
-  font-size: 15.5px;
-  line-height: 1.7;
-  color: var(--texto);
-  background: var(--fundo);
-  display: flex;
-  overflow: hidden;
+  font-family: var(--sans); font-size: 15.5px; line-height: 1.7;
+  color: var(--texto); display: flex; overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 800px at 22% 8%,  rgba(122,74,44,.55), transparent 64%),
+    radial-gradient(1000px 700px at 82% 92%, rgba(90,13,26,.42),  transparent 62%),
+    linear-gradient(152deg, var(--base-1) 0%, var(--base-2) 46%, var(--base-3) 100%);
 }
 
-/* Luz ambiente: três focos de rubi difuso, fixos. Gradiente é barato —
-   o mesmo efeito com partículas animadas travaria máquina modesta. */
+/* Malha tecida: duas diagonais finas cruzadas. Custa quase nada e dá a
+   textura de fibra que uma cor chapada nunca daria. */
 body::before {
-  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background:
-    radial-gradient(1100px 720px at 12% -8%,  rgba(179,23,62,.20), transparent 62%),
-    radial-gradient(900px 640px at 88% 108%, rgba(166,101,58,.14), transparent 60%),
-    radial-gradient(700px 520px at 62% 42%,  rgba(142,15,42,.10), transparent 66%);
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
+  background-image:
+    repeating-linear-gradient(45deg,  rgba(0,0,0,.16) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-45deg, rgba(255,190,150,.05) 0 1px, transparent 1px 5px);
 }
-:root[data-theme="light"] body::before { opacity: .5; }
+:root[data-theme="light"] body::before { opacity: .28; }
 
 button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
-::selection { background: rgba(179,23,62,.35); color: var(--creme); }
+::selection { background: rgba(179,23,62,.42); color: #fff; }
 
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(var(--rubi-fundo), var(--bordo));
+  background: linear-gradient(var(--rubi), var(--bordo));
   border-radius: 6px; border: 3px solid transparent; background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover { background: linear-gradient(var(--rubi), var(--rubi-fundo)); background-clip: padding-box; }
 
-/* ─────────────────────── COLUNA ESQUERDA ─────────────────────── */
+/* ── moldura: o gesto que se repete em tudo ───────────────────────── */
+.moldura {
+  border: 1.5px solid var(--moldura); border-radius: var(--r);
+  background: var(--metal);
+  box-shadow: var(--bisel), var(--aura), 0 10px 30px rgba(0,0,0,.42);
+}
+
+/* ─────────────────── COLUNA ESQUERDA ─────────────────── */
 
 #sidebar {
-  position: relative; z-index: 2;
-  width: 274px; flex: none;
-  display: flex; flex-direction: column;
-  padding: 22px 14px 0;
-  background: linear-gradient(178deg, rgba(46,22,25,.55), rgba(18,9,11,.30));
-  border-right: 1px solid var(--linha);
-  box-shadow: 1px 0 0 rgba(233,90,122,.06), var(--sombra-alta);
-}
-:root[data-theme="light"] #sidebar {
-  background: linear-gradient(178deg, rgba(255,252,249,.9), rgba(247,239,230,.6));
+  position: relative; z-index: 3; width: 290px; flex: none;
+  display: flex; flex-direction: column; margin: 12px 0 12px 12px;
+  padding: 18px 14px 0; border-radius: var(--r);
+  border: 1.5px solid var(--moldura); background: var(--metal);
+  box-shadow: var(--bisel), var(--aura), 0 14px 40px rgba(0,0,0,.45);
 }
 
-.marca { display: flex; align-items: center; gap: 12px; padding: 4px 8px 6px; }
-.marca svg { width: 42px; height: 42px; flex: none; filter: drop-shadow(0 0 12px rgba(179,23,62,.55)); }
-.marca-txt { min-width: 0; }
+.marca { display: flex; align-items: center; gap: 13px; padding: 2px 4px 16px; }
+.marca svg { width: 50px; height: 50px; flex: none; filter: drop-shadow(0 0 14px rgba(233,90,122,.7)); }
 .brand {
-  /* Caixa alta pelo CSS, não pelo texto: o nome vem do .env e pode ser
-     qualquer coisa — a marca continua imponente independente do que for. */
-  font-size: 25px; font-weight: 600; letter-spacing: .16em; line-height: 1.1;
-  text-transform: uppercase;
-  background: linear-gradient(105deg, var(--creme) 8%, var(--brilho) 46%, var(--dourado) 96%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-size: 38px; font-weight: 700; letter-spacing: .07em; line-height: 1;
+  text-transform: uppercase; color: var(--creme);
+  text-shadow: 0 0 18px rgba(233,90,122,.5), 0 2px 4px rgba(0,0,0,.6);
 }
-.online {
-  display: flex; align-items: center; gap: 6px; margin-top: 3px;
-  font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--texto-fraco); font-weight: 600;
-}
-.online i {
-  width: 6px; height: 6px; border-radius: 50%; background: #4ad07f;
-  box-shadow: 0 0 8px #4ad07f; animation: pulso 2.6s ease-in-out infinite;
-}
-@keyframes pulso { 50% { opacity: .35; transform: scale(.8); } }
+:root[data-theme="light"] .brand { text-shadow: 0 1px 0 #fff; }
 
 .btn-new {
-  margin: 18px 0 20px; padding: 12px 16px; border-radius: var(--raio);
-  background: var(--gema); color: #fff;
-  font-size: 14.5px; font-weight: 600; letter-spacing: .02em; text-align: left;
-  border: 1px solid rgba(233,90,122,.35);
-  box-shadow: var(--luz-topo), 0 6px 20px rgba(142,15,42,.42), var(--sombra-baixa);
-  transition: transform .16s, box-shadow .16s, filter .16s;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; padding: 13px 18px; border-radius: 12px;
+  border: 1.5px solid var(--moldura-forte); background: var(--metal-alto);
+  color: var(--creme); font-size: 15.5px; font-weight: 500;
+  box-shadow: var(--bisel), var(--aura), 0 6px 18px rgba(0,0,0,.4);
+  transition: transform .16s, box-shadow .16s, border-color .16s;
 }
-.btn-new:hover { transform: translateY(-1px); filter: brightness(1.1);
-  box-shadow: var(--luz-topo), 0 10px 28px rgba(179,23,62,.5); }
-.btn-new:active { transform: translateY(0); }
+.btn-new::after { content: "＋"; color: var(--brilho); font-size: 19px; line-height: 1; }
+.btn-new:hover { transform: translateY(-1px); border-color: var(--brilho);
+  box-shadow: var(--bisel), var(--aura-forte), 0 10px 26px rgba(0,0,0,.5); }
 
 .secao {
-  font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
-  color: var(--texto-fraco); padding: 0 8px 10px; font-weight: 700;
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--brilho); padding: 0 4px 10px; font-weight: 700;
 }
 
-#convos { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px 14px; }
+#convos { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px 12px; }
 .convo {
-  position: relative; display: flex; align-items: center; gap: 6px;
-  padding: 9px 12px; margin-bottom: 3px; border-radius: var(--raio-p);
-  font-size: 14px; color: var(--texto-suave); line-height: 1.4;
-  border: 1px solid transparent; transition: background .16s, color .16s, border-color .16s;
+  position: relative; display: flex; align-items: center; gap: 8px;
+  padding: 11px 13px; margin-bottom: 5px; border-radius: var(--r-p);
+  font-size: 15px; color: var(--texto-suave); line-height: 1.35;
+  border: 1.5px solid transparent; transition: all .16s;
 }
-.convo:hover { background: var(--sunk); color: var(--texto); border-color: var(--linha); }
+.convo:hover { background: var(--sunk); color: var(--texto); border-color: var(--moldura); }
 .convo.active {
-  background: linear-gradient(100deg, rgba(179,23,62,.22), rgba(142,15,42,.06));
-  color: var(--texto); border-color: var(--linha-forte);
-  box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.16);
-}
-.convo.active::before {
-  content: ""; position: absolute; left: 0; top: 22%; bottom: 22%; width: 2px;
-  border-radius: 2px; background: linear-gradient(var(--brilho), var(--rubi));
-  box-shadow: 0 0 8px var(--rubi);
+  background: var(--metal-alto); color: var(--creme);
+  border-color: var(--moldura-forte);
+  box-shadow: var(--bisel), 0 0 20px rgba(233,90,122,.32);
 }
 .convo span.t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-.convo .hora { font-size: 10.5px; color: var(--texto-fraco); flex: none; letter-spacing: .03em; }
-.convo .x { opacity: 0; font-size: 17px; line-height: 1; padding: 0 2px; color: var(--texto-fraco); }
-.convo:hover .x { opacity: .6; }
+.convo .hora { font-size: 11px; color: var(--brilho); flex: none; opacity: .85; }
+.convo .x { opacity: 0; font-size: 17px; line-height: 1; color: var(--texto-fraco); }
+.convo:hover .x { opacity: .65; }
 .convo .x:hover { opacity: 1; color: var(--brilho); }
 
 .foot {
-  padding: 13px 8px 16px; margin-top: auto;
-  border-top: 1px solid var(--linha);
-  font-size: 11.5px; color: var(--texto-fraco);
+  padding: 12px 4px 15px; margin-top: auto; border-top: 1.5px solid var(--moldura);
+  font-size: 12px; color: var(--texto-fraco);
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
 }
-.foot button {
-  font-size: 11.5px; color: var(--texto-suave); padding: 4px 9px;
-  border-radius: 7px; border: 1px solid transparent; transition: all .16s;
+.foot button { font-size: 13px; color: var(--brilho); padding: 3px 6px; transition: color .16s; }
+.foot button:hover { color: var(--creme); text-shadow: 0 0 10px var(--brilho); }
+
+/* ─────────────────── CENTRO ─────────────────── */
+
+#main {
+  position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column;
+  min-width: 0; margin: 12px; border-radius: var(--r);
+  border: 1.5px solid var(--moldura); overflow: hidden;
+  background: linear-gradient(168deg, rgba(96,60,40,.34), rgba(23,13,10,.62));
+  box-shadow: var(--bisel), var(--aura), 0 14px 40px rgba(0,0,0,.45);
 }
-.foot button:hover { color: var(--creme); border-color: var(--linha-forte); background: var(--sunk); }
+:root[data-theme="light"] #main { background: linear-gradient(168deg, rgba(255,252,248,.7), rgba(233,215,198,.5)); }
 
-/* ─────────────────────── CENTRO ─────────────────────── */
-
-#main { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; min-width: 0; }
-
-/* Silhueta de rosto em circuito, atrás da conversa. Fica em opacidade
-   baixa de propósito: é atmosfera, não ilustração para ser lida. */
 #arte {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  display: flex; align-items: center; justify-content: center;
-  opacity: .30; overflow: hidden;
+  display: flex; align-items: flex-end; justify-content: center; opacity: .95; overflow: hidden;
 }
-#arte svg { width: min(780px, 82%); height: auto; }
-:root[data-theme="light"] #arte { opacity: .13; }
+#arte svg { width: 100%; height: 100%; }
+:root[data-theme="light"] #arte { opacity: .5; }
 
-@keyframes respirar { 0%,100% { opacity: .30; } 50% { opacity: .68; } }
-.sinapse { animation: respirar 5s ease-in-out infinite; }
-.sinapse:nth-of-type(2n) { animation-duration: 6.5s; animation-delay: -1.4s; }
-.sinapse:nth-of-type(3n) { animation-duration: 8s;   animation-delay: -3.1s; }
+@keyframes respirar { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+.sinapse { animation: respirar 4.5s ease-in-out infinite; }
+.sinapse:nth-of-type(2n) { animation-duration: 6s;   animation-delay: -1.3s; }
+.sinapse:nth-of-type(3n) { animation-duration: 7.5s; animation-delay: -2.9s; }
 
-#thread { position: relative; z-index: 1; flex: 1; overflow-y: auto; padding: 40px 0 8px; }
-.wrap { max-width: 736px; margin: 0 auto; padding: 0 34px; }
+/* barra superior: status e atalho */
+.topo {
+  position: relative; z-index: 3; display: flex; align-items: center;
+  justify-content: space-between; padding: 14px 20px 0;
+}
+.online {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 7px 17px; border-radius: 999px; font-size: 13.5px; color: var(--texto);
+  border: 1.5px solid var(--moldura); background: var(--metal);
+  box-shadow: var(--bisel), var(--aura);
+}
+.online i {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #ff9db2, var(--rubi));
+  box-shadow: 0 0 10px var(--brilho); animation: pulso 2.4s ease-in-out infinite;
+}
+@keyframes pulso { 50% { opacity: .4; } }
+.btn-ajuda {
+  padding: 8px 17px; border-radius: 12px; font-size: 13.5px; color: var(--texto-suave);
+  border: 1.5px solid var(--moldura); background: var(--metal);
+  box-shadow: var(--bisel), var(--aura); transition: all .16s;
+}
+.btn-ajuda:hover { color: var(--creme); border-color: var(--brilho); box-shadow: var(--bisel), var(--aura-forte); }
 
-.msg { margin-bottom: 32px; }
+#thread { position: relative; z-index: 2; flex: 1; overflow-y: auto; padding: 22px 0 8px; }
+.wrap { max-width: 736px; margin: 0 auto; padding: 0 30px; }
+
+.msg { margin-bottom: 26px; }
 .who {
-  font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
-  margin-bottom: 9px; font-weight: 700; color: var(--texto-fraco);
+  font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase;
+  margin-bottom: 9px; font-weight: 700; color: var(--brilho);
+  text-shadow: 0 0 12px rgba(233,90,122,.5);
 }
-.msg.assistant .who {
-  background: linear-gradient(90deg, var(--brilho), var(--dourado));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+:root[data-theme="light"] .who { text-shadow: none; }
+
+/* Mensagem dela: painel metálico emoldurado, como na referência. */
+.msg.assistant .body {
+  padding: 18px 22px; border-radius: var(--r);
+  border: 1.5px solid var(--moldura-forte); background: var(--metal-alto);
+  box-shadow: var(--bisel), var(--aura), 0 8px 26px rgba(0,0,0,.4);
 }
 .msg.user .body {
-  color: var(--texto-suave);
-  border-left: 2px solid var(--linha-forte);
-  padding-left: 17px;
+  padding: 13px 18px; border-radius: var(--r);
+  border: 1.5px solid var(--moldura); background: var(--sunk);
+  color: var(--texto-suave); box-shadow: var(--bisel);
 }
 .body > *:first-child { margin-top: 0; }
 .body > *:last-child { margin-bottom: 0; }
-.body p { margin: 0 0 14px; }
-.body ul, .body ol { margin: 0 0 14px; padding-left: 24px; }
+.body p { margin: 0 0 13px; }
+.body ul, .body ol { margin: 0 0 13px; padding-left: 23px; }
 .body li { margin-bottom: 6px; }
-.body li::marker { color: var(--rubi); }
-.body h3 {
-  font-family: var(--serif); font-size: 18.5px; font-weight: 400;
-  margin: 26px 0 10px; color: var(--creme);
-}
+.body li::marker { color: var(--brilho); }
+.body h3 { font-family: var(--serif); font-size: 18.5px; font-weight: 400; margin: 24px 0 10px; color: var(--creme); }
 .body code {
-  font-family: var(--mono); font-size: .85em;
-  background: var(--sunk); color: var(--brilho);
-  padding: 2px 7px; border-radius: 6px; border: 1px solid var(--linha);
+  font-family: var(--mono); font-size: .85em; color: var(--brilho);
+  background: rgba(0,0,0,.32); padding: 2px 7px; border-radius: 6px;
+  border: 1px solid var(--moldura);
 }
+:root[data-theme="light"] .body code { background: rgba(160,18,53,.07); }
 .body pre {
-  background: linear-gradient(165deg, rgba(42,20,15,.72), rgba(18,9,11,.86));
-  border: 1px solid var(--linha); border-radius: var(--raio);
-  padding: 15px 18px; overflow-x: auto; margin: 0 0 14px; line-height: 1.6;
-  box-shadow: var(--luz-topo), inset 0 0 40px rgba(142,15,42,.10);
+  background: var(--sunk); border: 1.5px solid var(--moldura); border-radius: var(--r-p);
+  padding: 15px 17px; overflow-x: auto; margin: 0 0 13px; line-height: 1.6;
+  box-shadow: var(--bisel);
 }
-:root[data-theme="light"] .body pre { background: linear-gradient(165deg, #fffdfb, #f5ebe2); }
 .body pre code { background: none; padding: 0; border: none; color: var(--texto); font-size: 13.5px; }
-.body blockquote {
-  margin: 0 0 14px; padding: 2px 0 2px 17px;
-  border-left: 2px solid var(--cobre); color: var(--texto-suave); font-style: italic;
-}
-.body a { color: var(--brilho); text-underline-offset: 3px; }
-.body a:hover { color: var(--dourado); }
+.body blockquote { margin: 0 0 13px; padding-left: 16px; border-left: 2px solid var(--cobre); color: var(--texto-suave); font-style: italic; }
+.body a { color: var(--brilho); }
 
-.status {
-  font-size: 13px; color: var(--texto-suave); margin-bottom: 11px;
-  display: flex; align-items: center; gap: 9px;
-}
+.status { font-size: 13px; color: var(--texto-suave); margin-bottom: 11px; display: flex; align-items: center; gap: 9px; }
 .status::before {
-  content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
-  background: var(--brilho); box-shadow: 0 0 10px var(--brilho);
-  animation: pulso 1.3s ease-in-out infinite;
+  content: ""; width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--brilho); box-shadow: 0 0 11px var(--brilho);
+  animation: pulso 1.2s ease-in-out infinite;
 }
 .status.fixo::before { animation: none; opacity: .45; }
 
-.fontes {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
-  margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--linha);
-}
-.fontes-rot {
-  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--texto-fraco); font-weight: 700; margin-right: 3px;
-}
+.fontes { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 16px; padding-top: 13px; border-top: 1.5px solid var(--moldura); }
+.fontes-rot { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--brilho); font-weight: 700; }
 .fontes a, .fontes .fonte-txt {
   font-size: 12px; color: var(--texto-suave); text-decoration: none;
-  background: var(--sunk); border: 1px solid var(--linha);
+  background: var(--sunk); border: 1px solid var(--moldura);
   padding: 4px 12px; border-radius: 999px; white-space: nowrap; transition: all .16s;
 }
-.fontes a:hover { color: var(--creme); border-color: var(--linha-forte); box-shadow: 0 0 14px rgba(179,23,62,.24); }
+.fontes a:hover { color: var(--creme); border-color: var(--brilho); box-shadow: var(--aura); }
 
 .learned {
-  display: inline-flex; align-items: center; gap: 8px; margin-top: 15px;
-  font-size: 12.5px; color: var(--texto-suave);
-  background: linear-gradient(100deg, rgba(179,23,62,.20), rgba(166,101,58,.10));
-  border: 1px solid var(--linha-forte); border-radius: 999px; padding: 6px 15px;
-  box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.16);
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 14px;
+  font-size: 12.5px; color: var(--texto-suave); padding: 6px 15px; border-radius: 999px;
+  border: 1.5px solid var(--moldura-forte); background: var(--metal);
+  box-shadow: var(--bisel), var(--aura);
 }
 .learned b { color: var(--creme); font-weight: 600; }
 
 .error {
-  border-left: 2px solid var(--rubi); padding: 12px 17px;
-  background: linear-gradient(100deg, rgba(142,15,42,.18), transparent);
-  border-radius: 0 var(--raio-p) var(--raio-p) 0;
-  color: var(--brilho); font-size: 14.5px; white-space: pre-wrap;
+  padding: 13px 17px; border-radius: var(--r-p);
+  border: 1.5px solid var(--brilho); background: rgba(142,15,42,.22);
+  color: var(--creme); font-size: 14.5px; white-space: pre-wrap; box-shadow: var(--aura);
 }
-.cursor::after {
-  content: "▍"; color: var(--brilho); font-weight: 300;
-  text-shadow: 0 0 10px var(--rubi); animation: piscar 1.1s steps(2) infinite;
-}
+:root[data-theme="light"] .error { background: rgba(160,18,53,.09); color: var(--bordo); }
+.cursor::after { content: "▍"; color: var(--brilho); text-shadow: 0 0 12px var(--rubi); animation: piscar 1.1s steps(2) infinite; }
 @keyframes piscar { 50% { opacity: 0; } }
 
-.empty { padding: 52px 0 24px; }
-.empty h2 {
-  font-family: var(--serif); font-size: 31px; font-weight: 400; margin: 0 0 16px;
-  background: linear-gradient(100deg, var(--creme) 10%, var(--brilho) 62%, var(--dourado));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
+.empty { padding: 20px 0 24px; }
+.empty h2 { font-family: var(--serif); font-size: 30px; font-weight: 400; margin: 0 0 15px; color: var(--creme); text-shadow: 0 0 20px rgba(233,90,122,.4); }
+:root[data-theme="light"] .empty h2 { text-shadow: none; }
 .empty p { color: var(--texto-suave); margin: 0 0 12px; max-width: 54ch; }
-.empty code {
-  font-family: var(--mono); font-size: .85em; color: var(--brilho);
-  background: var(--sunk); padding: 2px 7px; border-radius: 6px; border: 1px solid var(--linha);
-}
+.empty code { font-family: var(--mono); font-size: .85em; color: var(--brilho); background: rgba(0,0,0,.3); padding: 2px 7px; border-radius: 6px; border: 1px solid var(--moldura); }
 .empty a { color: var(--brilho); }
 
-/* ─────────────────────── CAIXA DE ENVIO ─────────────────────── */
-
-#composer { position: relative; z-index: 2; padding: 8px 0 26px; }
+#composer { position: relative; z-index: 3; padding: 8px 0 20px; }
 .box {
-  display: flex; gap: 11px; align-items: flex-end;
-  padding: 12px 12px 12px 19px; border-radius: 18px;
-  background: linear-gradient(165deg, var(--painel-alto), var(--painel));
-  border: 1px solid var(--linha-forte);
-  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 26px rgba(142,15,42,.12);
+  display: flex; gap: 12px; align-items: flex-end;
+  padding: 10px 10px 10px 22px; border-radius: 999px;
+  border: 1.5px solid var(--moldura-forte); background: var(--metal);
+  box-shadow: var(--bisel), var(--aura), 0 10px 30px rgba(0,0,0,.45);
   transition: border-color .2s, box-shadow .2s;
 }
-.box:focus-within {
-  border-color: var(--rubi);
-  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 34px rgba(179,23,62,.30);
-}
+.box:focus-within { border-color: var(--brilho); box-shadow: var(--bisel), var(--aura-forte), 0 10px 30px rgba(0,0,0,.45); }
 #input {
   flex: 1; border: none; background: none; color: var(--texto);
   font-family: var(--sans); font-size: 15.5px; line-height: 1.6;
-  resize: none; outline: none; max-height: 200px; padding: 4px 0;
+  resize: none; outline: none; max-height: 170px; padding: 8px 0;
 }
 #input::placeholder { color: var(--texto-fraco); }
 #send {
-  padding: 10px 22px; border-radius: 12px; flex: none;
-  background: var(--gema); color: #fff; font-size: 14.5px; font-weight: 600;
-  letter-spacing: .02em; border: 1px solid rgba(233,90,122,.4);
-  box-shadow: var(--luz-topo), 0 5px 18px rgba(142,15,42,.45);
-  transition: transform .16s, filter .16s, box-shadow .16s;
+  padding: 11px 30px; border-radius: 999px; flex: none;
+  border: 1.5px solid var(--moldura-forte); background: var(--gema);
+  color: #fff; font-size: 15px; font-weight: 600;
+  box-shadow: var(--bisel), var(--aura-forte), 0 6px 20px rgba(125,15,38,.5);
+  transition: transform .16s, filter .16s;
 }
-#send:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.12);
-  box-shadow: var(--luz-topo), 0 9px 26px rgba(179,23,62,.55); }
-#send:active:not(:disabled) { transform: translateY(0); }
-#send:disabled { opacity: .32; cursor: default; box-shadow: none; }
+#send:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.14); }
+#send:disabled { opacity: .35; cursor: default; box-shadow: none; }
+.hint { font-size: 12px; color: var(--texto-fraco); margin-top: 10px; padding-left: 22px; }
+.hint code { font-family: var(--mono); color: var(--brilho); }
 
-.hint { font-size: 11.5px; color: var(--texto-fraco); margin-top: 11px; padding-left: 6px; }
-.hint code { font-family: var(--mono); color: var(--texto-suave); }
-
-/* ─────────────────────── PAINEL DIREITO ─────────────────────── */
+/* ─────────────────── PAINEL DIREITO ─────────────────── */
 
 #panel {
-  position: relative; z-index: 2;
-  width: 348px; flex: none; display: flex; flex-direction: column;
-  background: linear-gradient(190deg, rgba(46,22,25,.62), rgba(18,9,11,.42));
-  border-left: 1px solid var(--linha);
-  box-shadow: -1px 0 0 rgba(233,90,122,.06), var(--sombra-alta);
-}
-:root[data-theme="light"] #panel {
-  background: linear-gradient(190deg, rgba(255,252,249,.92), rgba(247,239,230,.7));
+  position: relative; z-index: 3; width: 380px; flex: none;
+  display: flex; flex-direction: column; margin: 12px 12px 12px 0;
+  border-radius: var(--r); border: 1.5px solid var(--moldura);
+  background: var(--metal); overflow: hidden;
+  box-shadow: var(--bisel), var(--aura), 0 14px 40px rgba(0,0,0,.45);
 }
 #panel.hidden { display: none; }
 
-.tabs { display: flex; padding: 0 8px; border-bottom: 1px solid var(--linha); }
+/* Abas como cartões encaixados, com ícone acima do rótulo. */
+.tabs { display: flex; gap: 6px; padding: 10px 10px 0; }
 .tab {
-  position: relative; flex: 1; padding: 17px 3px 14px; margin-bottom: -1px;
-  font-size: 12.5px; font-weight: 600; letter-spacing: .03em;
-  color: var(--texto-fraco); transition: color .16s;
+  position: relative; flex: 1; padding: 11px 4px 12px; border-radius: 11px 11px 0 0;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  font-size: 12.5px; font-weight: 500; color: var(--texto-fraco);
+  border: 1.5px solid transparent; border-bottom: none; transition: all .16s;
 }
+.tab svg { width: 24px; height: 24px; opacity: .55; transition: opacity .16s, filter .16s; }
 .tab:hover { color: var(--texto-suave); }
-.tab.active { color: var(--creme); }
-.tab.active::after {
-  content: ""; position: absolute; left: 14%; right: 14%; bottom: 0; height: 2px;
-  border-radius: 2px; background: linear-gradient(90deg, var(--rubi), var(--brilho), var(--dourado));
-  box-shadow: 0 0 12px var(--rubi);
+.tab:hover svg { opacity: .85; }
+.tab.active {
+  color: var(--creme); background: var(--metal-alto);
+  border-color: var(--moldura-forte);
+  box-shadow: var(--bisel), 0 -4px 20px rgba(233,90,122,.24);
 }
+.tab.active svg { opacity: 1; filter: drop-shadow(0 0 8px rgba(233,90,122,.8)); }
 
-#docs { flex: 1; overflow-y: auto; padding: 16px; }
+#docs { flex: 1; overflow-y: auto; padding: 16px; border-top: 1.5px solid var(--moldura); }
 
-.cerebro { display: flex; justify-content: center; padding: 6px 0 14px; }
-.cerebro svg { width: 168px; height: auto; filter: drop-shadow(0 0 18px rgba(179,23,62,.42)); }
+.cerebro { display: flex; justify-content: center; padding: 4px 0 16px; }
+.cerebro svg { width: 100%; max-width: 300px; height: auto; }
 
 .doc {
-  background: linear-gradient(160deg, var(--painel-alto), var(--painel));
-  border: 1px solid var(--linha); border-radius: var(--raio-p);
-  padding: 13px 15px; margin-bottom: 10px; font-size: 13.5px;
-  box-shadow: var(--luz-topo), var(--sombra-baixa);
-  transition: border-color .16s, box-shadow .16s, transform .16s;
+  border: 1.5px solid var(--moldura); border-radius: var(--r-p);
+  background: var(--metal-alto); padding: 13px 15px; margin-bottom: 10px; font-size: 13.5px;
+  box-shadow: var(--bisel); transition: all .16s;
 }
-.doc:hover {
-  border-color: var(--linha-forte); transform: translateY(-1px);
-  box-shadow: var(--luz-topo), 0 8px 22px rgba(142,15,42,.22);
-}
+.doc:hover { border-color: var(--brilho); transform: translateY(-1px); box-shadow: var(--bisel), var(--aura); }
 .doc-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.doc-name { font-family: var(--mono); font-size: 11px; color: var(--brilho); letter-spacing: .02em; }
+.doc-name { font-family: var(--mono); font-size: 11px; color: var(--brilho); }
 .doc .x { color: var(--texto-fraco); font-size: 16px; line-height: 1; }
 .doc .x:hover { color: var(--brilho); }
 .doc-desc { margin-top: 6px; line-height: 1.5; color: var(--texto); }
 .doc-body { margin-top: 8px; color: var(--texto-suave); white-space: pre-wrap; font-size: 12.5px; line-height: 1.5; }
+.none { color: var(--texto-fraco); font-size: 13.5px; text-align: center; padding: 28px 16px; line-height: 1.65; }
 
-.none {
-  color: var(--texto-fraco); font-size: 13.5px; text-align: center;
-  padding: 34px 16px; line-height: 1.65;
-}
-
-.add { border-top: 1px solid var(--linha); padding: 15px 16px 17px; }
+.add { border-top: 1.5px solid var(--moldura); padding: 15px 16px 17px; }
 .add input, .add textarea {
-  width: 100%; margin-bottom: 9px; padding: 10px 13px;
+  width: 100%; margin-bottom: 10px; padding: 12px 16px;
   font-family: var(--sans); font-size: 13.5px;
-  border: 1px solid var(--linha); border-radius: var(--raio-p);
+  border: 1.5px solid var(--moldura); border-radius: 999px;
   background: var(--sunk); color: var(--texto); outline: none;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,.28);
-  transition: border-color .16s, box-shadow .16s;
+  box-shadow: var(--bisel); transition: border-color .16s, box-shadow .16s;
 }
+.add textarea { border-radius: 16px; resize: vertical; min-height: 66px; line-height: 1.5; }
 .add input::placeholder, .add textarea::placeholder { color: var(--texto-fraco); }
-.add input:focus, .add textarea:focus {
-  border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(179,23,62,.22);
-}
-.add textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+.add input:focus, .add textarea:focus { border-color: var(--brilho); box-shadow: var(--bisel), var(--aura); }
 .add button {
-  width: 100%; padding: 11px; border-radius: var(--raio-p);
-  background: var(--gema); color: #fff; font-size: 13.5px; font-weight: 600;
-  border: 1px solid rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
-  transition: transform .16s, filter .16s;
+  width: 100%; padding: 13px; border-radius: 999px;
+  border: 1.5px solid var(--moldura-forte); background: var(--gema);
+  color: #fff; font-size: 14.5px; font-weight: 600;
+  box-shadow: var(--bisel), var(--aura-forte); transition: transform .16s, filter .16s;
 }
-.add button:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.add button:hover { transform: translateY(-1px); filter: brightness(1.14); }
 
 .persona { display: flex; flex-direction: column; height: 100%; }
 .persona-ajuda {
-  font-size: 12.5px; line-height: 1.6; color: var(--texto-suave);
-  margin: 0 0 12px; padding: 12px 14px;
-  background: var(--sunk); border: 1px solid var(--linha); border-radius: var(--raio-p);
+  font-size: 12.5px; line-height: 1.6; color: var(--texto-suave); margin: 0 0 12px;
+  padding: 13px 15px; border: 1.5px solid var(--moldura); border-radius: var(--r-p);
+  background: var(--sunk); box-shadow: var(--bisel);
 }
 .persona-ajuda b { color: var(--creme); font-weight: 600; }
 #personaTxt {
-  flex: 1; min-height: 262px; resize: vertical;
-  font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
-  padding: 13px 14px; border: 1px solid var(--linha); border-radius: var(--raio-p);
-  background: var(--sunk); color: var(--texto); outline: none;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,.28);
+  flex: 1; min-height: 250px; resize: vertical;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.65; padding: 14px;
+  border: 1.5px solid var(--moldura); border-radius: var(--r-p);
+  background: var(--sunk); color: var(--texto); outline: none; box-shadow: var(--bisel);
 }
-#personaTxt:focus { border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(179,23,62,.22); }
+#personaTxt:focus { border-color: var(--brilho); box-shadow: var(--bisel), var(--aura); }
 .persona-botoes { display: flex; gap: 9px; margin-top: 11px; }
 .persona-botoes button {
-  flex: 1; padding: 10px; border-radius: var(--raio-p); font-size: 13px; font-weight: 600;
-  background: var(--sunk); color: var(--texto-suave); border: 1px solid var(--linha);
-  transition: all .16s;
+  flex: 1; padding: 11px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  border: 1.5px solid var(--moldura); background: var(--metal-alto);
+  color: var(--texto-suave); box-shadow: var(--bisel); transition: all .16s;
 }
-.persona-botoes button:hover { color: var(--creme); border-color: var(--linha-forte); }
-.persona-botoes .primario {
-  background: var(--gema); color: #fff; border-color: rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
-}
-.persona-botoes .primario:hover { color: #fff; filter: brightness(1.1); }
+.persona-botoes button:hover { color: var(--creme); border-color: var(--brilho); }
+.persona-botoes .primario { background: var(--gema); color: #fff; border-color: var(--moldura-forte); box-shadow: var(--bisel), var(--aura); }
 .persona-aviso { font-size: 12.5px; color: var(--brilho); min-height: 20px; margin-top: 10px; text-align: center; }
-.backup { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--linha); }
+.backup { margin-top: 20px; padding-top: 18px; border-top: 1.5px solid var(--moldura); }
 
 .btn-livro {
-  width: 100%; padding: 12px; border-radius: var(--raio-p); font-size: 13.5px; font-weight: 600;
-  background: var(--gema); color: #fff; border: 1px solid rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
-  transition: transform .16s, filter .16s;
+  width: 100%; padding: 13px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  border: 1.5px solid var(--moldura-forte); background: var(--gema); color: #fff;
+  box-shadow: var(--bisel), var(--aura-forte); transition: transform .16s, filter .16s;
 }
-.btn-livro:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.btn-livro:hover { transform: translateY(-1px); filter: brightness(1.14); }
 .livro-status { font-size: 12.5px; margin-top: 10px; text-align: center; min-height: 20px; color: var(--texto-fraco); }
 .livro-status.ativo { color: var(--brilho); }
 .livro-status.erro { color: var(--brilho); text-align: left; line-height: 1.55; }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   #sidebar { display: none; }
-  #panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 30;
-           box-shadow: -14px 0 48px rgba(0,0,0,.6); }
+  #main { margin: 10px; }
+  #panel { position: fixed; right: 10px; top: 10px; bottom: 10px; z-index: 40; }
 }
 </style>
 </head>
@@ -501,34 +458,28 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 <aside id="sidebar">
   <div class="marca">
-    <!-- Gema lapidada: facetas em gradiente, núcleo claro, brilho externo -->
-    <svg viewBox="0 0 48 48" aria-hidden="true">
+    <!-- Cabeça em rubi low-poly: perfil facetado, como na referência -->
+    <svg viewBox="0 0 64 64" aria-hidden="true">
       <defs>
-        <linearGradient id="gTopo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
+        <linearGradient id="hA" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ff8fa6"/><stop offset="1" stop-color="#b3173e"/>
         </linearGradient>
-        <linearGradient id="gBaixo" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
+        <linearGradient id="hB" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#d4285a"/><stop offset="1" stop-color="#5a0d1a"/>
         </linearGradient>
-        <radialGradient id="gNucleo" cx=".5" cy=".42" r=".5">
-          <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
-          <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
-        </radialGradient>
       </defs>
-      <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#gBaixo)"/>
-      <path d="M14 7h20l8 11H6z" fill="url(#gTopo)"/>
-      <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".30"/>
-      <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
-      <circle cx="24" cy="20" r="10" fill="url(#gNucleo)"/>
-      <path d="M6 18h36" stroke="#ffd9df" stroke-opacity=".45" stroke-width=".8"/>
+      <path d="M20 6h20l14 12v18l-9 8v14H30v-9l-8-3-2-10-8-4 2-14z" fill="url(#hB)"/>
+      <path d="M20 6h20l14 12-16 6-12-8z" fill="url(#hA)" opacity=".92"/>
+      <path d="M24 16l12 8-4 14-12-6z" fill="#e95a7a" opacity=".55"/>
+      <path d="M38 24l16-6v18l-9 8-9-6z" fill="#8e0f2a" opacity=".85"/>
+      <path d="M45 38l-9 8v12h9z" fill="#e95a7a" opacity=".38"/>
+      <path d="M12 32l8 4 2 10-9-4z" fill="#b3173e" opacity=".7"/>
+      <path d="M28 34l6-2 2 8-8 2z" fill="#ffd0d8" opacity=".55"/>
     </svg>
-    <div class="marca-txt">
-      <div class="brand" id="brand">LIVIA</div>
-      <div class="online"><i></i>online</div>
-    </div>
+    <div class="brand" id="brand">LIVIA</div>
   </div>
 
-  <button class="btn-new" onclick="novaConversa()">＋&nbsp;&nbsp;Nova conversa</button>
+  <button class="btn-new" onclick="novaConversa()">Nova conversa</button>
   <div class="secao">Conversas</div>
   <div id="convos"></div>
 
@@ -536,64 +487,76 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     <span id="stats">—</span>
     <span>
       <button onclick="trocarTema()" id="btnTema" title="claro / escuro">claro</button>
+      <span style="color:var(--texto-fraco)">/</span>
       <button onclick="togglePanel()">painel</button>
     </span>
   </div>
 </aside>
 
 <main id="main">
-  <!-- Rosto em circuito: perfil humano formado por trilhas e sinapses -->
   <div id="arte" aria-hidden="true">
-    <svg viewBox="0 0 620 460" fill="none">
+    <svg viewBox="0 0 900 620" preserveAspectRatio="xMidYMax slice" fill="none">
       <defs>
-        <linearGradient id="gPerfil" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e95a7a"/>
-          <stop offset=".55" stop-color="#b3173e"/>
-          <stop offset="1" stop-color="#a6653a"/>
+        <linearGradient id="aFio" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#e0a878"/><stop offset="1" stop-color="#a6653a"/>
         </linearGradient>
-        <radialGradient id="gAura" cx=".5" cy=".5" r=".5">
-          <stop offset="0" stop-color="#b3173e" stop-opacity=".30"/>
-          <stop offset="1" stop-color="#b3173e" stop-opacity="0"/>
+        <linearGradient id="aRubi" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ff8fa6"/><stop offset="1" stop-color="#b3173e"/>
+        </linearGradient>
+        <radialGradient id="aBrilho" cx=".5" cy=".5" r=".5">
+          <stop offset="0" stop-color="#e95a7a" stop-opacity=".85"/>
+          <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
         </radialGradient>
       </defs>
 
-      <ellipse cx="310" cy="228" rx="215" ry="200" fill="url(#gAura)"/>
-
-      <!-- perfil -->
-      <path d="M232 424c-6-42 2-70-14-92-13-18-38-28-42-58-6-44 14-88 44-118 34-34 84-46 128-34 46 12 82 50 92 96 8 38 0 78-22 110-14 20-34 30-38 52-3 16 2 30 2 44"
-            stroke="url(#gPerfil)" stroke-width="1.7" stroke-linecap="round" opacity=".85"/>
-      <path d="M176 274c-14 4-26 14-26 28 0 16 16 26 32 24" stroke="url(#gPerfil)" stroke-width="1.4" opacity=".6"/>
-
-      <!-- trilhas de circuito internas -->
-      <g stroke="url(#gPerfil)" stroke-width="1.1" opacity=".55">
-        <path d="M254 148h58v34h44"/><path d="M262 208h40v46h56"/>
-        <path d="M300 108v40h52v-24h46"/><path d="M242 306h72v-40h48v30"/>
-        <path d="M330 344h56v-46h34"/><path d="M282 250h-42v40"/>
-        <path d="M356 128v52h40"/><path d="M318 384h48v-30"/>
+      <!-- perfil de cabeça, canto inferior direito -->
+      <g opacity=".85">
+        <path d="M700 620c0-56 4-96-14-124-16-24-46-34-52-72-8-52 20-104 62-128 44-26 104-18 138 20 30 34 36 84 18 126-12 28-34 42-38 70-4 24 2 46 2 108"
+              stroke="url(#aFio)" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M636 396c-18 4-32 18-32 34 0 18 18 30 38 28" stroke="url(#aFio)" stroke-width="2"/>
+        <path d="M676 350c10-6 22-6 32 0" stroke="url(#aFio)" stroke-width="2"/>
       </g>
 
-      <!-- sinapses -->
-      <g fill="#e95a7a">
-        <circle class="sinapse" cx="312" cy="148" r="3.4"/>
-        <circle class="sinapse" cx="356" cy="182" r="2.8"/>
-        <circle class="sinapse" cx="302" cy="208" r="3.1"/>
-        <circle class="sinapse" cx="358" cy="254" r="3.6"/>
-        <circle class="sinapse" cx="352" cy="124" r="2.6"/>
-        <circle class="sinapse" cx="398" cy="132" r="3.2"/>
-        <circle class="sinapse" cx="314" cy="266" r="2.9"/>
-        <circle class="sinapse" cx="362" cy="296" r="3.3"/>
-        <circle class="sinapse" cx="386" cy="344" r="2.7"/>
-        <circle class="sinapse" cx="240" cy="290" r="3"/>
-        <circle class="sinapse" cx="366" cy="354" r="2.5"/>
-        <circle class="sinapse" cx="240" cy="306" r="2.6"/>
+      <!-- circuito dentro da cabeça -->
+      <g stroke="url(#aRubi)" stroke-width="1.8" opacity=".9">
+        <path d="M716 250h56v-40h44M724 300h44v44h56M760 200v-36h50v28h44"/>
+        <path d="M706 350h64v-40h52v34M772 400h56v-48h34M796 260v46h40"/>
+        <path d="M740 420h48v-32M812 300v52"/>
+      </g>
+      <rect x="752" y="236" width="56" height="44" rx="7" fill="none" stroke="url(#aRubi)" stroke-width="2.4"/>
+      <rect x="762" y="246" width="36" height="24" rx="4" fill="url(#aRubi)" opacity=".7"/>
+
+      <g fill="#ff8fa6">
+        <circle class="sinapse" cx="772" cy="210" r="4"/><circle class="sinapse" cx="816" cy="210" r="3.4"/>
+        <circle class="sinapse" cx="768" cy="344" r="4.2"/><circle class="sinapse" cx="824" cy="344" r="3.6"/>
+        <circle class="sinapse" cx="810" cy="192" r="3"/><circle class="sinapse" cx="854" cy="192" r="3.4"/>
+        <circle class="sinapse" cx="822" cy="344" r="3"/><circle class="sinapse" cx="828" cy="400" r="4"/>
+        <circle class="sinapse" cx="862" cy="352" r="3.2"/><circle class="sinapse" cx="836" cy="306" r="3.6"/>
+        <circle class="sinapse" cx="788" cy="388" r="3"/><circle class="sinapse" cx="812" cy="352" r="2.8"/>
       </g>
 
-      <!-- equalizador discreto -->
-      <g stroke="#c08a4a" stroke-width="2" stroke-linecap="round" opacity=".45">
-        <path d="M186 404v-22"/><path d="M202 404v-38"/><path d="M218 404v-14"/>
-        <path d="M402 404v-30"/><path d="M418 404v-16"/><path d="M434 404v-40"/>
+      <!-- neurônio grande à esquerda, com tentáculos -->
+      <g opacity=".8">
+        <circle cx="196" cy="352" r="60" fill="url(#aBrilho)"/>
+        <g stroke="url(#aRubi)" stroke-width="1.8" stroke-linecap="round">
+          <path d="M196 352l-72-46M196 352l-84 34M196 352l-52 84M196 352l40 82M196 352l86-40M196 352l64-70M196 352l-16-88M196 352l30 88"/>
+          <path d="M124 306l-34-14M112 386l-40 12M144 436l-22 40M236 434l14 42M282 312l44-16M260 282l24-42"/>
+        </g>
+        <circle cx="196" cy="352" r="15" fill="url(#aRubi)"/>
+        <circle cx="196" cy="352" r="7" fill="#ffd0d8" opacity=".9"/>
+      </g>
+
+      <!-- equalizador -->
+      <g stroke="#c08a4a" stroke-width="3" stroke-linecap="round" opacity=".5">
+        <path d="M330 470v-30"/><path d="M348 470v-56"/><path d="M366 470v-22"/>
+        <path d="M384 470v-44"/><path d="M402 470v-16"/>
       </g>
     </svg>
+  </div>
+
+  <div class="topo">
+    <span class="online"><i></i>Online</span>
+    <button class="btn-ajuda" onclick="atalhoAjuda()">/ajuda</button>
   </div>
 
   <div id="thread">
@@ -613,10 +576,29 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 <aside id="panel" class="hidden">
   <div class="tabs">
-    <button class="tab active" data-kind="memories" onclick="trocarAba('memories')">Memórias</button>
-    <button class="tab" data-kind="skills" onclick="trocarAba('skills')">Skills</button>
-    <button class="tab" data-kind="livros" onclick="trocarAba('livros')">Livros</button>
-    <button class="tab" data-kind="persona" onclick="trocarAba('persona')">Jeito</button>
+    <button class="tab active" data-kind="memories" onclick="trocarAba('memories')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 4c-2.6-1.6-6-.6-6.9 2-2.4.8-3.2 3.8-1.5 5.6C2.5 13.8 4.3 16.4 7 16.4c1 1.5 3.6 1.8 5 .5 1.4 1.3 4 1 5-.5 2.7 0 4.5-2.6 3.4-4.8 1.7-1.8.9-4.8-1.5-5.6C18 3.4 14.6 2.4 12 4z"/>
+        <path d="M12 4v16M8 8h4M16 8h-4M7 13h5M17 13h-5"/>
+      </svg>Memórias
+    </button>
+    <button class="tab" data-kind="skills" onclick="trocarAba('skills')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M15.5 3.5a5 5 0 0 0-6.2 6.2L3 16v4h4l6.3-6.3a5 5 0 0 0 6.2-6.2l-3 3-2.8-.7-.7-2.8z" stroke-linejoin="round"/>
+      </svg>Skills
+    </button>
+    <button class="tab" data-kind="livros" onclick="trocarAba('livros')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v16H6.5A2.5 2.5 0 0 0 4 20.5z" stroke-linejoin="round"/>
+        <path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v4H6.5A2.5 2.5 0 0 1 4 20.5zM8 6h8M8 10h6"/>
+      </svg>Livros
+    </button>
+    <button class="tab" data-kind="persona" onclick="trocarAba('persona')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M2 12l4-3 5 3 3-1 3 2 5-4" stroke-linejoin="round"/>
+        <path d="M6 9l-2 6h5l2-3M18 9l3 6h-5l-2-3" stroke-linejoin="round"/>
+      </svg>Jeito
+    </button>
   </div>
   <div id="docs"></div>
   <div class="add" id="addForm">
@@ -887,6 +869,14 @@ async function enviar() {
   }
 }
 
+/* Botão flutuante /ajuda: preenche e envia, em vez de só mostrar o texto —
+   assim a ajuda entra no histórico como qualquer outra resposta. */
+function atalhoAjuda() {
+  if (ocupado) return;
+  $("input").value = "/ajuda";
+  enviar();
+}
+
 /* ---------- conversas ---------- */
 function quando(iso) {
   // Hoje mostra a hora; ontem diz "ontem"; mais velho, a data curta.
@@ -1142,35 +1132,62 @@ async function enviarBackup(input) {
 // É a metáfora do que aquela aba faz: o que entra ali vira parte dela.
 const CEREBRO = `
 <div class="cerebro">
-  <svg viewBox="0 0 200 160" fill="none" aria-hidden="true">
+  <svg viewBox="0 0 300 210" fill="none" aria-hidden="true">
     <defs>
-      <radialGradient id="cNucleo" cx=".5" cy=".5" r=".5">
-        <stop offset="0" stop-color="#ffd9df"/>
-        <stop offset=".45" stop-color="#e95a7a"/>
-        <stop offset="1" stop-color="#8e0f2a" stop-opacity="0"/>
-      </radialGradient>
-      <linearGradient id="cTraco" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#a6653a"/>
+      <linearGradient id="bFio" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#f6ecdd" stop-opacity=".85"/>
+        <stop offset="1" stop-color="#c08a4a" stop-opacity=".7"/>
       </linearGradient>
+      <linearGradient id="bRubi" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ff8fa6"/><stop offset="1" stop-color="#b3173e"/>
+      </linearGradient>
+      <radialGradient id="bAura" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#e95a7a" stop-opacity=".7"/>
+        <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
+      </radialGradient>
     </defs>
-    <path d="M100 26c-24-14-56-6-64 18-22 6-30 34-14 50-10 20 6 44 28 44 10 14 34 16 50 4
-             16 12 40 10 50-4 22 0 38-24 28-44 16-16 8-44-14-50-8-24-40-32-64-18z"
-          stroke="url(#cTraco)" stroke-width="1.5" opacity=".75"/>
-    <g stroke="url(#cTraco)" stroke-width="1" opacity=".55">
-      <path d="M100 26v36M100 96v42M64 52h30v22M136 52h-30v22M52 92h34v20M148 92h-34v20"/>
-      <path d="M74 118h20v-16M126 118h-20v-16"/>
+
+    <!-- anéis orbitais -->
+    <ellipse cx="150" cy="105" rx="72" ry="72" stroke="url(#bRubi)" stroke-width="1" opacity=".45"/>
+    <ellipse cx="150" cy="105" rx="86" ry="60" stroke="url(#bRubi)" stroke-width="1" opacity=".3"/>
+
+    <!-- cérebro em contorno claro -->
+    <g stroke="url(#bFio)" stroke-width="1.6" stroke-linecap="round">
+      <path d="M150 58c-14-11-38-6-44 10-16 5-20 26-9 37-8 15 5 32 21 32 8 11 24 12 32 3"/>
+      <path d="M150 58c14-11 38-6 44 10 16 5 20 26 9 37 8 15-5 32-21 32-8 11-24 12-32 3"/>
+      <path d="M150 58v82M132 76c6 6 6 16 0 22M168 76c-6 6-6 16 0 22M120 104c8 2 14 10 14 20M180 104c-8 2-14 10-14 20"/>
     </g>
-    <circle cx="100" cy="80" r="26" fill="url(#cNucleo)"/>
-    <circle cx="100" cy="80" r="7" fill="#ffd9df" opacity=".9"/>
-    <g fill="#e95a7a">
-      <circle class="sinapse" cx="100" cy="26" r="3"/>
-      <circle class="sinapse" cx="64"  cy="52" r="2.6"/>
-      <circle class="sinapse" cx="136" cy="52" r="2.6"/>
-      <circle class="sinapse" cx="52"  cy="92" r="2.8"/>
-      <circle class="sinapse" cx="148" cy="92" r="2.8"/>
-      <circle class="sinapse" cx="74"  cy="118" r="2.4"/>
-      <circle class="sinapse" cx="126" cy="118" r="2.4"/>
-      <circle class="sinapse" cx="100" cy="138" r="3"/>
+
+    <!-- chip de rubi no núcleo -->
+    <circle cx="150" cy="105" r="34" fill="url(#bAura)"/>
+    <rect x="134" y="90" width="32" height="30" rx="5" fill="none" stroke="url(#bRubi)" stroke-width="2"/>
+    <rect x="140" y="96" width="20" height="18" rx="3" fill="url(#bRubi)"/>
+    <g stroke="url(#bRubi)" stroke-width="1.4" opacity=".9">
+      <path d="M134 98h-9M134 112h-9M166 98h9M166 112h9M142 90v-8M158 90v-8M142 120v8M158 120v8"/>
+    </g>
+
+    <!-- neurônios com tentáculos, ao redor -->
+    <g stroke="url(#bRubi)" stroke-width="1.2" stroke-linecap="round" opacity=".8">
+      <path d="M52 60l18 14M52 60l-14 8M52 60l6-18M52 60l-16-10M52 60l20-6"/>
+      <path d="M254 68l-20 12M254 68l14 10M254 68l-4-18M254 68l18-8"/>
+      <path d="M66 168l16-16M66 168l-16 6M66 168l4 18M66 168l-14-14"/>
+      <path d="M240 164l-18-14M240 164l16 8M240 164l-2 18M240 164l16-14"/>
+    </g>
+    <g fill="url(#bRubi)">
+      <circle class="sinapse" cx="52" cy="60" r="7"/>
+      <circle class="sinapse" cx="254" cy="68" r="6"/>
+      <circle class="sinapse" cx="66" cy="168" r="6.5"/>
+      <circle class="sinapse" cx="240" cy="164" r="6"/>
+    </g>
+    <g fill="#ff8fa6">
+      <circle class="sinapse" cx="150" cy="52" r="3.4"/>
+      <circle class="sinapse" cx="150" cy="158" r="3.4"/>
+      <circle class="sinapse" cx="98" cy="104" r="3"/>
+      <circle class="sinapse" cx="202" cy="104" r="3"/>
+      <circle class="sinapse" cx="112" cy="66" r="2.6"/>
+      <circle class="sinapse" cx="188" cy="66" r="2.6"/>
+      <circle class="sinapse" cx="112" cy="146" r="2.6"/>
+      <circle class="sinapse" cx="188" cy="146" r="2.6"/>
     </g>
   </svg>
 </div>`;
