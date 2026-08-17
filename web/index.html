@@ -222,6 +222,30 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 #arte svg { width: min(780px, 82%); height: auto; }
 :root[data-theme="light"] #arte { opacity: .13; }
 
+/* Órbita: a lua segue uma elipse e encolhe na metade de cima, que lemos
+   como "mais longe". Dois quadros de animação sincronizados no mesmo
+   tempo — sem isso o movimento fica chapado, como um adesivo girando. */
+.lua {
+  offset-path: path("M 690,310 A 260,92 0 1,1 689.9,310");
+  offset-rotate: 0deg;
+  animation: orbitar 52s linear infinite, distancia 52s ease-in-out infinite;
+}
+@keyframes orbitar  { to { offset-distance: 100%; } }
+@keyframes distancia { 0%,100% { scale: 1.06; opacity: .95; }
+                       50%     { scale: .62;  opacity: .55; } }
+
+@keyframes cintilar { 0%,100% { opacity: .22; } 50% { opacity: .8; } }
+.estrela { animation: cintilar 6s ease-in-out infinite; }
+.estrela:nth-of-type(2n) { animation-duration: 8.5s; animation-delay: -2.2s; }
+.estrela:nth-of-type(3n) { animation-duration: 11s;  animation-delay: -4.7s; }
+
+/* Quem prefere menos movimento na tela não vê nada girando. */
+@media (prefers-reduced-motion: reduce) {
+  .lua, .estrela { animation: none; }
+  .lua { offset-distance: 18%; }
+}
+
+/* Sinapses seguem em uso no cérebro do painel de memórias. */
 @keyframes respirar { 0%,100% { opacity: .30; } 50% { opacity: .68; } }
 .sinapse { animation: respirar 5s ease-in-out infinite; }
 .sinapse:nth-of-type(2n) { animation-duration: 6.5s; animation-delay: -1.4s; }
@@ -542,56 +566,64 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 </aside>
 
 <main id="main">
-  <!-- Rosto em circuito: perfil humano formado por trilhas e sinapses -->
+  <!-- Planetas em órbita. Só atmosfera: bem translúcido, movimento lento.
+       A lua percorre a elipse via offset-path e encolhe na metade distante,
+       o que dá a sensação de profundidade sem precisar sumir atrás do disco. -->
   <div id="arte" aria-hidden="true">
-    <svg viewBox="0 0 620 460" fill="none">
+    <svg viewBox="0 0 900 620" preserveAspectRatio="xMidYMid slice" fill="none">
       <defs>
-        <linearGradient id="gPerfil" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e95a7a"/>
-          <stop offset=".55" stop-color="#b3173e"/>
-          <stop offset="1" stop-color="#a6653a"/>
-        </linearGradient>
-        <radialGradient id="gAura" cx=".5" cy=".5" r=".5">
-          <stop offset="0" stop-color="#b3173e" stop-opacity=".30"/>
-          <stop offset="1" stop-color="#b3173e" stop-opacity="0"/>
+        <radialGradient id="pCorpo" cx=".36" cy=".32" r=".78">
+          <stop offset="0"   stop-color="#ffb9c6"/>
+          <stop offset=".38" stop-color="#e95a7a"/>
+          <stop offset=".72" stop-color="#b3173e"/>
+          <stop offset="1"   stop-color="#4a0a18"/>
         </radialGradient>
+        <radialGradient id="pHalo" cx=".5" cy=".5" r=".5">
+          <stop offset=".58" stop-color="#e95a7a" stop-opacity=".30"/>
+          <stop offset="1"   stop-color="#e95a7a" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="pLua" cx=".34" cy=".3" r=".8">
+          <stop offset="0"   stop-color="#ffe0cf"/>
+          <stop offset=".5"  stop-color="#c08a4a"/>
+          <stop offset="1"   stop-color="#5e3418"/>
+        </radialGradient>
+        <clipPath id="pCorte"><circle cx="430" cy="310" r="132"/></clipPath>
       </defs>
 
-      <ellipse cx="310" cy="228" rx="215" ry="200" fill="url(#gAura)"/>
+      <circle cx="430" cy="310" r="230" fill="url(#pHalo)"/>
+      <circle cx="430" cy="310" r="132" fill="url(#pCorpo)"/>
 
-      <!-- perfil -->
-      <path d="M232 424c-6-42 2-70-14-92-13-18-38-28-42-58-6-44 14-88 44-118 34-34 84-46 128-34 46 12 82 50 92 96 8 38 0 78-22 110-14 20-34 30-38 52-3 16 2 30 2 44"
-            stroke="url(#gPerfil)" stroke-width="1.7" stroke-linecap="round" opacity=".85"/>
-      <path d="M176 274c-14 4-26 14-26 28 0 16 16 26 32 24" stroke="url(#gPerfil)" stroke-width="1.4" opacity=".6"/>
-
-      <!-- trilhas de circuito internas -->
-      <g stroke="url(#gPerfil)" stroke-width="1.1" opacity=".55">
-        <path d="M254 148h58v34h44"/><path d="M262 208h40v46h56"/>
-        <path d="M300 108v40h52v-24h46"/><path d="M242 306h72v-40h48v30"/>
-        <path d="M330 344h56v-46h34"/><path d="M282 250h-42v40"/>
-        <path d="M356 128v52h40"/><path d="M318 384h48v-30"/>
+      <!-- faixas atmosféricas, recortadas no disco -->
+      <g clip-path="url(#pCorte)" opacity=".32">
+        <ellipse cx="430" cy="250" rx="150" ry="17" fill="#ffd0d8" opacity=".5"/>
+        <ellipse cx="430" cy="294" rx="150" ry="12" fill="#5a0d1a" opacity=".55"/>
+        <ellipse cx="430" cy="336" rx="150" ry="22" fill="#ffb9c6" opacity=".3"/>
+        <ellipse cx="430" cy="382" rx="150" ry="15" fill="#4a0a18" opacity=".6"/>
+        <circle  cx="374" cy="274" r="27" fill="#8e0f2a" opacity=".4"/>
+        <circle  cx="486" cy="354" r="18" fill="#5a0d1a" opacity=".35"/>
       </g>
 
-      <!-- sinapses -->
-      <g fill="#e95a7a">
-        <circle class="sinapse" cx="312" cy="148" r="3.4"/>
-        <circle class="sinapse" cx="356" cy="182" r="2.8"/>
-        <circle class="sinapse" cx="302" cy="208" r="3.1"/>
-        <circle class="sinapse" cx="358" cy="254" r="3.6"/>
-        <circle class="sinapse" cx="352" cy="124" r="2.6"/>
-        <circle class="sinapse" cx="398" cy="132" r="3.2"/>
-        <circle class="sinapse" cx="314" cy="266" r="2.9"/>
-        <circle class="sinapse" cx="362" cy="296" r="3.3"/>
-        <circle class="sinapse" cx="386" cy="344" r="2.7"/>
-        <circle class="sinapse" cx="240" cy="290" r="3"/>
-        <circle class="sinapse" cx="366" cy="354" r="2.5"/>
-        <circle class="sinapse" cx="240" cy="306" r="2.6"/>
+      <ellipse cx="430" cy="310" rx="260" ry="92"
+               stroke="#e95a7a" stroke-width="1.2" opacity=".2" stroke-dasharray="5 9"/>
+
+      <g class="lua">
+        <circle r="27" fill="url(#pLua)"/>
+        <circle r="27" fill="none" stroke="#ffe0cf" stroke-opacity=".26" stroke-width="1"/>
+        <circle cx="-8" cy="-6" r="6"   fill="#4a2c1c" opacity=".35"/>
+        <circle cx="9"  cy="8"  r="4.5" fill="#4a2c1c" opacity=".28"/>
       </g>
 
-      <!-- equalizador discreto -->
-      <g stroke="#c08a4a" stroke-width="2" stroke-linecap="round" opacity=".45">
-        <path d="M186 404v-22"/><path d="M202 404v-38"/><path d="M218 404v-14"/>
-        <path d="M402 404v-30"/><path d="M418 404v-16"/><path d="M434 404v-40"/>
+      <g fill="#ffd0d8">
+        <circle class="estrela" cx="132" cy="118" r="1.8"/>
+        <circle class="estrela" cx="246" cy="72"  r="1.3"/>
+        <circle class="estrela" cx="88"  cy="286" r="1.6"/>
+        <circle class="estrela" cx="196" cy="430" r="1.4"/>
+        <circle class="estrela" cx="322" cy="196" r="1.2"/>
+        <circle class="estrela" cx="76"  cy="512" r="1.7"/>
+        <circle class="estrela" cx="404" cy="520" r="1.3"/>
+        <circle class="estrela" cx="842" cy="146" r="1.5"/>
+        <circle class="estrela" cx="806" cy="536" r="1.4"/>
+        <circle class="estrela" cx="288" cy="330" r="1.1"/>
       </g>
     </svg>
   </div>
