@@ -24,8 +24,10 @@ semelhança. Pergunta sem relação com os livros não injeta nada.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import shutil
 from collections.abc import AsyncIterator
 from datetime import date
 from pathlib import Path
@@ -36,16 +38,27 @@ import numpy as np
 from . import config
 from .docs import slugify
 
-PASTA = config.DATA_DIR / "biblioteca"
+
+def pasta_livros() -> Path:
+    """Onde os livros ficam.
+
+    Função, não constante: `config.DATA_DIR` pode ser trocado depois do
+    import — nos testes é, e uma constante ignoraria a troca em silêncio,
+    fazendo o teste gravar na pasta de dados real. A `raiz()` das
+    ferramentas já funciona assim.
+    """
+    return config.DATA_DIR / "biblioteca"
 EMBED_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
+MODELO_EMBED = "gemini-embedding-001"
 DIMENSOES = 768
 TAMANHO_TRECHO = 1200      # caracteres
 SOBREPOSICAO = 200         # evita cortar uma explicação ao meio
 LOTE = 50                  # trechos por chamada à API
 LIMIAR = 0.55              # abaixo disso, o trecho não tem a ver com a pergunta
 
-EXTENSOES = {".pdf", ".txt", ".md", ".markdown"}
+EXTENSOES = {".pdf", ".docx", ".txt", ".md", ".markdown"}
+LIMITE_ARQUIVO = 40 * 1024 * 1024
 
 
 class BibliotecaError(RuntimeError):
@@ -63,6 +76,8 @@ def extrair(nome_arquivo: str, dados: bytes) -> list[tuple[int, str]]:
 
     if ext == ".pdf":
         return _extrair_pdf(dados)
+    if ext == ".docx":
+        return _extrair_docx(dados)
     if ext in EXTENSOES:
         try:
             texto = dados.decode("utf-8")
@@ -71,9 +86,66 @@ def extrair(nome_arquivo: str, dados: bytes) -> list[tuple[int, str]]:
         return [(0, texto)]
 
     raise BibliotecaError(
-        f"Não sei ler '{ext}'. Aceito PDF, TXT e Markdown. "
-        "Para EPUB ou DOCX, converta para PDF antes."
+        f"Não sei ler '{ext}'. Aceito PDF, DOCX, TXT e Markdown. "
+        "Para EPUB, converta antes."
     )
+
+
+def _extrair_docx(dados: bytes) -> list[tuple[int, str]]:
+    """DOCX não tem página — o Word pagina na hora de imprimir. Numeramos
+    por seção, para a citação apontar algum lugar em vez de nenhum."""
+    import io
+
+    from docx import Document
+
+    from . import leitura
+
+    pacote = io.BytesIO(dados)
+    try:
+        # conferir_zip fala a língua das ferramentas; aqui a mensagem tem
+        # que ser BibliotecaError, senão o servidor a mostra como
+        # "Falha inesperada" e o motivo real se perde.
+        leitura.conferir_zip(pacote, "o arquivo enviado")
+    except Exception as exc:
+        raise BibliotecaError(str(exc)) from exc
+    pacote.seek(0)
+
+    try:
+        doc = Document(pacote)
+    except Exception as exc:
+        raise BibliotecaError(f"Não consegui abrir o DOCX: {exc}") from exc
+
+    # Cada título abre uma seção nova. Isso dá à citação uma âncora que a
+    # pessoa consegue achar no documento, mesmo sem número de página.
+    secoes: list[tuple[int, str]] = []
+    atual: list[str] = []
+    numero = 1
+
+    for paragrafo in doc.paragraphs:
+        texto = paragrafo.text.strip()
+        if not texto:
+            continue
+        estilo = (paragrafo.style.name or "").lower()
+        if estilo.startswith(("heading", "título", "titulo")) and atual:
+            secoes.append((numero, "\n\n".join(atual)))
+            numero += 1
+            atual = []
+        atual.append(texto)
+
+    for tabela in doc.tables:
+        linhas = [
+            " | ".join(c.text.strip().replace("\n", " ") for c in linha.cells)
+            for linha in tabela.rows
+        ]
+        if any(l.strip(" |") for l in linhas):
+            atual.append("\n".join(linhas))
+
+    if atual:
+        secoes.append((numero, "\n\n".join(atual)))
+
+    if not secoes:
+        raise BibliotecaError("Esse DOCX não tem texto nenhum.")
+    return secoes
 
 
 def _extrair_pdf(dados: bytes) -> list[tuple[int, str]]:
@@ -177,7 +249,7 @@ async def _embutir(textos: list[str], tarefa: str) -> list[list[float]]:
             "A Groq não oferece geração de vetores."
         )
 
-    modelo = "gemini-embedding-001"
+    modelo = MODELO_EMBED
     corpo = {
         "requests": [
             {
@@ -214,15 +286,86 @@ def _normalizar(m: np.ndarray) -> np.ndarray:
 
 
 # --------------------------------------------------------------------------
+# Identidade do arquivo
+# --------------------------------------------------------------------------
+
+
+def impressao(dados: bytes) -> str:
+    """SHA-256 do arquivo. É o que responde 'já processei este?'.
+
+    Comparar por nome não serve: o mesmo livro chega como `livro.pdf`,
+    `livro (1).pdf` e `Livro Final.pdf`, e livros diferentes chegam com o
+    mesmo nome. E aqui o custo de errar é alto — reprocessar gasta a cota de
+    vetores, que é o recurso escasso deste projeto.
+    """
+    return hashlib.sha256(dados).hexdigest()
+
+
+def por_impressao(digital: str) -> dict[str, object] | None:
+    for livro in listar():
+        if livro.get("hash") == digital:
+            return livro
+    return None
+
+
+def _slug_livre(base: str) -> str:
+    """Slug que ainda não está em uso.
+
+    Sem isto, dois livros com nome de arquivo parecido se sobrescrevem em
+    silêncio — e o primeiro é perdido junto com a cota gasta para processá-lo.
+    """
+    if not (pasta_livros() / base).exists():
+        return base
+    for n in range(2, 200):
+        if not (pasta_livros() / f"{base}-{n}").exists():
+            return f"{base}-{n}"
+    raise BibliotecaError(f"Já existem livros demais com o nome '{base}'.")
+
+
+def compativel(livro: dict[str, object]) -> bool:
+    """Os vetores deste livro servem para a busca de hoje?
+
+    Trocar de modelo ou de número de dimensões invalida tudo que já foi
+    gravado. E a falha é traiçoeira: com dimensão diferente a multiplicação
+    estoura e o livro desaparece da busca sem avisar; com a MESMA dimensão e
+    modelo diferente, a conta funciona e devolve lixo — ela citaria a página
+    errada com toda a confiança.
+
+    Livro gravado antes desta versão não tem os campos. Assumir que combina é
+    correto: foi feito com estes mesmos valores.
+    """
+    return (
+        str(livro.get("modelo", MODELO_EMBED)) == MODELO_EMBED
+        and int(livro.get("dimensoes", DIMENSOES)) == DIMENSOES
+    )
+
+
+# --------------------------------------------------------------------------
 # Adicionar um livro
 # --------------------------------------------------------------------------
 
 
 async def adicionar(nome_arquivo: str, dados: bytes) -> AsyncIterator[dict[str, object]]:
     """Processa um arquivo, relatando o progresso conforme avança."""
+    if len(dados) > LIMITE_ARQUIVO:
+        raise BibliotecaError(
+            f"O arquivo tem {len(dados) // (1024 * 1024)} MB; o teto é "
+            f"{LIMITE_ARQUIVO // (1024 * 1024)} MB."
+        )
+
     titulo = Path(nome_arquivo).stem.replace("_", " ").replace("-", " ").strip()
-    slug = slugify(titulo)
-    destino = PASTA / slug
+
+    # Antes de qualquer trabalho: já processei este arquivo? A resposta vem do
+    # conteúdo, não do nome. Vetorizar de novo gastaria a cota à toa.
+    digital = impressao(dados)
+    repetido = por_impressao(digital)
+    if repetido:
+        yield {
+            "etapa": "repetido",
+            "texto": f"esse arquivo já está na biblioteca como \u201c{repetido['titulo']}\u201d",
+            "livro": repetido,
+        }
+        return
 
     yield {"etapa": "lendo", "texto": "extraindo o texto…"}
     paginas = extrair(nome_arquivo, dados)
@@ -245,24 +388,49 @@ async def adicionar(nome_arquivo: str, dados: bytes) -> AsyncIterator[dict[str, 
             "progresso": round(feito / total, 2),
         }
 
-    destino.mkdir(parents=True, exist_ok=True)
-    np.save(destino / "vetores.npy", _normalizar(np.array(vetores, dtype=np.float32)))
+    # Gravação atômica: monta numa pasta temporária e só então move para o
+    # lugar. Livro é feito de três arquivos que só servem juntos — vetores,
+    # trechos e meta. Interromper no meio deixaria um livro que a busca
+    # carrega e não consegue usar.
+    base_livros = pasta_livros()
+    base_livros.mkdir(parents=True, exist_ok=True)
+    slug = _slug_livre(slugify(titulo) or "documento")
+    destino = base_livros / slug
+    parcial = base_livros / f".{slug}.parcial"
 
-    with (destino / "trechos.jsonl").open("w", encoding="utf-8") as f:
-        for t in trechos:
-            f.write(json.dumps(t, ensure_ascii=False) + "\n")
+    if parcial.exists():
+        shutil.rmtree(parcial, ignore_errors=True)
+    parcial.mkdir(parents=True)
 
-    meta = {
-        "titulo": titulo,
-        "slug": slug,
-        "arquivo": nome_arquivo,
-        "paginas": len(paginas),
-        "trechos": total,
-        "criado": date.today().isoformat(),
-    }
-    (destino / "meta.json").write_text(
-        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    try:
+        np.save(parcial / "vetores.npy", _normalizar(np.array(vetores, dtype=np.float32)))
+
+        with (parcial / "trechos.jsonl").open("w", encoding="utf-8") as f:
+            for t in trechos:
+                f.write(json.dumps(t, ensure_ascii=False) + "\n")
+
+        meta = {
+            "titulo": titulo,
+            "slug": slug,
+            "arquivo": nome_arquivo,
+            "paginas": len(paginas),
+            "trechos": total,
+            "criado": date.today().isoformat(),
+            # Sem estes três, trocar de modelo ou de dimensão transforma os
+            # vetores antigos em lixo silencioso. Ver compativel().
+            "modelo": MODELO_EMBED,
+            "dimensoes": DIMENSOES,
+            "hash": digital,
+            "bytes": len(dados),
+        }
+        (parcial / "meta.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        parcial.replace(destino)
+    except Exception:
+        shutil.rmtree(parcial, ignore_errors=True)
+        raise
 
     yield {"etapa": "pronto", "livro": meta}
 
@@ -273,27 +441,31 @@ async def adicionar(nome_arquivo: str, dados: bytes) -> AsyncIterator[dict[str, 
 
 
 def listar() -> list[dict[str, object]]:
-    if not PASTA.exists():
+    base = pasta_livros()
+    if not base.exists():
         return []
     livros = []
-    for pasta in sorted(PASTA.iterdir()):
+    for pasta in sorted(base.iterdir()):
+        if pasta.name.startswith("."):
+            continue  # processamento interrompido, não é livro
         meta = pasta / "meta.json"
-        if meta.exists():
-            try:
-                livros.append(json.loads(meta.read_text(encoding="utf-8")))
-            except json.JSONDecodeError:
-                continue
+        if not meta.exists():
+            continue
+        try:
+            livro = json.loads(meta.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        livro["compativel"] = compativel(livro)
+        livros.append(livro)
     return livros
 
 
 def remover(slug: str) -> bool:
-    destino = PASTA / slugify(slug)
+    destino = pasta_livros() / slugify(slug)
     if not destino.exists() or not destino.is_dir():
         return False
-    for arquivo in destino.iterdir():
-        arquivo.unlink()
-    destino.rmdir()
-    return True
+    shutil.rmtree(destino, ignore_errors=True)
+    return not destino.exists()
 
 
 def vazia() -> bool:
@@ -320,7 +492,11 @@ async def buscar(pergunta: str, quantos: int = 4) -> list[dict[str, object]]:
     achados: list[dict[str, object]] = []
 
     for livro in livros:
-        pasta = PASTA / str(livro["slug"])
+        # Vetor de outro modelo daria semelhança sem significado. Pular é
+        # a única saída honesta: melhor não citar do que citar errado.
+        if not compativel(livro):
+            continue
+        pasta = pasta_livros() / str(livro["slug"])
         try:
             vetores = np.load(pasta / "vetores.npy")
             linhas = (pasta / "trechos.jsonl").read_text(encoding="utf-8").splitlines()

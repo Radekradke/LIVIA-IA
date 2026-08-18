@@ -499,6 +499,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .doc-desc { margin-top: 6px; line-height: 1.5; color: var(--texto); }
 .doc-body { margin-top: 8px; color: var(--texto-suave); white-space: pre-wrap; font-size: 12.5px; line-height: 1.5; }
 
+.aviso-livro {
+  margin-top: 8px; padding: 8px 11px; border-radius: 8px;
+  font-size: 12px; line-height: 1.45; color: var(--brilho);
+  background: rgba(142,15,42,.14); border: 1px solid var(--linha-forte);
+}
+
 .none {
   color: var(--texto-fraco); font-size: 13.5px; text-align: center;
   padding: 34px 16px; line-height: 1.65;
@@ -1135,6 +1141,11 @@ async function carregarLivros() {
           </div>
           <div class="doc-body" style="margin-top:5px">
             ${l.paginas} páginas · ${l.trechos} trechos · ${escapar(l.criado)}
+            ${l.compativel === false
+              ? `<div class="aviso-livro">Os vetores deste livro são de outra
+                 versão do modelo (${escapar(l.modelo || "desconhecido")}). Ele ficou
+                 fora das buscas — envie o arquivo de novo para reativá-lo.</div>`
+              : ""}
           </div>
         </div>`).join("")
     : `<div class="none">Nenhum livro ainda.<br>Envie um PDF e ela passa a consultá-lo.</div>`;
@@ -1143,12 +1154,12 @@ async function carregarLivros() {
     <p class="persona-ajuda">
       Ela não decora o livro. Quando você pergunta, ela procura os trechos que
       respondem e lê <b>aqueles</b> antes de responder — citando livro e página.
-      Aceita PDF, TXT e Markdown.
+      Aceita PDF, DOCX, TXT e Markdown.
     </p>
     ${lista}
     <div style="margin-top:12px">
       <button class="btn-livro" onclick="$('arqLivro').click()">Enviar arquivo</button>
-      <input type="file" id="arqLivro" accept=".pdf,.txt,.md,.markdown"
+      <input type="file" id="arqLivro" accept=".pdf,.docx,.txt,.md,.markdown"
              style="display:none" onchange="enviarLivro(this)">
       <div id="livroStatus" class="livro-status"></div>
     </div>`;
@@ -1196,6 +1207,12 @@ async function enviarLivro(input) {
         if (evt.etapa === "erro") {
           status.className = "livro-status erro";
           status.textContent = evt.texto;
+          return;
+        }
+        if (evt.etapa === "repetido") {
+          status.className = "livro-status ativo";
+          status.textContent = evt.texto;
+          carregarLivros();
           return;
         }
         if (evt.etapa === "pronto") {

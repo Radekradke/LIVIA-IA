@@ -79,10 +79,14 @@ def extrair(caminho: Path, rotulo: str) -> str:
 # --------------------------------------------------------------------------
 
 
-def _conferir_zip(caminho: Path, rotulo: str) -> None:
-    """Recusa antes de descompactar. O arquivo veio de fora."""
+def conferir_zip(origem, rotulo: str) -> None:
+    """Recusa antes de descompactar. O arquivo veio de fora.
+
+    `origem` é o que o zipfile aceita: um caminho ou bytes em memória. A
+    biblioteca recebe upload, que nunca toca o disco antes da conferência.
+    """
     try:
-        with zipfile.ZipFile(caminho) as z:
+        with zipfile.ZipFile(origem) as z:
             itens = z.infolist()
             descompactado = sum(i.file_size for i in itens)
             compactado = sum(i.compress_size for i in itens) or 1
@@ -162,7 +166,7 @@ def _pdf(caminho: Path, rotulo: str) -> str:
 
 
 def _docx(caminho: Path, rotulo: str) -> str:
-    _conferir_zip(caminho, rotulo)
+    conferir_zip(caminho, rotulo)
     from docx import Document
 
     try:
@@ -217,7 +221,7 @@ def _docx(caminho: Path, rotulo: str) -> str:
 
 
 def _xlsx(caminho: Path, rotulo: str) -> str:
-    _conferir_zip(caminho, rotulo)
+    conferir_zip(caminho, rotulo)
     from openpyxl import load_workbook
 
     try:
