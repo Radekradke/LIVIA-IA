@@ -10,7 +10,7 @@ memória entra em TODA conversa futura, então lixo acumulado degrada tudo.
 
 from __future__ import annotations
 
-from . import brain, config
+from . import brain, config, segredos
 from .store import memory
 
 _SCHEMA: dict[str, object] = {
@@ -93,6 +93,7 @@ async def extract(user_message: str, assistant_reply: str) -> list[dict[str, str
         return []
 
     saved: list[dict[str, str]] = []
+    recusadas: list[str] = []
     for item in raw[:3]:  # teto por rodada, para nunca virar enxurrada
         if not isinstance(item, dict):
             continue
@@ -100,9 +101,24 @@ async def extract(user_message: str, assistant_reply: str) -> list[dict[str, str
         description = str(item.get("description") or "").strip()
         if not name or not description:
             continue
+        # O prompt acima pede para nunca guardar segredo. Pedir não é
+        # garantir: quem decide é um modelo, e o André colou três chaves de
+        # API no chat durante o desenvolvimento. Memória entra em toda
+        # conversa futura e vai junto no backup — a conferência aqui não
+        # depende de o modelo se comportar bem.
+        achados = segredos.conferir(name, description, str(item.get("body") or ""))
+        if achados:
+            recusadas.append(segredos.motivo(achados))
+            continue
+
         kind = str(item.get("kind") or "nota").strip() or "nota"
         doc = memory.save(name, description, kind=kind)
         saved.append({"name": doc.name, "description": doc.description, "kind": kind})
+
+    for aviso in recusadas:
+        # Aparece no log do servidor. Silenciar esconderia justamente o
+        # caso que interessa saber que aconteceu.
+        print(f"[memória recusada] {aviso}")
 
     return saved
 

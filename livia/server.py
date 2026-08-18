@@ -27,7 +27,7 @@ from starlette.routing import Route
 
 from . import (
     arquivos, auth, backup, biblioteca, brain, config, context, db,
-    ferramentas, learner, persona, router, saude, web,
+    ferramentas, learner, persona, router, saude, segredos, web,
 )
 from .store import memory, skills
 
@@ -82,6 +82,12 @@ def _handle_command(text: str) -> str | None:
     if command == "/lembrar":
         if not argument:
             return "Use assim: `/lembrar prefiro Postgres a MySQL`"
+        achados = segredos.conferir(argument)
+        if achados:
+            # Recusar o pedido explícito do André é uma escolha: guardar
+            # seria pior para ele do que a recusa, e o motivo vai dito.
+            return segredos.motivo(achados)
+
         name = " ".join(argument.split()[:6])
         doc = memory.save(name, argument, kind="manual")
         return f"Gravado como **{doc.name}**.\n\n> {doc.description}"
@@ -407,6 +413,10 @@ async def create_doc(request: Request) -> Response:
     body = str(payload.get("body") or "")
     if not name or not description:
         return JSONResponse({"error": "nome e descrição são obrigatórios"}, status_code=400)
+
+    achados = segredos.conferir(name, description, body)
+    if achados:
+        return JSONResponse({"error": segredos.motivo(achados)}, status_code=400)
 
     doc = store.save(name, description, body, kind=str(payload.get("kind") or "manual"))
     return JSONResponse({"item": doc.to_json(), "stats": context.stats()})

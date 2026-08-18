@@ -302,9 +302,16 @@ def _objetos():
     return objetos
 
 
+def _consulta():
+    """Mesmo motivo do _objetos: consulta.py importa FerramentaError daqui."""
+    from . import consulta
+
+    return consulta
+
+
 def catalogo() -> list[dict[str, object]]:
     """Todas as ferramentas que o modelo enxerga, numa lista só."""
-    return CATALOGO + _objetos().CATALOGO
+    return CATALOGO + _objetos().CATALOGO + _consulta().CATALOGO
 
 
 _EXECUTORES = {
@@ -322,7 +329,11 @@ def executar(nome: str, argumentos: dict[str, object]) -> tuple[str, bool]:
     e costuma se corrigir sozinho na tentativa seguinte — pedir a listagem
     antes de ler, por exemplo. Derrubar a conversa não ajudaria ninguém.
     """
-    executor = _EXECUTORES.get(nome) or _objetos().EXECUTORES.get(nome)
+    executor = (
+        _EXECUTORES.get(nome)
+        or _objetos().EXECUTORES.get(nome)
+        or _consulta().EXECUTORES.get(nome)
+    )
     if executor is None:
         return f"A ferramenta '{nome}' não existe.", False
     try:
@@ -362,4 +373,4 @@ def resumir(nome: str, argumentos: dict[str, object]) -> str:
         return f"escrevendo {argumentos.get('caminho')}"
     if nome == "calcular":
         return f"calculando {argumentos.get('expressao')}"
-    return _objetos().resumir(nome, argumentos)
+    return _consulta().resumir(nome, argumentos) or _objetos().resumir(nome, argumentos)

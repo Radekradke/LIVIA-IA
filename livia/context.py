@@ -114,6 +114,17 @@ def build_system_prompt() -> str:
         "Não anuncie que está usando — só siga o procedimento."
     )
 
+    if config.TOOLS_ENABLED:
+        # Sem isto o índice acima seria uma promessa vazia: ela veria os
+        # títulos, saberia que há mais, e não teria como chegar lá.
+        partes.append(
+            "\n\nSe alguma seção acima vier só com os títulos, é porque a "
+            "coleção passou do orçamento de contexto. Use buscar_memorias, "
+            "ler_memoria, buscar_skills e ler_skill para abrir o que "
+            "precisar — não custam chamada de API. Leia a skill inteira "
+            "antes de seguir o procedimento: pela metade é pior que perguntar."
+        )
+
     return "".join(partes)
 
 
