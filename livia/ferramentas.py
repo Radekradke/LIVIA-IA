@@ -27,6 +27,7 @@ from __future__ import annotations
 import ast
 import json
 import operator
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -62,8 +63,20 @@ def _resolver(caminho: str) -> Path:
     if not caminho or not caminho.strip():
         raise FerramentaError("Faltou o caminho do arquivo.")
 
+    bruto = caminho.strip()
+
+    # Caminho absoluto é recusado, não reinterpretado. Aceitar `/etc/shadow`
+    # removendo a barra criaria `workspace/etc/shadow` em silêncio — o modelo
+    # pediu uma coisa e receberia outra, sem saber. Recusar é mais honesto e
+    # deixa o erro visível para ele se corrigir.
+    if bruto.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", bruto):
+        raise FerramentaError(
+            f"'{caminho}' é um caminho absoluto. Use caminho relativo à pasta "
+            "de trabalho, como 'notas/plano.md'."
+        )
+
     base = raiz()
-    alvo = (base / caminho.strip().lstrip("/\\")).resolve()
+    alvo = (base / bruto).resolve()
 
     if alvo != base and base not in alvo.parents:
         raise FerramentaError(
