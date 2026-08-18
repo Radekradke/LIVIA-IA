@@ -213,7 +213,7 @@ async def chat(request: Request) -> Response:
             for _ in range(config.TOOLS_MAX_ROUNDS):
                 try:
                     chamadas, eco = await brain.com_ferramentas(
-                        system_prompt, history, ferramentas.CATALOGO
+                        system_prompt, history, ferramentas.catalogo()
                     )
                 except brain.BrainError as exc:
                     yield _sse({"type": "error", "message": str(exc)})

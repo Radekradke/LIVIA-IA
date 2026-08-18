@@ -280,6 +280,18 @@ CATALOGO: list[dict[str, object]] = [
     },
 ]
 
+def _objetos():
+    """Import tardio: objetos.py depende deste módulo. No topo daria ciclo."""
+    from . import objetos
+
+    return objetos
+
+
+def catalogo() -> list[dict[str, object]]:
+    """Todas as ferramentas que o modelo enxerga, numa lista só."""
+    return CATALOGO + _objetos().CATALOGO
+
+
 _EXECUTORES = {
     "listar_arquivos": lambda a: listar(str(a.get("pasta") or "")),
     "ler_arquivo": lambda a: ler(str(a.get("caminho") or "")),
@@ -295,7 +307,7 @@ def executar(nome: str, argumentos: dict[str, object]) -> tuple[str, bool]:
     e costuma se corrigir sozinho na tentativa seguinte — pedir a listagem
     antes de ler, por exemplo. Derrubar a conversa não ajudaria ninguém.
     """
-    executor = _EXECUTORES.get(nome)
+    executor = _EXECUTORES.get(nome) or _objetos().EXECUTORES.get(nome)
     if executor is None:
         return f"A ferramenta '{nome}' não existe.", False
     try:
@@ -316,4 +328,4 @@ def resumir(nome: str, argumentos: dict[str, object]) -> str:
         return f"escrevendo {argumentos.get('caminho')}"
     if nome == "calcular":
         return f"calculando {argumentos.get('expressao')}"
-    return f"usando {nome}"
+    return _objetos().resumir(nome, argumentos)

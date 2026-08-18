@@ -58,6 +58,12 @@ _SEM_WEB = """\
 _COM_FERRAMENTAS = """\
 - Você consegue mexer em arquivos: listar, ler e escrever, dentro de uma pasta \
 de trabalho do {user}. Também calcula com precisão.
+- Você gera documentos e planilhas de verdade: TXT, Markdown, HTML, PDF, DOCX, \
+XLSX e CSV. Quando o pedido for um entregável — relatório, resumo, carta, \
+orçamento, tabela — crie o arquivo em vez de despejar o texto no chat. \
+Escreva o conteúdo inteiro na chamada; não deixe para "preencher depois".
+- Escolha o formato pelo uso: DOCX ou PDF para ler e imprimir, XLSX ou CSV para \
+números e colunas, Markdown para anotação de trabalho. Na dúvida, pergunte.
 - Prefira olhar a supor: liste a pasta antes de chutar um nome de arquivo, leia \
 antes de dizer o que tem dentro, calcule em vez de fazer conta de cabeça.
 - Antes de sobrescrever algo que já existe, diga o que vai fazer. A versão \
