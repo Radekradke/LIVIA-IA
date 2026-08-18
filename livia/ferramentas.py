@@ -27,6 +27,7 @@ from __future__ import annotations
 import ast
 import json
 import operator
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -62,8 +63,20 @@ def _resolver(caminho: str) -> Path:
     if not caminho or not caminho.strip():
         raise FerramentaError("Faltou o caminho do arquivo.")
 
+    bruto = caminho.strip()
+
+    # Caminho absoluto é recusado, não reinterpretado. Aceitar `/etc/shadow`
+    # removendo a barra criaria `workspace/etc/shadow` em silêncio — o modelo
+    # pediu uma coisa e receberia outra, sem saber. Recusar é mais honesto e
+    # deixa o erro visível para ele se corrigir.
+    if bruto.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", bruto):
+        raise FerramentaError(
+            f"'{caminho}' é um caminho absoluto. Use caminho relativo à pasta "
+            "de trabalho, como 'notas/plano.md'."
+        )
+
     base = raiz()
-    alvo = (base / caminho.strip().lstrip("/\\")).resolve()
+    alvo = (base / bruto).resolve()
 
     if alvo != base and base not in alvo.parents:
         raise FerramentaError(
@@ -107,21 +120,34 @@ def listar(pasta: str = "") -> str:
 
 
 def ler(caminho: str) -> str:
+    """Conteúdo legível de um arquivo — PDF, DOCX e XLSX inclusive.
+
+    O formato é decidido pela extensão, e o trabalho pesado fica em
+    leitura.py. Aqui só resolvemos o caminho, despachamos e cortamos no
+    limite: um PDF de 300 páginas estouraria a janela de contexto e a
+    resposta sairia pior do que se ela tivesse lido só o começo.
+    """
+    from . import leitura
+
     alvo = _resolver(caminho)
     if not alvo.exists():
         raise FerramentaError(f"O arquivo '{caminho}' não existe. Use listar_arquivos para ver o que há.")
     if alvo.is_dir():
         raise FerramentaError(f"'{caminho}' é uma pasta. Use listar_arquivos.")
 
-    try:
-        texto = alvo.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        raise FerramentaError(
-            f"'{caminho}' não é um arquivo de texto (parece binário). "
-            "Só consigo ler texto."
-        ) from None
-    except OSError as exc:
-        raise FerramentaError(f"Não consegui abrir '{caminho}': {exc}") from exc
+    if leitura.suportado(alvo):
+        texto = leitura.extrair(alvo, caminho)
+    else:
+        try:
+            texto = alvo.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise FerramentaError(
+                f"'{caminho}' não é um arquivo de texto (parece binário) e a "
+                f"extensão '{alvo.suffix or 'nenhuma'}' não é uma que eu saiba "
+                f"interpretar. Eu leio: {', '.join(leitura.EXTENSOES)} e texto."
+            ) from None
+        except OSError as exc:
+            raise FerramentaError(f"Não consegui abrir '{caminho}': {exc}") from exc
 
     if len(texto) > LIMITE_LEITURA:
         return (
@@ -224,8 +250,10 @@ CATALOGO: list[dict[str, object]] = [
     {
         "name": "ler_arquivo",
         "description": (
-            "Lê um arquivo de texto da pasta de trabalho e devolve o conteúdo. "
-            "Use quando precisar do que está escrito, em vez de supor."
+            "Lê um arquivo da pasta de trabalho e devolve o conteúdo em texto. "
+            "Entende PDF, DOCX, XLSX, CSV, JSON, HTML e qualquer arquivo de "
+            "texto. Use sempre que precisar do que está escrito, em vez de "
+            "supor pelo nome do arquivo."
         ),
         "parameters": {
             "type": "object",
@@ -267,6 +295,18 @@ CATALOGO: list[dict[str, object]] = [
     },
 ]
 
+def _objetos():
+    """Import tardio: objetos.py depende deste módulo. No topo daria ciclo."""
+    from . import objetos
+
+    return objetos
+
+
+def catalogo() -> list[dict[str, object]]:
+    """Todas as ferramentas que o modelo enxerga, numa lista só."""
+    return CATALOGO + _objetos().CATALOGO
+
+
 _EXECUTORES = {
     "listar_arquivos": lambda a: listar(str(a.get("pasta") or "")),
     "ler_arquivo": lambda a: ler(str(a.get("caminho") or "")),
@@ -282,7 +322,7 @@ def executar(nome: str, argumentos: dict[str, object]) -> tuple[str, bool]:
     e costuma se corrigir sozinho na tentativa seguinte — pedir a listagem
     antes de ler, por exemplo. Derrubar a conversa não ajudaria ninguém.
     """
-    executor = _EXECUTORES.get(nome)
+    executor = _EXECUTORES.get(nome) or _objetos().EXECUTORES.get(nome)
     if executor is None:
         return f"A ferramenta '{nome}' não existe.", False
     try:
@@ -303,4 +343,4 @@ def resumir(nome: str, argumentos: dict[str, object]) -> str:
         return f"escrevendo {argumentos.get('caminho')}"
     if nome == "calcular":
         return f"calculando {argumentos.get('expressao')}"
-    return f"usando {nome}"
+    return _objetos().resumir(nome, argumentos)

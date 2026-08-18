@@ -30,6 +30,27 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 GROQ_MODEL = os.getenv("LIVIA_GROQ_MODEL", "openai/gpt-oss-120b").strip()
 GROQ_FAST_MODEL = os.getenv("LIVIA_GROQ_FAST_MODEL", "openai/gpt-oss-20b").strip()
 
+# Terceiro provedor: OpenRouter. Só texto, de propósito — ele escolhe entre
+# dezenas de modelos gratuitos e nem todos honram ferramentas ou saída
+# estruturada do mesmo jeito. Oferecer e quebrar de forma imprevisível seria
+# pior que não oferecer.
+#
+# O modelo padrão `openrouter/free` é o roteador automático deles: escolhe um
+# gratuito compatível a cada pedido. Medido em 2026-08-18: ~3s, caiu no
+# Nemotron 3 Ultra e respondeu em português correto.
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
+OPENROUTER_MODEL = os.getenv("LIVIA_OPENROUTER_MODEL", "openrouter/free").strip()
+OPENROUTER_BASE_URL = os.getenv(
+    "LIVIA_OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+).strip().rstrip("/")
+OPENROUTER_ENABLED = (
+    os.getenv("LIVIA_OPENROUTER", "1").strip() != "0" and bool(OPENROUTER_API_KEY)
+)
+
+# Reservado para o futuro. Ligar isto sem testar modelo a modelo produz falha
+# silenciosa: o modelo aceita o parâmetro e ignora a ferramenta.
+OPENROUTER_TOOLS = os.getenv("LIVIA_OPENROUTER_TOOLS", "0").strip() != "0"
+
 # Ordem de tentativa. A Groq vem primeiro por três motivos medidos:
 # responde em ~1,2s contra ~3,5s do Gemini, publica o quanto resta da cota em
 # cabeçalho a cada resposta, e o limite dela (1000 pedidos/dia) é folgado.
@@ -40,7 +61,7 @@ GROQ_FAST_MODEL = os.getenv("LIVIA_GROQ_FAST_MODEL", "openai/gpt-oss-20b").strip
 # ordem fixa.
 PROVIDERS = [
     p.strip().lower()
-    for p in os.getenv("LIVIA_PROVIDERS", "groq,gemini").split(",")
+    for p in os.getenv("LIVIA_PROVIDERS", "groq,gemini,openrouter").split(",")
     if p.strip()
 ]
 USER_NAME = os.getenv("LIVIA_USER", "").strip()

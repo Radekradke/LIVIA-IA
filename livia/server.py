@@ -27,7 +27,7 @@ from starlette.routing import Route
 
 from . import (
     auth, backup, biblioteca, brain, config, context, db, ferramentas,
-    learner, persona, web,
+    learner, persona, router, saude, web,
 )
 from .store import memory, skills
 
@@ -213,7 +213,7 @@ async def chat(request: Request) -> Response:
             for _ in range(config.TOOLS_MAX_ROUNDS):
                 try:
                     chamadas, eco = await brain.com_ferramentas(
-                        system_prompt, history, ferramentas.CATALOGO
+                        system_prompt, history, ferramentas.catalogo()
                     )
                 except brain.BrainError as exc:
                     yield _sse({"type": "error", "message": str(exc)})
@@ -240,6 +240,11 @@ async def chat(request: Request) -> Response:
                         "resultado": resultado,
                     })
 
+        perfil = router.classificar(
+            message,
+            tem_documento=bool(blocos),
+        )
+
         fontes: list[str] = []
         usados: list[str] = []
         chunks: list[str] = []
@@ -250,10 +255,11 @@ async def chat(request: Request) -> Response:
                 ler_urls=config.WEB_ENABLED,
                 fontes=fontes,
                 usados=usados,
-                # Só o Gemini abre links. Com um URL na mensagem, mandamos
-                # para ele mesmo que a Groq seja a padrão — e se ele estiver
-                # fora, a fila normal assume e a resposta sai sem a leitura.
-                preferir="gemini" if tem_link else None,
+                # O roteador classifica a mensagem localmente e diz qual
+                # provedor prefere: link vai para quem abre páginas, tarefa
+                # técnica para o especialista, conversa curta para o rápido.
+                # É só preferência — o brain cuida da fila e do fallback.
+                preferir=perfil.preferred_provider,
             ):
                 if not chunks and tem_link and usados and usados[0] != "gemini":
                     # Pediu leitura de link, mas quem respondeu não sabe abrir
@@ -291,6 +297,13 @@ async def chat(request: Request) -> Response:
 
         if fontes:
             yield _sse({"type": "sources", "label": "páginas lidas", "urls": fontes})
+
+        for quebrado in saude.quebrados():
+            yield _sse({
+                "type": "status",
+                "text": f"{quebrado} está mal configurado e foi desativado — confira a chave no .env",
+                "fixo": True,
+            })
 
         # Só agora, com a resposta já na tela, decidimos o que memorizar.
         learned: list[dict[str, str]] = []
@@ -478,8 +491,35 @@ async def restaurar_backup(request: Request) -> Response:
     return JSONResponse({"restaurado": contagem, "stats": context.stats()})
 
 
-async def saude(request: Request) -> Response:
-    """Endpoint que hospedagens consultam para saber se o app está de pé."""
+async def diagnostico(request: Request) -> Response:
+    """Retrato do sistema para a interface. Nunca inclui segredo."""
+    ws = config.WORKSPACE
+    try:
+        ws.mkdir(parents=True, exist_ok=True)
+        teste = ws / ".escrita-teste"
+        teste.write_text("x", encoding="utf-8")
+        teste.unlink()
+        gravavel = True
+    except OSError:
+        gravavel = False
+
+    return JSONResponse({
+        "provedores": saude.diagnostico(),
+        "workspace": {"gravavel": gravavel, "pasta": ws.name},
+        "banco": {"disponivel": config.DB_PATH.exists()},
+        "biblioteca": {"documentos": len(biblioteca.listar())},
+        "ferramentas": {"ligadas": config.TOOLS_ENABLED},
+        "web": {"ligada": config.WEB_ENABLED},
+    })
+
+
+async def health_check(request: Request) -> Response:
+    """Endpoint que hospedagens consultam para saber se o app está de pé.
+
+    O nome Python NÃO pode ser `saude`: isso sombrearia o módulo homônimo,
+    e `saude.diagnostico()` passaria a chamar um atributo de função. Foi
+    exatamente o que aconteceu, e só um teste denunciou.
+    """
     return JSONResponse({"ok": True})
 
 
@@ -614,7 +654,8 @@ routes = [
     Route("/api/conversations", list_conversations),
     Route("/api/conversations/{conversation_id:int}", conversation_messages),
     Route("/api/conversations/{conversation_id:int}", delete_conversation, methods=["DELETE"]),
-    Route("/saude", saude),
+    Route("/saude", health_check),
+    Route("/api/diagnostico", diagnostico),
     Route("/api/biblioteca", listar_livros),
     Route("/api/biblioteca", enviar_livro, methods=["POST"]),
     Route("/api/biblioteca/{slug:str}", apagar_livro, methods=["DELETE"]),

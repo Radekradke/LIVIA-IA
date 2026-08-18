@@ -35,6 +35,7 @@ from . import config
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_URL_SUFIXO = "/chat/completions"
 TIMEOUT = httpx.Timeout(connect=10.0, read=180.0, write=30.0, pool=10.0)
 
 TENTATIVAS = 2  # por provedor, antes de passar para o próximo
@@ -47,6 +48,24 @@ class BrainError(RuntimeError):
 
 class ProvedorIndisponivel(RuntimeError):
     """Falha passageira de um provedor. Aciona o próximo da fila."""
+
+    def __init__(self, mensagem: str, tipo: str = "servidor") -> None:
+        super().__init__(mensagem)
+        self.tipo = tipo
+
+
+class ProvedorQuebrado(ProvedorIndisponivel):
+    """Erro de configuração: chave recusada ou modelo inexistente.
+
+    Também aciona o próximo da fila — uma chave errada na Groq não pode
+    derrubar a conversa quando o Gemini funciona. A diferença é que este
+    provedor sai de circulação até alguém mexer no .env, e o André é
+    avisado. A versão anterior derrubava tudo para o erro não passar
+    despercebido; resiliência COM aviso é melhor que rigidez.
+    """
+
+    def __init__(self, mensagem: str, tipo: str = "chave") -> None:
+        super().__init__(mensagem, tipo)
 
 
 # --------------------------------------------------------------------------
@@ -74,30 +93,29 @@ def _classificar(provedor: str, status: int, payload: str, modelo: str):
     detalhe = _api_message(payload)
 
     if status in (401, 403):
-        return BrainError(
-            f"[{provedor}] A chave da API foi recusada. Confira o valor no .env "
-            "e se ela continua ativa no painel do provedor."
+        return ProvedorQuebrado(
+            f"{provedor}: chave recusada — confira o valor no .env", "chave"
         )
     if status == 404:
-        base = (
-            f"[{provedor}] O modelo '{modelo}' não está disponível para a sua chave. "
-            "Troque no .env e reinicie o servidor."
+        extra = f" A API respondeu: {detalhe}" if detalhe else ""
+        return ProvedorQuebrado(
+            f"{provedor}: o modelo '{modelo}' não existe para esta chave.{extra}",
+            "modelo",
         )
-        return BrainError(f"{base}\n\nA API respondeu: {detalhe}" if detalhe else base)
     if status == 429:
-        return ProvedorIndisponivel(f"{provedor}: cota/limite atingido")
+        return ProvedorIndisponivel(f"{provedor}: cota/limite atingido", "cota")
     if status >= 500:
-        return ProvedorIndisponivel(f"{provedor}: servidor fora ({status})")
+        return ProvedorIndisponivel(f"{provedor}: servidor fora ({status})", "servidor")
 
-    return BrainError(
-        f"[{provedor}] Erro {status}: {detalhe or payload[:250]}"
+    return ProvedorQuebrado(
+        f"{provedor}: erro {status}. {detalhe or payload[:200]}", "modelo"
     )
 
 
 def _provedores() -> list[str]:
     """Os provedores configurados que têm chave, na ordem pedida."""
-    chaves = {"gemini": config.GEMINI_API_KEY, "groq": config.GROQ_API_KEY}
-    return [p for p in config.PROVIDERS if chaves.get(p)]
+    from . import router
+    return [p for p in router.disponiveis() if p in _STREAMS]
 
 
 # --------------------------------------------------------------------------
@@ -309,28 +327,36 @@ def _groq_messages(
     return saida
 
 
-async def _groq_stream(
+async def _openai_compativel_stream(
+    provedor: str,
+    url: str,
+    chave: str,
+    modelo: str,
     system_prompt: str,
-    messages: Iterable[dict[str, str]],
+    messages: Iterable[dict[str, object]],
     temperature: float,
+    extra_headers: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
-    modelo = config.GROQ_MODEL
+    """Motor comum da Groq e do OpenRouter — os dois falam o formato da OpenAI.
+
+    Duplicar isso seria pedir para as duas implementações divergirem com o
+    tempo, e a que ninguém olha é a que quebra.
+    """
     corpo = {
         "model": modelo,
         "messages": _groq_messages(system_prompt, messages),
         "temperature": temperature,
         "stream": True,
     }
-    headers = {
-        "Authorization": f"Bearer {config.GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {chave}", "Content-Type": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
 
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        async with client.stream("POST", GROQ_URL, json=corpo, headers=headers) as resp:
+        async with client.stream("POST", url, json=corpo, headers=headers) as resp:
             if resp.status_code >= 400:
                 detalhe = (await resp.aread()).decode("utf-8", "replace")
-                raise _classificar("groq", resp.status_code, detalhe, modelo)
+                raise _classificar(provedor, resp.status_code, detalhe, modelo)
 
             async for linha in resp.aiter_lines():
                 if not linha.startswith("data:"):
@@ -349,6 +375,37 @@ async def _groq_stream(
                 if isinstance(delta, dict) and isinstance(delta.get("content"), str):
                     if delta["content"]:
                         yield delta["content"]
+
+
+async def _groq_stream(system_prompt, messages, temperature) -> AsyncIterator[str]:
+    async for pedaco in _openai_compativel_stream(
+        "groq", GROQ_URL, config.GROQ_API_KEY, config.GROQ_MODEL,
+        system_prompt, messages, temperature,
+    ):
+        yield pedaco
+
+
+async def _openrouter_stream(system_prompt, messages, temperature) -> AsyncIterator[str]:
+    """OpenRouter: só texto. Sem ferramentas, sem saída estruturada.
+
+    O modelo padrão (`openrouter/free`) escolhe entre dezenas de gratuitos a
+    cada pedido, e nem todos honram esses formatos do mesmo jeito. Melhor não
+    prometer do que prometer e falhar em silêncio — ver router.CATALOGO.
+    """
+    async for pedaco in _openai_compativel_stream(
+        "openrouter",
+        config.OPENROUTER_BASE_URL + OPENROUTER_URL_SUFIXO,
+        config.OPENROUTER_API_KEY,
+        config.OPENROUTER_MODEL,
+        system_prompt, messages, temperature,
+        # Cabeçalhos de cortesia do OpenRouter: identificam a origem no painel
+        # deles. Não carregam nada sensível.
+        extra_headers={
+            "HTTP-Referer": "https://github.com/Radekradke/LIVIA-IA",
+            "X-Title": "LIVIA",
+        },
+    ):
+        yield pedaco
 
 
 async def _groq_structured(
@@ -388,7 +445,11 @@ async def _groq_structured(
 # API pública
 # --------------------------------------------------------------------------
 
-_STREAMS = {"gemini": _gemini_stream, "groq": _groq_stream}
+_STREAMS = {
+    "gemini": _gemini_stream,
+    "groq": _groq_stream,
+    "openrouter": _openrouter_stream,
+}
 _STRUCTURED = {"gemini": _gemini_structured, "groq": _groq_structured}
 
 
@@ -412,9 +473,19 @@ async def stream(
     Gemini, então uma mensagem com URL vai para ele mesmo que a Groq seja a
     padrão. Os demais continuam na fila como reserva.
     """
-    disponiveis = _provedores()
-    if preferir and preferir in disponiveis:
-        disponiveis = [preferir] + [p for p in disponiveis if p != preferir]
+    from . import saude
+
+    configurados = _provedores()
+    if preferir and preferir in configurados:
+        configurados = [preferir] + [p for p in configurados if p != preferir]
+
+    # Quem está de castigo sai da vez. Se TODOS estiverem, tentamos mesmo
+    # assim — uma chance contra a parede é melhor que recusar de cara.
+    disponiveis, de_castigo = saude.filtrar(configurados)
+    if not disponiveis:
+        disponiveis = [
+            p for p in configurados if not saude._de(p).quebrado
+        ] or configurados
     if not disponiveis:
         raise BrainError(
             "Nenhuma chave de API configurada. Crie um .env na pasta do projeto "
@@ -442,12 +513,23 @@ async def stream(
                 async for pedaco in gerador:
                     if not entregou_algo:
                         entregou_algo = True
+                        saude.registrar_sucesso(provedor)
                         if usados is not None:
                             usados.append(provedor)
                     yield pedaco
                 return
 
+            except ProvedorQuebrado as exc:
+                # Configuração errada: este provedor sai de circulação, mas a
+                # conversa segue nos outros. Repetir não adiantaria.
+                saude.registrar_falha(provedor, exc.tipo, str(exc))
+                if entregou_algo:
+                    raise BrainError(f"A resposta foi interrompida: {exc}") from exc
+                problemas.append(str(exc))
+                break
+
             except ProvedorIndisponivel as exc:
+                saude.registrar_falha(provedor, exc.tipo, str(exc))
                 if entregou_algo:
                     raise BrainError(f"A resposta foi interrompida: {exc}") from exc
                 problemas.append(str(exc))
@@ -457,11 +539,13 @@ async def stream(
                 break  # próximo provedor
 
             except BrainError:
-                raise  # erro de configuração: trocar de provedor não resolve
+                raise
 
             except (httpx.TimeoutException, httpx.RequestError) as exc:
                 if entregou_algo:
                     raise BrainError("A resposta foi interrompida no meio.") from exc
+                tipo = "timeout" if isinstance(exc, httpx.TimeoutException) else "rede"
+                saude.registrar_falha(provedor, tipo, f"{provedor}: {type(exc).__name__}")
                 problemas.append(f"{provedor}: {type(exc).__name__}")
                 if not ultima_tentativa:
                     await asyncio.sleep(ESPERA_BASE * (2**tentativa))
@@ -472,12 +556,22 @@ async def stream(
             # As tentativas repetidas do mesmo provedor viram uma linha só —
             # ler "gemini: cota" três vezes não ajuda ninguém.
             unicos = list(dict.fromkeys(problemas))
-            raise BrainError(
-                "Todos os provedores falharam:\n  - "
-                + "\n  - ".join(unicos)
-                + "\n\nSe for limite de cota, ele reseta sozinho. "
+            texto = "Todos os provedores falharam:\n  - " + "\n  - ".join(unicos)
+            if de_castigo:
+                texto += (
+                    "\n\n(descansando por falha recente: " + ", ".join(de_castigo) + ")"
+                )
+            precisam = saude.quebrados()
+            if precisam:
+                texto += (
+                    "\n\nPrecisam de correção no .env: " + ", ".join(precisam)
+                    + ". Depois de ajustar, reinicie o servidor."
+                )
+            texto += (
+                "\n\nSe for limite de cota, ele reseta sozinho. "
                 "Espere alguns minutos e tente de novo."
             )
+            raise BrainError(texto)
 
 
 async def com_ferramentas(
