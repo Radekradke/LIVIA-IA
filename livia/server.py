@@ -26,8 +26,8 @@ from starlette.responses import (
 from starlette.routing import Route
 
 from . import (
-    auth, backup, biblioteca, brain, config, context, db, ferramentas,
-    learner, persona, router, saude, web,
+    arquivos, auth, backup, biblioteca, brain, config, context, db,
+    ferramentas, learner, persona, router, saude, web,
 )
 from .store import memory, skills
 
@@ -233,6 +233,17 @@ async def chat(request: Request) -> Response:
                     resultado, ok = ferramentas.executar(chamada["nome"], chamada["args"])
                     if not ok:
                         yield _sse({"type": "acao", "texto": f"⚠ {resultado}", "falhou": True})
+
+                    # Arquivo gravado vira cartão com link de download. A
+                    # confirmação é no disco: se a gravação falhou, sobre()
+                    # devolve None e nada é anunciado.
+                    if ok:
+                        gravado = ferramentas.arquivo_gravado(
+                            chamada["nome"], chamada["args"]
+                        )
+                        ficha = arquivos.sobre(gravado) if gravado else None
+                        if ficha:
+                            yield _sse({"type": "file", **ficha})
                     history.append({
                         "role": "ferramenta",
                         "id": chamada["id"],
@@ -491,6 +502,38 @@ async def restaurar_backup(request: Request) -> Response:
     return JSONResponse({"restaurado": contagem, "stats": context.stats()})
 
 
+async def listar_workspace(request: Request) -> Response:
+    """O que existe na pasta de trabalho, do mais recente ao mais antigo."""
+    itens = arquivos.listar()
+    return JSONResponse({
+        "arquivos": itens,
+        "pasta": config.WORKSPACE.name,
+        "total": len(itens),
+    })
+
+
+async def baixar_arquivo(request: Request) -> Response:
+    """Entrega um arquivo da pasta de trabalho.
+
+    SEMPRE como anexo e SEMPRE como octet-stream. A Livia escreve arquivos
+    .html; servir um deles inline executaria o JavaScript dele na mesma
+    origem do painel, com acesso ao cookie de sessão. Quem escreve esse
+    conteúdo é um modelo que leu a internet — inline seria XSS armazenado
+    de graça.
+    """
+    try:
+        alvo = arquivos.para_download(request.path_params["caminho"])
+    except ferramentas.FerramentaError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404)
+
+    return FileResponse(
+        alvo,
+        filename=alvo.name,
+        media_type="application/octet-stream",
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
 async def diagnostico(request: Request) -> Response:
     """Retrato do sistema para a interface. Nunca inclui segredo."""
     ws = config.WORKSPACE
@@ -656,6 +699,8 @@ routes = [
     Route("/api/conversations/{conversation_id:int}", delete_conversation, methods=["DELETE"]),
     Route("/saude", health_check),
     Route("/api/diagnostico", diagnostico),
+    Route("/api/workspace", listar_workspace),
+    Route("/api/workspace/{caminho:path}", baixar_arquivo),
     Route("/api/biblioteca", listar_livros),
     Route("/api/biblioteca", enviar_livro, methods=["POST"]),
     Route("/api/biblioteca/{slug:str}", apagar_livro, methods=["DELETE"]),

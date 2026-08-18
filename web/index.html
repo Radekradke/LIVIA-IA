@@ -346,6 +346,47 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .learned b { color: var(--creme); font-weight: 600; }
 
+/* Arquivo criado durante a conversa. Cartao com link, porque "criei o
+   relatorio" sem como pegar o relatorio nao entrega nada. */
+.arquivo {
+  display: flex; align-items: center; gap: 13px; margin-top: 15px;
+  padding: 12px 16px; border-radius: var(--raio-p);
+  background: linear-gradient(150deg, var(--painel-alto), var(--painel));
+  border: 1px solid var(--linha-forte);
+  box-shadow: var(--luz-topo), var(--sombra-baixa);
+  text-decoration: none; color: inherit; max-width: 380px;
+  transition: border-color .16s, box-shadow .16s, transform .16s;
+}
+.arquivo:hover {
+  transform: translateY(-1px); border-color: var(--rubi);
+  box-shadow: var(--luz-topo), 0 8px 22px rgba(142,15,42,.26);
+}
+.arquivo .selo {
+  flex: none; width: 36px; height: 36px; border-radius: 9px;
+  display: grid; place-items: center; font-size: 16px;
+  background: var(--sunk); border: 1px solid var(--linha);
+}
+.arquivo .info { min-width: 0; flex: 1; }
+.arquivo .nome {
+  font-size: 13.5px; color: var(--creme); font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.arquivo .meta { font-size: 11.5px; color: var(--texto-fraco); margin-top: 2px; }
+.arquivo .baixar { flex: none; font-size: 11px; color: var(--brilho); letter-spacing: .1em;
+  text-transform: uppercase; font-weight: 700; }
+
+.arq-lista { display: flex; flex-direction: column; gap: 8px; }
+.arq { display: flex; align-items: center; gap: 11px; padding: 10px 13px;
+  border-radius: var(--raio-p); background: var(--sunk);
+  border: 1px solid var(--linha); text-decoration: none; color: inherit;
+  transition: border-color .16s, transform .16s; }
+.arq:hover { border-color: var(--linha-forte); transform: translateX(2px); }
+.arq.copia { opacity: .55; }
+.arq .selo { flex: none; font-size: 15px; width: 22px; text-align: center; }
+.arq .nome { font-size: 13px; color: var(--texto); flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arq .meta { font-size: 11px; color: var(--texto-fraco); font-family: var(--mono); flex: none; }
+
 .error {
   border-left: 2px solid var(--rubi); padding: 12px 17px;
   background: linear-gradient(100deg, rgba(142,15,42,.18), transparent);
@@ -661,6 +702,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     <button class="tab active" data-kind="memories" onclick="trocarAba('memories')">Memórias</button>
     <button class="tab" data-kind="skills" onclick="trocarAba('skills')">Skills</button>
     <button class="tab" data-kind="livros" onclick="trocarAba('livros')">Livros</button>
+    <button class="tab" data-kind="arquivos" onclick="trocarAba('arquivos')">Arquivos</button>
     <button class="tab" data-kind="persona" onclick="trocarAba('persona')">Jeito</button>
   </div>
   <div id="docs"></div>
@@ -920,6 +962,9 @@ async function enviar() {
           mostrarAcao(bolha, evt.texto, evt.falhou);
         } else if (evt.type === "status") {
           mostrarStatus(bolha, evt.text, evt.fixo);
+        } else if (evt.type === "file") {
+          mostrarArquivo(bolha, evt);
+          if (abaAtual === "arquivos") carregarArquivos();
         } else if (evt.type === "livros") {
           mostrarFontes(bolha, "dos seus livros", evt.trechos, true);
         } else if (evt.type === "sources") {
@@ -1007,6 +1052,61 @@ async function apagarConversa(id) {
   else carregarConversas();
 }
 
+/* ---------- arquivos da pasta de trabalho ---------- */
+// A Livia dizer "criei o relatorio" sem o relatorio chegar a lugar nenhum
+// nao entrega nada. Cada arquivo gravado vira um cartao com link.
+const SELOS = { documento: "\u{1F4C4}", planilha: "\u{1F4CA}", texto: "\u{1F4DD}",
+                codigo: "\u{1F4BB}", imagem: "\u{1F5BC}\uFE0F", arquivo: "\u{1F4C1}" };
+
+function linkArquivo(caminho) {
+  return "/api/workspace/" + caminho.split("/").map(encodeURIComponent).join("/");
+}
+
+function mostrarArquivo(bolha, ficha) {
+  const a = document.createElement("a");
+  a.className = "arquivo";
+  a.href = linkArquivo(ficha.caminho);
+  a.setAttribute("download", ficha.nome);
+  a.innerHTML = `
+    <span class="selo">${SELOS[ficha.familia] || SELOS.arquivo}</span>
+    <span class="info">
+      <span class="nome">${escapar(ficha.nome)}</span>
+      <span class="meta">${escapar(ficha.tamanho)}${ficha.pasta ? " · em " + escapar(ficha.pasta) : ""}</span>
+    </span>
+    <span class="baixar">baixar</span>`;
+  bolha.appendChild(a);
+  descer();
+}
+
+async function carregarArquivos() {
+  let dados;
+  try {
+    dados = await (await fetch("/api/workspace")).json();
+  } catch {
+    $("docs").innerHTML = `<div class="none">Não consegui ler a pasta.</div>`;
+    return;
+  }
+
+  const arqs = dados.arquivos || [];
+  const lista = arqs.length
+    ? `<div class="arq-lista">` + arqs.map((a) => `
+        <a class="arq${a.backup ? " copia" : ""}" href="${linkArquivo(a.caminho)}"
+           download="${escapar(a.nome)}" title="${escapar(a.caminho)}">
+          <span class="selo">${SELOS[a.familia] || SELOS.arquivo}</span>
+          <span class="nome">${escapar(a.nome)}</span>
+          <span class="meta">${escapar(a.tamanho)}</span>
+        </a>`).join("") + `</div>`
+    : `<div class="none">A pasta está vazia.<br>Peça um relatório ou uma planilha e ela aparece aqui.</div>`;
+
+  $("docs").innerHTML = `
+    <p class="persona-ajuda">
+      Tudo que ela cria fica em <b>${escapar(dados.pasta)}/</b>, e só ali — fora
+      dessa pasta ela não alcança nada. Clique para baixar. As entradas apagadas
+      são cópias que ela guardou antes de sobrescrever algo.
+    </p>
+    ${lista}`;
+}
+
 /* ---------- painel ---------- */
 function togglePanel() { $("panel").classList.toggle("hidden"); }
 
@@ -1014,9 +1114,11 @@ function trocarAba(kind) {
   abaAtual = kind;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.kind === kind));
-  $("addForm").style.display = (kind === "persona" || kind === "livros") ? "none" : "";
+  const semForm = ["persona", "livros", "arquivos"].includes(kind);
+  $("addForm").style.display = semForm ? "none" : "";
   if (kind === "persona") carregarPersona();
   else if (kind === "livros") carregarLivros();
+  else if (kind === "arquivos") carregarArquivos();
   else carregarDocs();
 }
 

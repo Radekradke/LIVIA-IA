@@ -333,6 +333,25 @@ def executar(nome: str, argumentos: dict[str, object]) -> tuple[str, bool]:
         return f"Falha inesperada em {nome}: {exc}", False
 
 
+# Ferramentas que gravam arquivo. A interface precisa saber para oferecer o
+# download — sem isso a Livia diz "criei o relatório" e o arquivo fica só no
+# disco do servidor, fora do alcance de quem pediu.
+CRIAM_ARQUIVO = ("escrever_arquivo", "criar_documento", "criar_planilha")
+
+
+def arquivo_gravado(nome: str, argumentos: dict[str, object]) -> str | None:
+    """Caminho relativo que a chamada gravou, ou None.
+
+    Só o que a ferramenta PEDIU para gravar. Quem confirma que existe de
+    verdade é arquivos.sobre(), depois — anunciar um arquivo que falhou
+    seria pior que não anunciar nada.
+    """
+    if nome not in CRIAM_ARQUIVO:
+        return None
+    caminho = argumentos.get("caminho")
+    return str(caminho).strip() if caminho else None
+
+
 def resumir(nome: str, argumentos: dict[str, object]) -> str:
     """Frase curta para a interface mostrar o que está acontecendo."""
     if nome == "listar_arquivos":
