@@ -3,6 +3,10 @@
 Guia do começo ao fim. As partes que exigem seus dados pessoais são suas; o
 resto é copiar e colar.
 
+> **Já tem a conta criada?** Pule para a [Parte 1, passo 2](#parte-1--criar-a-conta-e-a-máquina-você-faz).
+> São uns 20 minutos: criar a máquina, entrar por SSH, rodar um script, criar
+> o túnel. O caminho inteiro está aqui embaixo, na ordem.
+
 Tempo: cerca de 40 minutos, sendo 30 deles esperando o cadastro.
 
 ---
@@ -38,9 +42,15 @@ próxima (`Brazil East (São Paulo)` ou `Brazil Southeast (Vitória)`).
 | Forma (shape) | `VM.Standard.A1.Flex` — ARM, 1 OCPU, 6 GB. Se der erro de capacidade, use `VM.Standard.E2.1.Micro` |
 | Chave SSH | **Baixe a chave privada** e guarde. Sem ela você não entra |
 
-> **Sobre "out of capacity" no ARM:** é comum e não é erro seu. A forma
-> `E2.1.Micro` tem só 1 GB de RAM, mas roda esta aplicação sem problema —
-> ela é leve. Se quiser o ARM, tente de novo em outro horário.
+> **Sobre "out of capacity" no ARM:** é comum e não é erro seu. A demanda
+> pelo A1.Flex gratuito é alta e a Oracle recusa por região. Tentar em outro
+> horário costuma funcionar.
+>
+> **Se ficar na `E2.1.Micro` (1 GB de RAM):** funciona, mas a *instalação*
+> aperta. Montar a imagem instala numpy, reportlab e pypdf, e 1 GB não dá
+> conta — o sistema mata o processo no meio, com uma mensagem que não explica
+> nada. O `instalar.sh` detecta isso e cria 2 GB de swap antes de começar.
+> Não pule o script achando que é só rodar o `docker compose`.
 
 **3.** Anote o **IP público** que aparece na página da instância.
 
@@ -82,9 +92,17 @@ O script roda em três etapas e **para de propósito** entre elas:
 1. **Primeira execução** — instala o Docker e pede para você sair e entrar de
    novo no SSH. Isso é necessário: sua conta só entra no grupo do Docker na
    próxima sessão.
-2. **Segunda execução** — cria o `.env`, **gera uma senha forte e mostra na
-   tela** (anote), e pede a chave de API. Edite com `nano .env`.
+2. **Segunda execução** — cria a swap se a máquina for pequena, cria o `.env`,
+   **gera uma senha forte e mostra na tela** (anote), e pede a chave de API.
+   Edite com `nano .env`.
 3. **Terceira execução** — sobe tudo.
+
+**O `.env` da VM é um arquivo diferente do da sua máquina.** As chaves não
+viajam pelo `git` — o `.gitignore` impede, e ainda bem. Você vai colar
+`GEMINI_API_KEY` e `GROQ_API_KEY` de novo, ali dentro.
+
+> Aproveite para colar chaves **novas**. As que você já usou em conversa de
+> chat devem ser trocadas de qualquer jeito.
 
 ---
 
@@ -132,9 +150,19 @@ docker compose down               # parar (os dados ficam no volume)
 Faça de vez em quando mesmo aqui. Disco de VM também falha, e conta gratuita
 pode ser suspensa por inatividade.
 
+**Conferir que o disco persiste:** aba **Estado**, linha `conversas`. Se o
+número cresce e continua lá depois de um `docker compose restart`, o volume
+está fazendo o trabalho dele. Se voltar a zero, o volume não está montado — e
+é melhor descobrir isso agora que depois de três meses de memórias.
+
 ---
 
 ## Quando algo der errado
+
+**Primeiro passo, sempre:** abra o painel lateral → aba **Estado**. Ela diz
+qual provedor está fora e por quê, se dá para escrever no disco, e quantas
+conversas existem. Provedor mudo e disco sem permissão dão o mesmo sintoma no
+chat e têm conserto completamente diferente.
 
 | Sintoma | Causa quase certa |
 |---|---|
@@ -144,6 +172,9 @@ pode ser suspensa por inatividade.
 | Livia responde "chave recusada" | `GEMINI_API_KEY` faltando ou errada no `.env` da VM — é um arquivo diferente do da sua máquina |
 | Esqueci a senha | `grep LIVIA_PASSWORD .env` |
 | ARM dá "out of capacity" | Normal. Use `E2.1.Micro` ou tente em outro horário |
+| O build morre sem explicar | Falta de memória na `E2.1.Micro`. Rode o `instalar.sh`, que cria swap |
+| Login aceita a senha e volta para a tela | Não deveria mais acontecer: o servidor detecta HTTPS sozinho. Se voltar, veja `docker compose logs livia` |
+| A aba Estado mostra conversas voltando a zero | O disco não está persistindo — confira se o volume `dados` está montado |
 
 ---
 

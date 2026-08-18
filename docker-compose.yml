@@ -19,7 +19,9 @@ services:
     environment:
       LIVIA_DATA_DIR: /data
       LIVIA_HOST: 0.0.0.0
-      LIVIA_HTTPS: "1"
+      # LIVIA_HTTPS nao entra aqui: o servidor detecta HTTPS pelo
+      # X-Forwarded-Proto que o tunel manda. Fixar a mao era o que
+      # causava o loop de login.
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8100/saude')"]
