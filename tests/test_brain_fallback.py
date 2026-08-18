@@ -132,6 +132,7 @@ async def test_modelo_inexistente_repassa_a_mensagem_da_api(monkeypatch):
 async def test_sem_nenhuma_chave_da_erro_util(monkeypatch):
     monkeypatch.setattr(config, "GEMINI_API_KEY", "")
     monkeypatch.setattr(config, "GROQ_API_KEY", "")
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
 
     with pytest.raises(brain.BrainError) as erro:
         await coletar()
@@ -171,4 +172,73 @@ async def test_preferir_muda_a_ordem(monkeypatch):
 def test_provedor_sem_chave_sai_da_fila(monkeypatch):
     monkeypatch.setattr(config, "PROVIDERS", ["groq", "gemini"])
     monkeypatch.setattr(config, "GROQ_API_KEY", "")
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
     assert brain._provedores() == ["gemini"]
+
+
+def test_openrouter_entra_na_fila_so_com_chave(monkeypatch):
+    """Configurar a chave basta — sem precisar editar LIVIA_PROVIDERS também."""
+    monkeypatch.setattr(config, "PROVIDERS", ["groq", "gemini"])
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
+    assert "openrouter" not in brain._provedores()
+
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "chave-falsa-or")
+    assert brain._provedores()[-1] == "openrouter", "entra no fim, sem furar a ordem"
+
+
+# ── OpenRouter ────────────────────────────────────────────────────────────
+
+OPENROUTER = "https://openrouter.ai/api/v1/chat/completions"
+
+
+@respx.mock
+async def test_openrouter_responde(monkeypatch):
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "chave-falsa-or")
+    monkeypatch.setattr(config, "PROVIDERS", ["openrouter"])
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(config, "GROQ_API_KEY", "")
+    respx.post(OPENROUTER).mock(
+        return_value=httpx.Response(200, text=sse_groq("veio do openrouter"))
+    )
+
+    texto, usados = await coletar()
+    assert usados == ["openrouter"] and "openrouter" in texto
+
+
+@respx.mock
+async def test_openrouter_429_passa_adiante(monkeypatch):
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "chave-falsa-or")
+    monkeypatch.setattr(config, "PROVIDERS", ["openrouter", "groq"])
+    monkeypatch.setattr(brain, "TENTATIVAS", 1)
+    respx.post(OPENROUTER).mock(return_value=httpx.Response(429))
+    respx.post(GROQ).mock(return_value=httpx.Response(200, text=sse_groq("groq salvou")))
+
+    _, usados = await coletar()
+    assert usados == ["groq"]
+
+
+@respx.mock
+async def test_openrouter_nunca_recebe_ferramentas(monkeypatch):
+    """O catálogo do roteador não declara `tools` para ele. Isto fixa isso."""
+    from livia import router
+
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "chave-falsa-or")
+    monkeypatch.setattr(config, "PROVIDERS", ["openrouter", "groq", "gemini"])
+    _, ordem = router.escolher("liste os arquivos", precisa_ferramentas=True)
+    assert "openrouter" not in ordem
+
+
+@respx.mock
+async def test_token_do_openrouter_nunca_vaza_na_mensagem_de_erro(monkeypatch):
+    segredo = "sk-or-v1-super-secreto-nao-pode-vazar"
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", segredo)
+    monkeypatch.setattr(config, "PROVIDERS", ["openrouter"])
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(config, "GROQ_API_KEY", "")
+    respx.post(OPENROUTER).mock(
+        return_value=httpx.Response(401, json={"error": {"message": "no auth"}})
+    )
+
+    with pytest.raises(brain.BrainError) as erro:
+        await coletar()
+    assert segredo not in str(erro.value)

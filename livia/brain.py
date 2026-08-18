@@ -35,6 +35,7 @@ from . import config
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_URL_SUFIXO = "/chat/completions"
 TIMEOUT = httpx.Timeout(connect=10.0, read=180.0, write=30.0, pool=10.0)
 
 TENTATIVAS = 2  # por provedor, antes de passar para o próximo
@@ -96,8 +97,8 @@ def _classificar(provedor: str, status: int, payload: str, modelo: str):
 
 def _provedores() -> list[str]:
     """Os provedores configurados que têm chave, na ordem pedida."""
-    chaves = {"gemini": config.GEMINI_API_KEY, "groq": config.GROQ_API_KEY}
-    return [p for p in config.PROVIDERS if chaves.get(p)]
+    from . import router
+    return [p for p in router.disponiveis() if p in _STREAMS]
 
 
 # --------------------------------------------------------------------------
@@ -309,28 +310,36 @@ def _groq_messages(
     return saida
 
 
-async def _groq_stream(
+async def _openai_compativel_stream(
+    provedor: str,
+    url: str,
+    chave: str,
+    modelo: str,
     system_prompt: str,
-    messages: Iterable[dict[str, str]],
+    messages: Iterable[dict[str, object]],
     temperature: float,
+    extra_headers: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
-    modelo = config.GROQ_MODEL
+    """Motor comum da Groq e do OpenRouter — os dois falam o formato da OpenAI.
+
+    Duplicar isso seria pedir para as duas implementações divergirem com o
+    tempo, e a que ninguém olha é a que quebra.
+    """
     corpo = {
         "model": modelo,
         "messages": _groq_messages(system_prompt, messages),
         "temperature": temperature,
         "stream": True,
     }
-    headers = {
-        "Authorization": f"Bearer {config.GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {chave}", "Content-Type": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
 
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        async with client.stream("POST", GROQ_URL, json=corpo, headers=headers) as resp:
+        async with client.stream("POST", url, json=corpo, headers=headers) as resp:
             if resp.status_code >= 400:
                 detalhe = (await resp.aread()).decode("utf-8", "replace")
-                raise _classificar("groq", resp.status_code, detalhe, modelo)
+                raise _classificar(provedor, resp.status_code, detalhe, modelo)
 
             async for linha in resp.aiter_lines():
                 if not linha.startswith("data:"):
@@ -349,6 +358,37 @@ async def _groq_stream(
                 if isinstance(delta, dict) and isinstance(delta.get("content"), str):
                     if delta["content"]:
                         yield delta["content"]
+
+
+async def _groq_stream(system_prompt, messages, temperature) -> AsyncIterator[str]:
+    async for pedaco in _openai_compativel_stream(
+        "groq", GROQ_URL, config.GROQ_API_KEY, config.GROQ_MODEL,
+        system_prompt, messages, temperature,
+    ):
+        yield pedaco
+
+
+async def _openrouter_stream(system_prompt, messages, temperature) -> AsyncIterator[str]:
+    """OpenRouter: só texto. Sem ferramentas, sem saída estruturada.
+
+    O modelo padrão (`openrouter/free`) escolhe entre dezenas de gratuitos a
+    cada pedido, e nem todos honram esses formatos do mesmo jeito. Melhor não
+    prometer do que prometer e falhar em silêncio — ver router.CATALOGO.
+    """
+    async for pedaco in _openai_compativel_stream(
+        "openrouter",
+        config.OPENROUTER_BASE_URL + OPENROUTER_URL_SUFIXO,
+        config.OPENROUTER_API_KEY,
+        config.OPENROUTER_MODEL,
+        system_prompt, messages, temperature,
+        # Cabeçalhos de cortesia do OpenRouter: identificam a origem no painel
+        # deles. Não carregam nada sensível.
+        extra_headers={
+            "HTTP-Referer": "https://github.com/Radekradke/LIVIA-IA",
+            "X-Title": "LIVIA",
+        },
+    ):
+        yield pedaco
 
 
 async def _groq_structured(
@@ -388,7 +428,11 @@ async def _groq_structured(
 # API pública
 # --------------------------------------------------------------------------
 
-_STREAMS = {"gemini": _gemini_stream, "groq": _groq_stream}
+_STREAMS = {
+    "gemini": _gemini_stream,
+    "groq": _groq_stream,
+    "openrouter": _openrouter_stream,
+}
 _STRUCTURED = {"gemini": _gemini_structured, "groq": _groq_structured}
 
 

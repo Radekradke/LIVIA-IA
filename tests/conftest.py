@@ -22,6 +22,9 @@ os.environ["LIVIA_DATA_DIR"] = str(_TMP)
 os.environ["LIVIA_WORKSPACE"] = str(_TMP / "workspace")
 os.environ["GEMINI_API_KEY"] = "chave-falsa-gemini"
 os.environ["GROQ_API_KEY"] = "chave-falsa-groq"
+# Vazio de propósito: sem isto os testes usariam a chave real do .env e
+# fariam chamadas de verdade. Quem for testar o OpenRouter liga na hora.
+os.environ["OPENROUTER_API_KEY"] = ""
 os.environ["LIVIA_PASSWORD"] = "senha-de-teste"
 os.environ["LIVIA_AUTO_LEARN"] = "0"
 os.environ["LIVIA_WEB"] = "0"
