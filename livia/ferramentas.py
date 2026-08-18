@@ -120,21 +120,34 @@ def listar(pasta: str = "") -> str:
 
 
 def ler(caminho: str) -> str:
+    """Conteúdo legível de um arquivo — PDF, DOCX e XLSX inclusive.
+
+    O formato é decidido pela extensão, e o trabalho pesado fica em
+    leitura.py. Aqui só resolvemos o caminho, despachamos e cortamos no
+    limite: um PDF de 300 páginas estouraria a janela de contexto e a
+    resposta sairia pior do que se ela tivesse lido só o começo.
+    """
+    from . import leitura
+
     alvo = _resolver(caminho)
     if not alvo.exists():
         raise FerramentaError(f"O arquivo '{caminho}' não existe. Use listar_arquivos para ver o que há.")
     if alvo.is_dir():
         raise FerramentaError(f"'{caminho}' é uma pasta. Use listar_arquivos.")
 
-    try:
-        texto = alvo.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        raise FerramentaError(
-            f"'{caminho}' não é um arquivo de texto (parece binário). "
-            "Só consigo ler texto."
-        ) from None
-    except OSError as exc:
-        raise FerramentaError(f"Não consegui abrir '{caminho}': {exc}") from exc
+    if leitura.suportado(alvo):
+        texto = leitura.extrair(alvo, caminho)
+    else:
+        try:
+            texto = alvo.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise FerramentaError(
+                f"'{caminho}' não é um arquivo de texto (parece binário) e a "
+                f"extensão '{alvo.suffix or 'nenhuma'}' não é uma que eu saiba "
+                f"interpretar. Eu leio: {', '.join(leitura.EXTENSOES)} e texto."
+            ) from None
+        except OSError as exc:
+            raise FerramentaError(f"Não consegui abrir '{caminho}': {exc}") from exc
 
     if len(texto) > LIMITE_LEITURA:
         return (
@@ -237,8 +250,10 @@ CATALOGO: list[dict[str, object]] = [
     {
         "name": "ler_arquivo",
         "description": (
-            "Lê um arquivo de texto da pasta de trabalho e devolve o conteúdo. "
-            "Use quando precisar do que está escrito, em vez de supor."
+            "Lê um arquivo da pasta de trabalho e devolve o conteúdo em texto. "
+            "Entende PDF, DOCX, XLSX, CSV, JSON, HTML e qualquer arquivo de "
+            "texto. Use sempre que precisar do que está escrito, em vez de "
+            "supor pelo nome do arquivo."
         ),
         "parameters": {
             "type": "object",
