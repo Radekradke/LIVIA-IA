@@ -100,3 +100,35 @@ def test_comando_ajuda_nao_chama_modelo(logado):
     r = logado.post("/api/chat", json={"message": "/ajuda"})
     assert r.status_code == 200
     assert "Comandos" in r.text
+
+
+# ── diagnóstico (fase 4/10) ───────────────────────────────────────────────
+
+
+def test_diagnostico_exige_sessao(cliente):
+    assert cliente.get("/api/diagnostico").status_code == 401
+
+
+def test_diagnostico_traz_o_estado_dos_provedores(logado):
+    d = logado.get("/api/diagnostico").json()
+    assert set(d) >= {"provedores", "workspace", "banco", "biblioteca", "ferramentas"}
+    for nome in ("groq", "gemini", "openrouter"):
+        assert nome in d["provedores"]
+        assert set(d["provedores"][nome]) >= {"configurado", "disponivel", "modelo"}
+
+
+def test_diagnostico_nunca_vaza_segredo(logado):
+    corpo = logado.get("/api/diagnostico").text
+    assert config.PASSWORD not in corpo
+    assert "chave-falsa" not in corpo
+    for proibido in ("API_KEY", "api_key", "token", "Bearer", "senha", "cookie"):
+        assert proibido not in corpo, f"'{proibido}' não pode aparecer"
+
+
+def test_diagnostico_mostra_provedor_quebrado(logado):
+    from livia import saude
+
+    saude.registrar_falha("groq", "chave", "groq: chave recusada")
+    d = logado.get("/api/diagnostico").json()
+    assert d["provedores"]["groq"]["quebrado"] is True
+    assert d["provedores"]["groq"]["disponivel"] is False

@@ -49,6 +49,24 @@ class BrainError(RuntimeError):
 class ProvedorIndisponivel(RuntimeError):
     """Falha passageira de um provedor. Aciona o próximo da fila."""
 
+    def __init__(self, mensagem: str, tipo: str = "servidor") -> None:
+        super().__init__(mensagem)
+        self.tipo = tipo
+
+
+class ProvedorQuebrado(ProvedorIndisponivel):
+    """Erro de configuração: chave recusada ou modelo inexistente.
+
+    Também aciona o próximo da fila — uma chave errada na Groq não pode
+    derrubar a conversa quando o Gemini funciona. A diferença é que este
+    provedor sai de circulação até alguém mexer no .env, e o André é
+    avisado. A versão anterior derrubava tudo para o erro não passar
+    despercebido; resiliência COM aviso é melhor que rigidez.
+    """
+
+    def __init__(self, mensagem: str, tipo: str = "chave") -> None:
+        super().__init__(mensagem, tipo)
+
 
 # --------------------------------------------------------------------------
 # Diagnóstico compartilhado
@@ -75,23 +93,22 @@ def _classificar(provedor: str, status: int, payload: str, modelo: str):
     detalhe = _api_message(payload)
 
     if status in (401, 403):
-        return BrainError(
-            f"[{provedor}] A chave da API foi recusada. Confira o valor no .env "
-            "e se ela continua ativa no painel do provedor."
+        return ProvedorQuebrado(
+            f"{provedor}: chave recusada — confira o valor no .env", "chave"
         )
     if status == 404:
-        base = (
-            f"[{provedor}] O modelo '{modelo}' não está disponível para a sua chave. "
-            "Troque no .env e reinicie o servidor."
+        extra = f" A API respondeu: {detalhe}" if detalhe else ""
+        return ProvedorQuebrado(
+            f"{provedor}: o modelo '{modelo}' não existe para esta chave.{extra}",
+            "modelo",
         )
-        return BrainError(f"{base}\n\nA API respondeu: {detalhe}" if detalhe else base)
     if status == 429:
-        return ProvedorIndisponivel(f"{provedor}: cota/limite atingido")
+        return ProvedorIndisponivel(f"{provedor}: cota/limite atingido", "cota")
     if status >= 500:
-        return ProvedorIndisponivel(f"{provedor}: servidor fora ({status})")
+        return ProvedorIndisponivel(f"{provedor}: servidor fora ({status})", "servidor")
 
-    return BrainError(
-        f"[{provedor}] Erro {status}: {detalhe or payload[:250]}"
+    return ProvedorQuebrado(
+        f"{provedor}: erro {status}. {detalhe or payload[:200]}", "modelo"
     )
 
 
@@ -456,9 +473,19 @@ async def stream(
     Gemini, então uma mensagem com URL vai para ele mesmo que a Groq seja a
     padrão. Os demais continuam na fila como reserva.
     """
-    disponiveis = _provedores()
-    if preferir and preferir in disponiveis:
-        disponiveis = [preferir] + [p for p in disponiveis if p != preferir]
+    from . import saude
+
+    configurados = _provedores()
+    if preferir and preferir in configurados:
+        configurados = [preferir] + [p for p in configurados if p != preferir]
+
+    # Quem está de castigo sai da vez. Se TODOS estiverem, tentamos mesmo
+    # assim — uma chance contra a parede é melhor que recusar de cara.
+    disponiveis, de_castigo = saude.filtrar(configurados)
+    if not disponiveis:
+        disponiveis = [
+            p for p in configurados if not saude._de(p).quebrado
+        ] or configurados
     if not disponiveis:
         raise BrainError(
             "Nenhuma chave de API configurada. Crie um .env na pasta do projeto "
@@ -486,12 +513,23 @@ async def stream(
                 async for pedaco in gerador:
                     if not entregou_algo:
                         entregou_algo = True
+                        saude.registrar_sucesso(provedor)
                         if usados is not None:
                             usados.append(provedor)
                     yield pedaco
                 return
 
+            except ProvedorQuebrado as exc:
+                # Configuração errada: este provedor sai de circulação, mas a
+                # conversa segue nos outros. Repetir não adiantaria.
+                saude.registrar_falha(provedor, exc.tipo, str(exc))
+                if entregou_algo:
+                    raise BrainError(f"A resposta foi interrompida: {exc}") from exc
+                problemas.append(str(exc))
+                break
+
             except ProvedorIndisponivel as exc:
+                saude.registrar_falha(provedor, exc.tipo, str(exc))
                 if entregou_algo:
                     raise BrainError(f"A resposta foi interrompida: {exc}") from exc
                 problemas.append(str(exc))
@@ -501,11 +539,13 @@ async def stream(
                 break  # próximo provedor
 
             except BrainError:
-                raise  # erro de configuração: trocar de provedor não resolve
+                raise
 
             except (httpx.TimeoutException, httpx.RequestError) as exc:
                 if entregou_algo:
                     raise BrainError("A resposta foi interrompida no meio.") from exc
+                tipo = "timeout" if isinstance(exc, httpx.TimeoutException) else "rede"
+                saude.registrar_falha(provedor, tipo, f"{provedor}: {type(exc).__name__}")
                 problemas.append(f"{provedor}: {type(exc).__name__}")
                 if not ultima_tentativa:
                     await asyncio.sleep(ESPERA_BASE * (2**tentativa))
@@ -516,12 +556,22 @@ async def stream(
             # As tentativas repetidas do mesmo provedor viram uma linha só —
             # ler "gemini: cota" três vezes não ajuda ninguém.
             unicos = list(dict.fromkeys(problemas))
-            raise BrainError(
-                "Todos os provedores falharam:\n  - "
-                + "\n  - ".join(unicos)
-                + "\n\nSe for limite de cota, ele reseta sozinho. "
+            texto = "Todos os provedores falharam:\n  - " + "\n  - ".join(unicos)
+            if de_castigo:
+                texto += (
+                    "\n\n(descansando por falha recente: " + ", ".join(de_castigo) + ")"
+                )
+            precisam = saude.quebrados()
+            if precisam:
+                texto += (
+                    "\n\nPrecisam de correção no .env: " + ", ".join(precisam)
+                    + ". Depois de ajustar, reinicie o servidor."
+                )
+            texto += (
+                "\n\nSe for limite de cota, ele reseta sozinho. "
                 "Espere alguns minutos e tente de novo."
             )
+            raise BrainError(texto)
 
 
 async def com_ferramentas(

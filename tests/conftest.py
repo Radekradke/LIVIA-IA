@@ -55,3 +55,18 @@ def dados(tmp_path, monkeypatch):
     destino.mkdir()
     monkeypatch.setattr(config, "DATA_DIR", destino)
     return destino
+
+
+@pytest.fixture(autouse=True)
+def _saude_limpa():
+    """Zera o disjuntor entre testes.
+
+    O estado de saúde é global e de memória. Sem isto, um teste que marca a
+    Groq como quebrada faz o seguinte pular a Groq — e o segundo falha por
+    um motivo que não tem nada a ver com ele.
+    """
+    from livia import saude
+
+    saude.limpar()
+    yield
+    saude.limpar()

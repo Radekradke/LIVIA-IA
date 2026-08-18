@@ -91,27 +91,56 @@ async def test_timeout_passa_para_o_proximo(monkeypatch):
 
 
 @respx.mock
-async def test_chave_invalida_nao_aciona_fallback(monkeypatch):
-    """401 é problema de configuração. Trocar de provedor esconderia isso."""
+async def test_chave_invalida_nao_derruba_os_outros(monkeypatch):
+    """Uma chave errada tira AQUELE provedor, não a conversa.
+
+    A versão anterior deste teste exigia o oposto: 401 derrubava tudo, para
+    o erro não passar despercebido. Resiliência com aviso é melhor que
+    rigidez — o provedor sai de circulação, `saude.quebrados()` registra, e
+    a interface avisa. O André descobre sem ficar sem assistente.
+    """
+    from livia import saude
+
     monkeypatch.setattr(config, "PROVIDERS", ["groq", "gemini"])
-    rota_groq = respx.post(GROQ).mock(
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
+    respx.post(GROQ).mock(
         return_value=httpx.Response(401, json={"error": {"message": "invalid key"}})
     )
-    rota_gemini = respx.post(url__startswith=GEMINI).mock(
-        return_value=httpx.Response(200, text=sse_gemini("nao deveria ser usado"))
+    respx.post(url__startswith=GEMINI).mock(
+        return_value=httpx.Response(200, text=sse_gemini("o reserva atendeu"))
     )
 
-    with pytest.raises(brain.BrainError) as erro:
-        await coletar()
+    texto, usados = await coletar()
+    assert usados == ["gemini"] and "reserva" in texto
+    assert "groq" in saude.quebrados(), "a Groq deveria ficar marcada"
+    assert not saude.disponivel("groq")
 
-    assert "chave" in str(erro.value).lower()
-    assert rota_groq.called
-    assert not rota_gemini.called, "não deveria ter tentado o reserva"
+
+@respx.mock
+async def test_provedor_quebrado_nao_e_tentado_de_novo(monkeypatch):
+    """Depois de marcado, ele nem entra na fila — sem gastar outra chamada."""
+    from livia import saude
+
+    monkeypatch.setattr(config, "PROVIDERS", ["groq", "gemini"])
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
+    rota_groq = respx.post(GROQ).mock(return_value=httpx.Response(401))
+    respx.post(url__startswith=GEMINI).mock(
+        return_value=httpx.Response(200, text=sse_gemini("ok"))
+    )
+
+    await coletar()
+    chamadas_iniciais = rota_groq.call_count
+
+    await coletar()
+    assert rota_groq.call_count == chamadas_iniciais, "não deveria tentar de novo"
 
 
 @respx.mock
 async def test_modelo_inexistente_repassa_a_mensagem_da_api(monkeypatch):
+    """Sem outro provedor, o erro sobe — e leva junto o recado da API."""
     monkeypatch.setattr(config, "PROVIDERS", ["gemini"])
+    monkeypatch.setattr(config, "GROQ_API_KEY", "")
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
     respx.post(url__startswith=GEMINI).mock(
         return_value=httpx.Response(
             404,
@@ -123,7 +152,46 @@ async def test_modelo_inexistente_repassa_a_mensagem_da_api(monkeypatch):
         await coletar()
 
     # A mensagem do Google diz qual modelo usar. Esconder isso seria cruel.
-    assert "gemini-9" in str(erro.value)
+    msg = str(erro.value)
+    assert "gemini-9" in msg
+    assert ".env" in msg, "deveria dizer onde corrigir"
+
+
+@respx.mock
+async def test_cota_estourada_poe_o_provedor_de_castigo(monkeypatch):
+    from livia import saude
+
+    monkeypatch.setattr(config, "PROVIDERS", ["groq", "gemini"])
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
+    monkeypatch.setattr(brain, "TENTATIVAS", 1)
+    respx.post(GROQ).mock(return_value=httpx.Response(429))
+    respx.post(url__startswith=GEMINI).mock(
+        return_value=httpx.Response(200, text=sse_gemini("ok"))
+    )
+
+    await coletar()
+    assert "groq" in saude.descansando()
+    assert "groq" not in saude.quebrados(), "cota passa sozinha; não é quebra"
+
+
+@respx.mock
+async def test_sucesso_limpa_o_castigo(monkeypatch):
+    from livia import saude
+
+    monkeypatch.setattr(config, "PROVIDERS", ["groq"])
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
+
+    saude.registrar_falha("groq", "cota", "cota estourada")
+    assert not saude.disponivel("groq")
+
+    # Sem mais ninguém na fila, o provedor de castigo é tentado assim mesmo —
+    # uma chance contra a parede é melhor que recusar de cara.
+    respx.post(GROQ).mock(return_value=httpx.Response(200, text=sse_groq("voltei")))
+    texto, usados = await coletar()
+
+    assert usados == ["groq"] and "voltei" in texto
+    assert saude.disponivel("groq"), "sucesso deveria limpar o castigo"
 
 
 # ── casos-limite ──────────────────────────────────────────────────────────
