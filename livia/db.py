@@ -66,6 +66,16 @@ def create_conversation(title: str = "Nova conversa") -> int:
         return int(cur.lastrowid)
 
 
+def count_conversations() -> int:
+    """Quantas conversas existem.
+
+    O diagnóstico mostra isto porque é a prova mais direta de que o disco
+    persiste: numa hospedagem de disco efêmero o número volta a zero sozinho.
+    """
+    with _connect() as conn:
+        return int(conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0])
+
+
 def list_conversations(limit: int = 50) -> list[dict[str, object]]:
     with _connect() as conn:
         rows = conn.execute(

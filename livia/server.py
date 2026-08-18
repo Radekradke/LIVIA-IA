@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -545,24 +546,65 @@ async def baixar_arquivo(request: Request) -> Response:
 
 
 async def diagnostico(request: Request) -> Response:
-    """Retrato do sistema para a interface. Nunca inclui segredo."""
-    ws = config.WORKSPACE
-    try:
+    """Retrato do sistema para a interface. Nunca inclui segredo.
+
+    Cada sonda é isolada. Isto é consultado JUSTAMENTE quando algo está
+    quebrado, então uma sonda que estoura não pode derrubar o retrato
+    inteiro — a tela que explica o problema morreria por causa dele. Um teste
+    pegou exatamente isso: `mkdir` levanta ValueError, não OSError, em certos
+    caminhos, e o endpoint respondia 500.
+    """
+
+    def sonda(funcao, padrao=None):
+        try:
+            return funcao()
+        except Exception:
+            return padrao
+
+    def workspace_gravavel() -> bool:
+        ws = config.WORKSPACE
         ws.mkdir(parents=True, exist_ok=True)
         teste = ws / ".escrita-teste"
         teste.write_text("x", encoding="utf-8")
         teste.unlink()
-        gravavel = True
-    except OSError:
-        gravavel = False
+        return True
+
+    livros = sonda(biblioteca.listar, []) or []
 
     return JSONResponse({
-        "provedores": saude.diagnostico(),
-        "workspace": {"gravavel": gravavel, "pasta": ws.name},
-        "banco": {"disponivel": config.DB_PATH.exists()},
-        "biblioteca": {"documentos": len(biblioteca.listar())},
-        "ferramentas": {"ligadas": config.TOOLS_ENABLED},
+        "provedores": sonda(saude.diagnostico, {}) or {},
+        "workspace": {
+            # None quando nem deu para tentar — diferente de False, que é
+            # "tentei e não consegui". A interface trata os dois como problema,
+            # mas o log fica honesto.
+            "gravavel": sonda(workspace_gravavel, False),
+            "pasta": sonda(lambda: config.WORKSPACE.name, "?"),
+            "arquivos": len(sonda(arquivos.listar, []) or []),
+        },
+        "banco": {
+            "disponivel": sonda(lambda: config.DB_PATH.exists(), False),
+            # Conversa gravada é a prova mais direta de que o disco persiste:
+            # em hospedagem de disco efêmero o número volta a zero sozinho, e
+            # é assim que o André descobre — antes de perder as memórias sem
+            # entender por quê.
+            "conversas": sonda(db.count_conversations),
+        },
+        "biblioteca": {
+            "documentos": len(livros),
+            "invalidos": sum(1 for l in livros if l.get("compativel") is False),
+        },
+        "memoria": {
+            "memorias": sonda(memory.count, 0),
+            "skills": sonda(skills.count, 0),
+            "aprende_sozinha": config.AUTO_LEARN,
+        },
+        "ferramentas": {
+            "ligadas": config.TOOLS_ENABLED,
+            "quantas": len(sonda(ferramentas.catalogo, []) or []),
+        },
         "web": {"ligada": config.WEB_ENABLED},
+        "protegido": sonda(auth.protegido, True),
+        "momento": datetime.now().isoformat(timespec="seconds"),
     })
 
 

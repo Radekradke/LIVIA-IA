@@ -505,6 +505,36 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   background: rgba(142,15,42,.14); border: 1px solid var(--linha-forte);
 }
 
+/* Diagnostico. Discreto de proposito: isto e para consultar quando algo
+   parece errado, nao um painel para ficar olhando. */
+.diag-grupo { margin-bottom: 18px; }
+.diag-titulo {
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--texto-fraco); font-weight: 700; margin-bottom: 8px;
+}
+.diag-linha {
+  display: flex; align-items: baseline; gap: 9px; padding: 7px 0;
+  border-bottom: 1px solid var(--linha); font-size: 13px;
+}
+.diag-linha:last-child { border-bottom: none; }
+.diag-ponto {
+  flex: none; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--texto-fraco); align-self: center;
+}
+.diag-ponto.ok { background: #4a9; box-shadow: 0 0 7px rgba(68,153,136,.55); }
+.diag-ponto.espera { background: #c93; box-shadow: 0 0 7px rgba(204,153,51,.5); }
+.diag-ponto.ruim { background: var(--rubi); box-shadow: 0 0 7px rgba(179,23,62,.55); }
+.diag-nome { color: var(--texto); flex: none; min-width: 92px; }
+.diag-valor {
+  color: var(--texto-fraco); font-family: var(--mono); font-size: 11.5px;
+  flex: 1; min-width: 0; overflow-wrap: anywhere;
+}
+.diag-motivo {
+  color: var(--brilho); font-size: 11.5px; margin: -2px 0 8px 16px;
+  line-height: 1.45;
+}
+.diag-momento { color: var(--texto-fraco); font-size: 11px; margin-top: 14px; text-align: right; }
+
 .none {
   color: var(--texto-fraco); font-size: 13.5px; text-align: center;
   padding: 34px 16px; line-height: 1.65;
@@ -709,6 +739,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     <button class="tab" data-kind="skills" onclick="trocarAba('skills')">Skills</button>
     <button class="tab" data-kind="livros" onclick="trocarAba('livros')">Livros</button>
     <button class="tab" data-kind="arquivos" onclick="trocarAba('arquivos')">Arquivos</button>
+    <button class="tab" data-kind="estado" onclick="trocarAba('estado')">Estado</button>
     <button class="tab" data-kind="persona" onclick="trocarAba('persona')">Jeito</button>
   </div>
   <div id="docs"></div>
@@ -1113,6 +1144,87 @@ async function carregarArquivos() {
     ${lista}`;
 }
 
+/* ---------- diagnostico ---------- */
+// Serve para uma pergunta so: "por que ela esta estranha agora?". Provedor
+// mudo, disco cheio, livro invalidado — tudo isso da sintoma parecido no
+// chat e causa diferente aqui.
+function linhaDiag(nome, valor, estado, motivo) {
+  const ponto = estado ? ` ${estado}` : "";
+  return `
+    <div class="diag-linha">
+      <span class="diag-ponto${ponto}"></span>
+      <span class="diag-nome">${escapar(nome)}</span>
+      <span class="diag-valor">${escapar(valor)}</span>
+    </div>` + (motivo ? `<div class="diag-motivo">${escapar(motivo)}</div>` : "");
+}
+
+function estadoProvedor(p) {
+  if (!p.configurado) return ["", "sem chave no .env"];
+  if (p.quebrado) return ["ruim", "precisa de conserto"];
+  if (!p.disponivel) {
+    const s = p.descanso_segundos;
+    return ["espera", s ? `descansando ${Math.ceil(s)}s` : "descansando"];
+  }
+  return ["ok", "pronta"];
+}
+
+async function carregarEstado() {
+  let d;
+  try {
+    d = await (await fetch("/api/diagnostico")).json();
+  } catch {
+    $("docs").innerHTML = `<div class="none">Não consegui ler o estado.</div>`;
+    return;
+  }
+
+  const provedores = Object.entries(d.provedores || {}).map(([nome, p]) => {
+    const [cor, resumo] = estadoProvedor(p);
+    // O último erro só aparece quando ainda importa. Erro velho de provedor
+    // que já voltou vira ruído e faz duvidar do que está funcionando.
+    const motivo = (p.quebrado || (!p.disponivel && p.configurado)) ? p.ultimo_erro : "";
+    return linhaDiag(nome, `${p.modelo || "—"} · ${resumo}`, cor, motivo);
+  }).join("");
+
+  const ws = d.workspace || {}, banco = d.banco || {}, bib = d.biblioteca || {};
+  const mem = d.memoria || {}, fer = d.ferramentas || {};
+
+  const sistema = [
+    linhaDiag("pasta", `${ws.pasta || "?"}/ · ${ws.arquivos ?? 0} arquivos`,
+              ws.gravavel ? "ok" : "ruim",
+              ws.gravavel ? "" : "não consigo escrever aí — nada do que ela criar vai ser salvo"),
+    linhaDiag("conversas", banco.conversas == null ? "banco indisponível" : `${banco.conversas} salvas`,
+              banco.disponivel ? "ok" : "ruim",
+              banco.disponivel ? "" : "o banco não existe; as conversas não estão sendo guardadas"),
+    linhaDiag("memória", `${mem.memorias ?? 0} memórias · ${mem.skills ?? 0} skills`, "ok",
+              mem.aprende_sozinha ? "" : "aprendizado automático desligado (LIVIA_AUTO_LEARN=0)"),
+    linhaDiag("biblioteca", `${bib.documentos ?? 0} livros`,
+              bib.invalidos ? "espera" : "ok",
+              bib.invalidos ? `${bib.invalidos} com vetores de outro modelo, fora das buscas` : ""),
+    linhaDiag("ferramentas", fer.ligadas ? `${fer.quantas} disponíveis` : "desligadas",
+              fer.ligadas ? "ok" : ""),
+    linhaDiag("web", d.web?.ligada ? "ligada" : "desligada", d.web?.ligada ? "ok" : ""),
+    linhaDiag("senha", d.protegido ? "exigida" : "sem senha",
+              d.protegido ? "ok" : "espera",
+              d.protegido ? "" : "sem LIVIA_PASSWORD ela só atende esta máquina — o que é seguro, mas impede acesso de fora"),
+  ].join("");
+
+  $("docs").innerHTML = `
+    <p class="persona-ajuda">
+      Para quando ela parecer estranha. Provedor mudo, disco cheio e livro
+      invalidado dão sintoma parecido no chat e causa diferente aqui.
+      Nenhuma chave aparece nesta tela.
+    </p>
+    <div class="diag-grupo">
+      <div class="diag-titulo">provedores</div>
+      ${provedores || '<div class="none">Nenhum provedor configurado.</div>'}
+    </div>
+    <div class="diag-grupo">
+      <div class="diag-titulo">sistema</div>
+      ${sistema}
+    </div>
+    <div class="diag-momento">consultado às ${escapar((d.momento || "").slice(11, 19))}</div>`;
+}
+
 /* ---------- painel ---------- */
 function togglePanel() { $("panel").classList.toggle("hidden"); }
 
@@ -1120,11 +1232,12 @@ function trocarAba(kind) {
   abaAtual = kind;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.kind === kind));
-  const semForm = ["persona", "livros", "arquivos"].includes(kind);
+  const semForm = ["persona", "livros", "arquivos", "estado"].includes(kind);
   $("addForm").style.display = semForm ? "none" : "";
   if (kind === "persona") carregarPersona();
   else if (kind === "livros") carregarLivros();
   else if (kind === "arquivos") carregarArquivos();
+  else if (kind === "estado") carregarEstado();
   else carregarDocs();
 }
 
