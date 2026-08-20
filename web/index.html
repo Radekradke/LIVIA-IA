@@ -7,74 +7,112 @@
 <link rel="icon" href="data:,">
 <style>
 /* ══════════════════════════════════════════════════════════════════
-   LIVIA — tema rubi
-   Superfícies em três camadas: pedra (fundo), vidro fumê (painéis),
-   gema lapidada (botões e destaques). O brilho vem sempre de dentro
-   para fora, nunca de uma sombra chapada por cima.
+   LIVIA — tema mármore e circuito
+
+   A ideia que segura tudo: veio de mármore e trilha de circuito são a
+   MESMA linha. Os dois ramificam, se bifurcam e correm por dentro de uma
+   superfície dura. Então isto não põe "pedra" ao lado de "tecnologia" —
+   funde as duas, e faz a luz correr por dentro do veio.
+
+   Três materiais, que já combinam entre si fora da tela:
+
+     mármore negro   o fundo polido, com veio branco atravessando
+     latão           o metal embutido na pedra, morno, discreto
+     ciano glacial   a energia — a única coisa aqui que emite luz
+
+   O latão nunca disputa com o ciano. Ele aparece em traço fino e em
+   detalhe pequeno; quem brilha é sempre a energia. Sem essa hierarquia
+   as duas cores se anulam e sobra confusão.
    ══════════════════════════════════════════════════════════════════ */
 
 :root[data-theme="dark"] {
-  --rubi:        #b3173e;
-  --rubi-fundo:  #8e0f2a;
-  --bordo:       #5a0d1a;
-  --bronze:      #8b5a2b;
-  --cobre:       #a6653a;
-  --dourado:     #c08a4a;
-  --marrom:      #2a140f;
-  --preto:       #120909;
+  /* Mármore negro polido. O fundo não é preto puro: pedra tem cor, e o
+     azul frio aqui é o que impede a tela de parecer um buraco. */
+  --pedra:        #090c0f;
+  --pedra-media:  #141a20;
+  --pedra-funda:  #05080a;
 
-  --brilho:      #e95a7a;
-  --creme:       #f1e2d0;
+  /* A energia. Ciano frio, deliberadamente longe do verde — verde é
+     "deu certo" na aba Estado, e as duas coisas não podem se parecer. */
+  --luz:          #55c9dd;
+  --luz-funda:    #2b8a9c;
+  --luz-profunda: #14454f;
+  --brilho:       #8ee6f3;
 
-  --fundo:       #0d0707;
-  --painel:      rgba(32, 16, 18, .72);
-  --painel-alto: rgba(46, 22, 25, .82);
-  --sunk:        rgba(18, 9, 11, .68);
+  /* Latão embutido. Aparece em fio e em detalhe, nunca em área grande. */
+  --latao:        #c9a55e;
+  --latao-claro:  #e2c88e;
+  --latao-escuro: #96762f;
 
-  --linha:       rgba(179, 23, 62, .20);
-  --linha-forte: rgba(179, 23, 62, .42);
+  --marmore:      #e9eef2;   /* o branco do veio, e o texto de destaque */
 
-  --texto:       #f1e2d0;
-  --texto-suave: #c9a99a;
-  --texto-fraco: #8f6f66;
+  --fundo:        #090c0f;
+  --painel:       rgba(20, 26, 32, .72);
+  --painel-alto:  rgba(30, 38, 46, .82);
+  --sunk:         rgba(6, 9, 12, .68);
 
-  --sombra-baixa: 0 1px 2px rgba(0,0,0,.5);
-  --sombra-alta:  0 18px 48px rgba(0,0,0,.55);
-  --luz-topo:     inset 0 1px 0 rgba(255,190,190,.10);
-  --gema:         linear-gradient(160deg, #d4285a 0%, #b3173e 38%, #8e0f2a 72%, #6d0b20 100%);
+  --linha:        rgba(233, 238, 242, .10);
+  --linha-forte:  rgba(85, 201, 221, .38);
+
+  --texto:        #e3eaef;
+  --texto-suave:  #9aabb6;
+  --texto-fraco:  #7d8e99;
+
+  --sombra-baixa: 0 1px 2px rgba(0,0,0,.55);
+  --sombra-alta:  0 18px 48px rgba(0,0,0,.62);
+  --luz-topo:     inset 0 1px 0 rgba(190,235,245,.10);
+  --polido:       linear-gradient(160deg, #6fdcef 0%, #55c9dd 36%, #2b8a9c 72%, #14454f 100%);
+
+  /* A arte de fundo pede a cor ao tema, como o resto da interface. Sem
+     isto ela só existiria no escuro — ver o bloco claro abaixo. */
+  --art-veio:     #e9eef2;   /* mármore negro tem veio branco */
+  --art-pedra:    #090c0f;   /* o miolo do ilhó, da cor da pedra */
+  --art-nuvem:    .016;      /* nuvens de polimento */
 }
 
-/* Variante clara: mesma joia sob luz do dia — marfim quente, rubi
-   mantido como acento. Não é um tema frio; é a mesma identidade. */
+/* Carrara: a mesma pedra sob luz do dia. Fundo quase branco de leve tom
+   quente, veio cinza, e a energia vira ciano profundo — em superfície
+   clara o brilho não funciona, então a cor precisa ganhar densidade. */
 :root[data-theme="light"] {
-  --rubi:        #a01235;
-  --rubi-fundo:  #8e0f2a;
-  --bordo:       #6d0b20;
-  --bronze:      #8b5a2b;
-  --cobre:       #a6653a;
-  --dourado:     #a4703a;
-  --marrom:      #43231c;
-  --preto:       #2a140f;
+  --pedra:        #f3f2ef;
+  --pedra-media:  #e4e3de;
+  --pedra-funda:  #d3d2cc;
 
-  --brilho:      #c93a5c;
-  --creme:       #3a1c18;
+  --luz:          #0e7490;
+  --luz-funda:    #0b5d74;
+  --luz-profunda: #08404f;
+  --brilho:       #0a5f76;
 
-  --fundo:       #f7efe6;
-  --painel:      rgba(255, 252, 249, .86);
-  --painel-alto: #fffdfb;
-  --sunk:        rgba(226, 210, 199, .55);
+  --latao:        #7a5f26;
+  --latao-claro:  #a4843d;
+  --latao-escuro: #6b5423;
 
-  --linha:       rgba(142, 15, 42, .16);
-  --linha-forte: rgba(142, 15, 42, .34);
+  --marmore:      #1b2228;
 
-  --texto:       #33191a;
-  --texto-suave: #7a5750;
-  --texto-fraco: #a98d84;
+  --fundo:        #f3f2ef;
+  --painel:       rgba(255, 255, 255, .86);
+  --painel-alto:  #ffffff;
+  --sunk:         rgba(210, 210, 203, .48);
 
-  --sombra-baixa: 0 1px 2px rgba(90,13,26,.10);
-  --sombra-alta:  0 16px 40px rgba(90,13,26,.14);
-  --luz-topo:     inset 0 1px 0 rgba(255,255,255,.85);
-  --gema:         linear-gradient(160deg, #c02147 0%, #a01235 42%, #8e0f2a 100%);
+  --linha:        rgba(27, 34, 40, .13);
+  --linha-forte:  rgba(14, 116, 144, .34);
+
+  --texto:        #1b2228;
+  --texto-suave:  #55636c;
+  --texto-fraco:  #626d75;
+
+  --sombra-baixa: 0 1px 2px rgba(20,30,36,.10);
+  --sombra-alta:  0 16px 40px rgba(20,30,36,.16);
+  --luz-topo:     inset 0 1px 0 rgba(255,255,255,.9);
+  --polido:       linear-gradient(160deg, #1594b4 0%, #0e7490 42%, #08404f 100%);
+
+  /* Carrara tem veio CINZA. Branco sobre pedra clara é o mesmo que nada:
+     conferido no navegador, a arte inteira sumia. E a opacidade da nuvem
+     sobe porque tom claro sobre tom claro precisa de mais presença para
+     ser percebido. */
+  --art-veio:     #4a555e;
+  --art-pedra:    #f3f2ef;
+  --art-nuvem:    .05;
 }
 
 :root { --raio: 14px; --raio-p: 10px;
@@ -96,27 +134,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Luz ambiente: três focos de rubi difuso, fixos. Gradiente é barato —
+/* Luz ambiente: dois focos difusos, ciano e latão, fixos. Gradiente é barato —
    o mesmo efeito com partículas animadas travaria máquina modesta. */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(1100px 720px at 12% -8%,  rgba(179,23,62,.20), transparent 62%),
-    radial-gradient(900px 640px at 88% 108%, rgba(166,101,58,.14), transparent 60%),
-    radial-gradient(700px 520px at 62% 42%,  rgba(142,15,42,.10), transparent 66%);
+    radial-gradient(1100px 720px at 12% -8%,  rgba(85,201,221,.20), transparent 62%),
+    radial-gradient(900px 640px at 88% 108%, rgba(201,165,94,.14), transparent 60%),
+    radial-gradient(700px 520px at 62% 42%,  rgba(43,138,156,.10), transparent 66%);
 }
 :root[data-theme="light"] body::before { opacity: .5; }
 
 button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
-::selection { background: rgba(179,23,62,.35); color: var(--creme); }
+::selection { background: rgba(85,201,221,.35); color: var(--marmore); }
 
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(var(--rubi-fundo), var(--bordo));
+  background: linear-gradient(var(--luz-funda), var(--luz-profunda));
   border-radius: 6px; border: 3px solid transparent; background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover { background: linear-gradient(var(--rubi), var(--rubi-fundo)); background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(var(--luz), var(--luz-funda)); background-clip: padding-box; }
 
 /* ─────────────────────── COLUNA ESQUERDA ─────────────────────── */
 
@@ -125,23 +163,31 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   width: 274px; flex: none;
   display: flex; flex-direction: column;
   padding: 22px 14px 0;
-  background: linear-gradient(178deg, rgba(46,22,25,.55), rgba(18,9,11,.30));
+  background: linear-gradient(178deg, rgba(30,38,46,.55), rgba(18,9,11,.30));
   border-right: 1px solid var(--linha);
-  box-shadow: 1px 0 0 rgba(233,90,122,.06), var(--sombra-alta);
+  box-shadow: 1px 0 0 rgba(142,230,243,.06), var(--sombra-alta);
 }
 :root[data-theme="light"] #sidebar {
-  background: linear-gradient(178deg, rgba(255,252,249,.9), rgba(247,239,230,.6));
+  background: linear-gradient(178deg, rgba(255,255,255,.9), rgba(247,239,230,.6));
 }
 
 .marca { display: flex; align-items: center; gap: 12px; padding: 4px 8px 6px; }
-.marca svg { width: 42px; height: 42px; flex: none; filter: drop-shadow(0 0 12px rgba(179,23,62,.55)); }
+/* No claro a marca é a mesma pedra vista sob outra luz — Carrara, não
+   um hexágono preto colado num painel branco. */
+.marca-pedra-1 { stop-color: #1e2830; }
+.marca-pedra-2 { stop-color: #0e151a; }
+.marca-pedra-3 { stop-color: #05080a; }
+:root[data-theme="light"] .marca-pedra-1 { stop-color: #ffffff; }
+:root[data-theme="light"] .marca-pedra-2 { stop-color: #eceae5; }
+:root[data-theme="light"] .marca-pedra-3 { stop-color: #d8d6d0; }
+.marca svg { width: 42px; height: 42px; flex: none; filter: drop-shadow(0 0 12px rgba(85,201,221,.55)); }
 .marca-txt { min-width: 0; }
 .brand {
   /* Caixa alta pelo CSS, não pelo texto: o nome vem do .env e pode ser
      qualquer coisa — a marca continua imponente independente do que for. */
   font-size: 25px; font-weight: 600; letter-spacing: .16em; line-height: 1.1;
   text-transform: uppercase;
-  background: linear-gradient(105deg, var(--creme) 8%, var(--brilho) 46%, var(--dourado) 96%);
+  background: linear-gradient(105deg, var(--marmore) 8%, var(--brilho) 46%, var(--latao-claro) 96%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .online {
@@ -157,14 +203,14 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .btn-new {
   margin: 18px 0 20px; padding: 12px 16px; border-radius: var(--raio);
-  background: var(--gema); color: #fff;
+  background: var(--polido); color: #fff;
   font-size: 14.5px; font-weight: 600; letter-spacing: .02em; text-align: left;
-  border: 1px solid rgba(233,90,122,.35);
-  box-shadow: var(--luz-topo), 0 6px 20px rgba(142,15,42,.42), var(--sombra-baixa);
+  border: 1px solid rgba(142,230,243,.35);
+  box-shadow: var(--luz-topo), 0 6px 20px rgba(43,138,156,.42), var(--sombra-baixa);
   transition: transform .16s, box-shadow .16s, filter .16s;
 }
 .btn-new:hover { transform: translateY(-1px); filter: brightness(1.1);
-  box-shadow: var(--luz-topo), 0 10px 28px rgba(179,23,62,.5); }
+  box-shadow: var(--luz-topo), 0 10px 28px rgba(85,201,221,.5); }
 .btn-new:active { transform: translateY(0); }
 
 .secao {
@@ -181,14 +227,14 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .convo:hover { background: var(--sunk); color: var(--texto); border-color: var(--linha); }
 .convo.active {
-  background: linear-gradient(100deg, rgba(179,23,62,.22), rgba(142,15,42,.06));
+  background: linear-gradient(100deg, rgba(85,201,221,.22), rgba(43,138,156,.06));
   color: var(--texto); border-color: var(--linha-forte);
-  box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.16);
+  box-shadow: var(--luz-topo), 0 0 18px rgba(85,201,221,.16);
 }
 .convo.active::before {
   content: ""; position: absolute; left: 0; top: 22%; bottom: 22%; width: 2px;
-  border-radius: 2px; background: linear-gradient(var(--brilho), var(--rubi));
-  box-shadow: 0 0 8px var(--rubi);
+  border-radius: 2px; background: linear-gradient(var(--brilho), var(--luz));
+  box-shadow: 0 0 8px var(--luz);
 }
 .convo span.t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .convo .hora { font-size: 10.5px; color: var(--texto-fraco); flex: none; letter-spacing: .03em; }
@@ -206,43 +252,59 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   font-size: 11.5px; color: var(--texto-suave); padding: 4px 9px;
   border-radius: 7px; border: 1px solid transparent; transition: all .16s;
 }
-.foot button:hover { color: var(--creme); border-color: var(--linha-forte); background: var(--sunk); }
+.foot button:hover { color: var(--marmore); border-color: var(--linha-forte); background: var(--sunk); }
 
 /* ─────────────────────── CENTRO ─────────────────────── */
 
 #main { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
-/* Silhueta de rosto em circuito, atrás da conversa. Fica em opacidade
+/* Veio de mármore atravessando a pedra, atrás da conversa. Opacidade
    baixa de propósito: é atmosfera, não ilustração para ser lida. */
 #arte {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
   display: flex; align-items: center; justify-content: center;
-  opacity: .30; overflow: hidden;
+  opacity: .58; overflow: hidden;
 }
-#arte svg { width: min(780px, 82%); height: auto; }
-:root[data-theme="light"] #arte { opacity: .13; }
+#arte svg { width: 100%; height: 100%; }
 
-/* Órbita: a lua segue uma elipse e encolhe na metade de cima, que lemos
-   como "mais longe". Dois quadros de animação sincronizados no mesmo
-   tempo — sem isso o movimento fica chapado, como um adesivo girando. */
-.lua {
-  offset-path: path("M 690,310 A 260,92 0 1,1 689.9,310");
-  offset-rotate: 0deg;
-  animation: orbitar 52s linear infinite, distancia 52s ease-in-out infinite;
+/* Atributo de SVG embutido não lê var(); por CSS, lê. É por isto que a
+   cor da arte é definida aqui e não no markup. */
+#arte .veio-stop { stop-color: var(--art-veio); }
+#arte .grade-linha { stroke: var(--art-veio); }
+#arte .nuvem { fill: var(--art-veio); opacity: var(--art-nuvem); }
+#arte .ilhos-corpo { fill: var(--art-pedra); }
+#arte .veio-largo, #arte .veio-fino { stroke: url(#veio); }
+:root[data-theme="light"] #arte { opacity: .5; }
+
+/* A luz correndo dentro do veio.
+   `pathLength="1000"` normaliza o traço: o mesmo dasharray serve para
+   caminhos de comprimentos diferentes, e os tempos ficam comparáveis.
+   O pulso (26) é bem menor que o vão (974) — luz que corre, não linha
+   tracejada girando.
+   Os três tempos são primos entre si de propósito. Com 20/30/40 o ciclo
+   fecharia junto a cada 120s e o olho acharia o compasso; com 23/31/41
+   ele não fecha nunca. */
+.pulso {
+  stroke-dasharray: 26 974;
+  animation: correr linear infinite;
 }
-@keyframes orbitar  { to { offset-distance: 100%; } }
-@keyframes distancia { 0%,100% { scale: 1.06; opacity: .95; }
-                       50%     { scale: .62;  opacity: .55; } }
+.pulso-1 { animation-duration: 23s; }
+.pulso-2 { animation-duration: 31s; animation-delay: -9s; }
+.pulso-3 { animation-duration: 41s; animation-delay: -17s; }
+@keyframes correr { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
 
-@keyframes cintilar { 0%,100% { opacity: .22; } 50% { opacity: .8; } }
-.estrela { animation: cintilar 6s ease-in-out infinite; }
-.estrela:nth-of-type(2n) { animation-duration: 8.5s; animation-delay: -2.2s; }
-.estrela:nth-of-type(3n) { animation-duration: 11s;  animation-delay: -4.7s; }
+/* Os ilhós respiram fora de fase entre si — de novo, para não virar pisca-
+   pisca sincronizado. */
+@keyframes ilhos { 0%,100% { opacity: .30; } 50% { opacity: .92; } }
+.ilhos { animation: ilhos 7s ease-in-out infinite; }
+.ilhos:nth-of-type(3n)   { animation-duration: 9.5s;  animation-delay: -2.6s; }
+.ilhos:nth-of-type(3n+1) { animation-duration: 12s;   animation-delay: -5.1s; }
 
-/* Quem prefere menos movimento na tela não vê nada girando. */
+/* Quem prefere menos movimento vê a pedra parada, com a luz fixa num ponto
+   do veio — não uma tela morta. */
 @media (prefers-reduced-motion: reduce) {
-  .lua, .estrela { animation: none; }
-  .lua { offset-distance: 18%; }
+  .pulso, .ilhos { animation: none; }
+  .pulso { stroke-dashoffset: 640; }
 }
 
 /* Sinapses seguem em uso no cérebro do painel de memórias. */
@@ -260,7 +322,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   margin-bottom: 9px; font-weight: 700; color: var(--texto-fraco);
 }
 .msg.assistant .who {
-  background: linear-gradient(90deg, var(--brilho), var(--dourado));
+  background: linear-gradient(90deg, var(--brilho), var(--latao-claro));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .msg.user .body {
@@ -273,10 +335,10 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .body p { margin: 0 0 14px; }
 .body ul, .body ol { margin: 0 0 14px; padding-left: 24px; }
 .body li { margin-bottom: 6px; }
-.body li::marker { color: var(--rubi); }
+.body li::marker { color: var(--luz); }
 .body h3 {
   font-family: var(--serif); font-size: 18.5px; font-weight: 400;
-  margin: 26px 0 10px; color: var(--creme);
+  margin: 26px 0 10px; color: var(--marmore);
 }
 .body code {
   font-family: var(--mono); font-size: .85em;
@@ -284,19 +346,19 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   padding: 2px 7px; border-radius: 6px; border: 1px solid var(--linha);
 }
 .body pre {
-  background: linear-gradient(165deg, rgba(42,20,15,.72), rgba(18,9,11,.86));
+  background: linear-gradient(165deg, rgba(20,26,32,.72), rgba(18,9,11,.86));
   border: 1px solid var(--linha); border-radius: var(--raio);
   padding: 15px 18px; overflow-x: auto; margin: 0 0 14px; line-height: 1.6;
-  box-shadow: var(--luz-topo), inset 0 0 40px rgba(142,15,42,.10);
+  box-shadow: var(--luz-topo), inset 0 0 40px rgba(43,138,156,.10);
 }
-:root[data-theme="light"] .body pre { background: linear-gradient(165deg, #fffdfb, #f5ebe2); }
+:root[data-theme="light"] .body pre { background: linear-gradient(165deg, #ffffff, #f5ebe2); }
 .body pre code { background: none; padding: 0; border: none; color: var(--texto); font-size: 13.5px; }
 .body blockquote {
   margin: 0 0 14px; padding: 2px 0 2px 17px;
-  border-left: 2px solid var(--cobre); color: var(--texto-suave); font-style: italic;
+  border-left: 2px solid var(--latao); color: var(--texto-suave); font-style: italic;
 }
 .body a { color: var(--brilho); text-underline-offset: 3px; }
-.body a:hover { color: var(--dourado); }
+.body a:hover { color: var(--latao-claro); }
 
 .status {
   font-size: 13px; color: var(--texto-suave); margin-bottom: 11px;
@@ -322,7 +384,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   background: var(--sunk); border: 1px solid var(--linha);
   padding: 4px 12px; border-radius: 999px; white-space: nowrap; transition: all .16s;
 }
-.fontes a:hover { color: var(--creme); border-color: var(--linha-forte); box-shadow: 0 0 14px rgba(179,23,62,.24); }
+.fontes a:hover { color: var(--marmore); border-color: var(--linha-forte); box-shadow: 0 0 14px rgba(85,201,221,.24); }
 
 /* Cada ferramenta usada vira uma linha visível na resposta. Ficam à mostra
    de propósito: se ela mexeu num arquivo seu, você precisa saber qual. */
@@ -340,11 +402,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .learned {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 15px;
   font-size: 12.5px; color: var(--texto-suave);
-  background: linear-gradient(100deg, rgba(179,23,62,.20), rgba(166,101,58,.10));
+  background: linear-gradient(100deg, rgba(85,201,221,.20), rgba(201,165,94,.10));
   border: 1px solid var(--linha-forte); border-radius: 999px; padding: 6px 15px;
-  box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.16);
+  box-shadow: var(--luz-topo), 0 0 18px rgba(85,201,221,.16);
 }
-.learned b { color: var(--creme); font-weight: 600; }
+.learned b { color: var(--marmore); font-weight: 600; }
 
 /* Arquivo criado durante a conversa. Cartao com link, porque "criei o
    relatorio" sem como pegar o relatorio nao entrega nada. */
@@ -358,8 +420,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   transition: border-color .16s, box-shadow .16s, transform .16s;
 }
 .arquivo:hover {
-  transform: translateY(-1px); border-color: var(--rubi);
-  box-shadow: var(--luz-topo), 0 8px 22px rgba(142,15,42,.26);
+  transform: translateY(-1px); border-color: var(--luz);
+  box-shadow: var(--luz-topo), 0 8px 22px rgba(43,138,156,.26);
 }
 .arquivo .selo {
   flex: none; width: 36px; height: 36px; border-radius: 9px;
@@ -368,7 +430,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .arquivo .info { min-width: 0; flex: 1; }
 .arquivo .nome {
-  font-size: 13.5px; color: var(--creme); font-weight: 600;
+  font-size: 13.5px; color: var(--marmore); font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .arquivo .meta { font-size: 11.5px; color: var(--texto-fraco); margin-top: 2px; }
@@ -388,21 +450,21 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .arq .meta { font-size: 11px; color: var(--texto-fraco); font-family: var(--mono); flex: none; }
 
 .error {
-  border-left: 2px solid var(--rubi); padding: 12px 17px;
-  background: linear-gradient(100deg, rgba(142,15,42,.18), transparent);
+  border-left: 2px solid var(--luz); padding: 12px 17px;
+  background: linear-gradient(100deg, rgba(43,138,156,.18), transparent);
   border-radius: 0 var(--raio-p) var(--raio-p) 0;
   color: var(--brilho); font-size: 14.5px; white-space: pre-wrap;
 }
 .cursor::after {
   content: "▍"; color: var(--brilho); font-weight: 300;
-  text-shadow: 0 0 10px var(--rubi); animation: piscar 1.1s steps(2) infinite;
+  text-shadow: 0 0 10px var(--luz); animation: piscar 1.1s steps(2) infinite;
 }
 @keyframes piscar { 50% { opacity: 0; } }
 
 .empty { padding: 52px 0 24px; }
 .empty h2 {
   font-family: var(--serif); font-size: 31px; font-weight: 400; margin: 0 0 16px;
-  background: linear-gradient(100deg, var(--creme) 10%, var(--brilho) 62%, var(--dourado));
+  background: linear-gradient(100deg, var(--marmore) 10%, var(--brilho) 62%, var(--latao-claro));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .empty p { color: var(--texto-suave); margin: 0 0 12px; max-width: 54ch; }
@@ -420,12 +482,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   padding: 12px 12px 12px 19px; border-radius: 18px;
   background: linear-gradient(165deg, var(--painel-alto), var(--painel));
   border: 1px solid var(--linha-forte);
-  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 26px rgba(142,15,42,.12);
+  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 26px rgba(43,138,156,.12);
   transition: border-color .2s, box-shadow .2s;
 }
 .box:focus-within {
-  border-color: var(--rubi);
-  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 34px rgba(179,23,62,.30);
+  border-color: var(--luz);
+  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 34px rgba(85,201,221,.30);
 }
 #input {
   flex: 1; border: none; background: none; color: var(--texto);
@@ -435,13 +497,13 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 #input::placeholder { color: var(--texto-fraco); }
 #send {
   padding: 10px 22px; border-radius: 12px; flex: none;
-  background: var(--gema); color: #fff; font-size: 14.5px; font-weight: 600;
-  letter-spacing: .02em; border: 1px solid rgba(233,90,122,.4);
-  box-shadow: var(--luz-topo), 0 5px 18px rgba(142,15,42,.45);
+  background: var(--polido); color: #fff; font-size: 14.5px; font-weight: 600;
+  letter-spacing: .02em; border: 1px solid rgba(142,230,243,.4);
+  box-shadow: var(--luz-topo), 0 5px 18px rgba(43,138,156,.45);
   transition: transform .16s, filter .16s, box-shadow .16s;
 }
 #send:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.12);
-  box-shadow: var(--luz-topo), 0 9px 26px rgba(179,23,62,.55); }
+  box-shadow: var(--luz-topo), 0 9px 26px rgba(85,201,221,.55); }
 #send:active:not(:disabled) { transform: translateY(0); }
 #send:disabled { opacity: .32; cursor: default; box-shadow: none; }
 
@@ -453,12 +515,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 #panel {
   position: relative; z-index: 2;
   width: 348px; flex: none; display: flex; flex-direction: column;
-  background: linear-gradient(190deg, rgba(46,22,25,.62), rgba(18,9,11,.42));
+  background: linear-gradient(190deg, rgba(30,38,46,.62), rgba(18,9,11,.42));
   border-left: 1px solid var(--linha);
-  box-shadow: -1px 0 0 rgba(233,90,122,.06), var(--sombra-alta);
+  box-shadow: -1px 0 0 rgba(142,230,243,.06), var(--sombra-alta);
 }
 :root[data-theme="light"] #panel {
-  background: linear-gradient(190deg, rgba(255,252,249,.92), rgba(247,239,230,.7));
+  background: linear-gradient(190deg, rgba(255,255,255,.92), rgba(247,239,230,.7));
 }
 #panel.hidden { display: none; }
 
@@ -469,17 +531,17 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   color: var(--texto-fraco); transition: color .16s;
 }
 .tab:hover { color: var(--texto-suave); }
-.tab.active { color: var(--creme); }
+.tab.active { color: var(--marmore); }
 .tab.active::after {
   content: ""; position: absolute; left: 14%; right: 14%; bottom: 0; height: 2px;
-  border-radius: 2px; background: linear-gradient(90deg, var(--rubi), var(--brilho), var(--dourado));
-  box-shadow: 0 0 12px var(--rubi);
+  border-radius: 2px; background: linear-gradient(90deg, var(--luz), var(--brilho), var(--latao-claro));
+  box-shadow: 0 0 12px var(--luz);
 }
 
 #docs { flex: 1; overflow-y: auto; padding: 16px; }
 
 .cerebro { display: flex; justify-content: center; padding: 6px 0 14px; }
-.cerebro svg { width: 168px; height: auto; filter: drop-shadow(0 0 18px rgba(179,23,62,.42)); }
+.cerebro svg { width: 168px; height: auto; filter: drop-shadow(0 0 18px rgba(85,201,221,.42)); }
 
 .doc {
   background: linear-gradient(160deg, var(--painel-alto), var(--painel));
@@ -490,7 +552,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .doc:hover {
   border-color: var(--linha-forte); transform: translateY(-1px);
-  box-shadow: var(--luz-topo), 0 8px 22px rgba(142,15,42,.22);
+  box-shadow: var(--luz-topo), 0 8px 22px rgba(43,138,156,.22);
 }
 .doc-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .doc-name { font-family: var(--mono); font-size: 11px; color: var(--brilho); letter-spacing: .02em; }
@@ -502,7 +564,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .aviso-livro {
   margin-top: 8px; padding: 8px 11px; border-radius: 8px;
   font-size: 12px; line-height: 1.45; color: var(--brilho);
-  background: rgba(142,15,42,.14); border: 1px solid var(--linha-forte);
+  background: rgba(43,138,156,.14); border: 1px solid var(--linha-forte);
 }
 
 /* Diagnostico. Discreto de proposito: isto e para consultar quando algo
@@ -523,7 +585,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .diag-ponto.ok { background: #4a9; box-shadow: 0 0 7px rgba(68,153,136,.55); }
 .diag-ponto.espera { background: #c93; box-shadow: 0 0 7px rgba(204,153,51,.5); }
-.diag-ponto.ruim { background: var(--rubi); box-shadow: 0 0 7px rgba(179,23,62,.55); }
+.diag-ponto.ruim { background: var(--luz); box-shadow: 0 0 7px rgba(85,201,221,.55); }
 .diag-nome { color: var(--texto); flex: none; min-width: 92px; }
 .diag-valor {
   color: var(--texto-fraco); font-family: var(--mono); font-size: 11.5px;
@@ -551,14 +613,14 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .add input::placeholder, .add textarea::placeholder { color: var(--texto-fraco); }
 .add input:focus, .add textarea:focus {
-  border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(179,23,62,.22);
+  border-color: var(--luz); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(85,201,221,.22);
 }
 .add textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
 .add button {
   width: 100%; padding: 11px; border-radius: var(--raio-p);
-  background: var(--gema); color: #fff; font-size: 13.5px; font-weight: 600;
-  border: 1px solid rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+  background: var(--polido); color: #fff; font-size: 13.5px; font-weight: 600;
+  border: 1px solid rgba(142,230,243,.32);
+  box-shadow: var(--luz-topo), 0 4px 16px rgba(43,138,156,.38);
   transition: transform .16s, filter .16s;
 }
 .add button:hover { transform: translateY(-1px); filter: brightness(1.1); }
@@ -569,7 +631,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   margin: 0 0 12px; padding: 12px 14px;
   background: var(--sunk); border: 1px solid var(--linha); border-radius: var(--raio-p);
 }
-.persona-ajuda b { color: var(--creme); font-weight: 600; }
+.persona-ajuda b { color: var(--marmore); font-weight: 600; }
 #personaTxt {
   flex: 1; min-height: 262px; resize: vertical;
   font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
@@ -577,17 +639,17 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   background: var(--sunk); color: var(--texto); outline: none;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.28);
 }
-#personaTxt:focus { border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(179,23,62,.22); }
+#personaTxt:focus { border-color: var(--luz); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(85,201,221,.22); }
 .persona-botoes { display: flex; gap: 9px; margin-top: 11px; }
 .persona-botoes button {
   flex: 1; padding: 10px; border-radius: var(--raio-p); font-size: 13px; font-weight: 600;
   background: var(--sunk); color: var(--texto-suave); border: 1px solid var(--linha);
   transition: all .16s;
 }
-.persona-botoes button:hover { color: var(--creme); border-color: var(--linha-forte); }
+.persona-botoes button:hover { color: var(--marmore); border-color: var(--linha-forte); }
 .persona-botoes .primario {
-  background: var(--gema); color: #fff; border-color: rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+  background: var(--polido); color: #fff; border-color: rgba(142,230,243,.32);
+  box-shadow: var(--luz-topo), 0 4px 16px rgba(43,138,156,.38);
 }
 .persona-botoes .primario:hover { color: #fff; filter: brightness(1.1); }
 .persona-aviso { font-size: 12.5px; color: var(--brilho); min-height: 20px; margin-top: 10px; text-align: center; }
@@ -595,8 +657,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .btn-livro {
   width: 100%; padding: 12px; border-radius: var(--raio-p); font-size: 13.5px; font-weight: 600;
-  background: var(--gema); color: #fff; border: 1px solid rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+  background: var(--polido); color: #fff; border: 1px solid rgba(142,230,243,.32);
+  box-shadow: var(--luz-topo), 0 4px 16px rgba(43,138,156,.38);
   transition: transform .16s, filter .16s;
 }
 .btn-livro:hover { transform: translateY(-1px); filter: brightness(1.1); }
@@ -615,26 +677,43 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 <aside id="sidebar">
   <div class="marca">
-    <!-- Gema lapidada: facetas em gradiente, núcleo claro, brilho externo -->
+    <!-- Hexágono: a forma que cristal e ilhó de placa dividem. Um veio o
+         atravessa e acende no ilhó — a arte de fundo em miniatura. -->
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <defs>
-        <linearGradient id="gTopo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
+        <linearGradient id="gPedra" x1=".2" y1="0" x2=".8" y2="1">
+          <stop class="marca-pedra-1" offset="0"/>
+          <stop class="marca-pedra-2" offset=".55"/>
+          <stop class="marca-pedra-3" offset="1"/>
         </linearGradient>
-        <linearGradient id="gBaixo" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
+        <linearGradient id="gVeio" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0"   stop-color="#e9eef2" stop-opacity=".25"/>
+          <stop offset=".5"  stop-color="#8ee6f3"/>
+          <stop offset="1"   stop-color="#e9eef2" stop-opacity=".25"/>
         </linearGradient>
-        <radialGradient id="gNucleo" cx=".5" cy=".42" r=".5">
-          <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
-          <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
+        <radialGradient id="gNucleo" cx=".5" cy=".5" r=".5">
+          <stop offset="0"   stop-color="#e8f6f9"/>
+          <stop offset=".45" stop-color="#8ee6f3" stop-opacity=".55"/>
+          <stop offset="1"   stop-color="#55c9dd" stop-opacity="0"/>
         </radialGradient>
       </defs>
-      <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#gBaixo)"/>
-      <path d="M14 7h20l8 11H6z" fill="url(#gTopo)"/>
-      <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".30"/>
-      <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
-      <circle cx="24" cy="20" r="10" fill="url(#gNucleo)"/>
-      <path d="M6 18h36" stroke="#ffd9df" stroke-opacity=".45" stroke-width=".8"/>
+
+      <!-- hexágono: a forma que cristal e ilhó de placa dividem -->
+      <path d="M24 3.5 41.5 13.5v21L24 44.5 6.5 34.5v-21z" fill="url(#gPedra)"/>
+      <path d="M24 3.5 41.5 13.5v21L24 44.5 6.5 34.5v-21z"
+            fill="none" stroke="#c9a55e" stroke-opacity=".55" stroke-width="1.1"/>
+      <path d="M24 3.5 41.5 13.5 24 23.5 6.5 13.5z" fill="#e9eef2" opacity=".05"/>
+
+      <!-- o veio atravessa e endireita no meio, como trilha -->
+      <path d="M9 27 C 15 25, 16 19, 21 19 L 27 19 L 30 16 C 34 12, 36 17, 40 15"
+            fill="none" stroke="url(#gVeio)" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M21 19 L 21 28 C 21 32, 25 33, 28 33 L 38 33"
+            fill="none" stroke="url(#gVeio)" stroke-width="1.1"
+            stroke-opacity=".65" stroke-linecap="round"/>
+
+      <circle cx="24" cy="24" r="9" fill="url(#gNucleo)" opacity=".5"/>
+      <circle cx="21" cy="19" r="2.1" fill="#05080a" stroke="#c9a55e" stroke-width=".9"/>
+      <circle cx="21" cy="19" r=".8" fill="#8ee6f3"/>
     </svg>
     <div class="marca-txt">
       <div class="brand" id="brand">LIVIA</div>
@@ -656,64 +735,108 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 </aside>
 
 <main id="main">
-  <!-- Planetas em órbita. Só atmosfera: bem translúcido, movimento lento.
-       A lua percorre a elipse via offset-path e encolhe na metade distante,
-       o que dá a sensação de profundidade sem precisar sumir atrás do disco. -->
+  <!-- Veio de mármore que também é trilha de circuito. A linha corre
+       orgânica como pedra, endireita em ângulo reto onde vira trilha, e
+       ganha ilhós de latão nos encontros. A luz anda por dentro.
+
+       Os ramos DESAGUAM uns nos outros de propósito: veio que só corre
+       paralelo vira papel de parede; veio que se encontra vira sistema. -->
   <div id="arte" aria-hidden="true">
     <svg viewBox="0 0 900 620" preserveAspectRatio="xMidYMid slice" fill="none">
       <defs>
-        <radialGradient id="pCorpo" cx=".36" cy=".32" r=".78">
-          <stop offset="0"   stop-color="#ffb9c6"/>
-          <stop offset=".38" stop-color="#e95a7a"/>
-          <stop offset=".72" stop-color="#b3173e"/>
-          <stop offset="1"   stop-color="#4a0a18"/>
+        <radialGradient id="polimento" cx=".42" cy=".38" r=".72">
+          <stop offset="0"   stop-color="#55c9dd" stop-opacity=".16"/>
+          <stop offset=".45" stop-color="#2b8a9c" stop-opacity=".07"/>
+          <stop offset="1"   stop-color="#55c9dd" stop-opacity="0"/>
         </radialGradient>
-        <radialGradient id="pHalo" cx=".5" cy=".5" r=".5">
-          <stop offset=".58" stop-color="#e95a7a" stop-opacity=".30"/>
-          <stop offset="1"   stop-color="#e95a7a" stop-opacity="0"/>
-        </radialGradient>
-        <radialGradient id="pLua" cx=".34" cy=".3" r=".8">
-          <stop offset="0"   stop-color="#ffe0cf"/>
-          <stop offset=".5"  stop-color="#c08a4a"/>
-          <stop offset="1"   stop-color="#5e3418"/>
-        </radialGradient>
-        <clipPath id="pCorte"><circle cx="430" cy="310" r="132"/></clipPath>
+
+        <linearGradient id="veio" x1="0" y1="0" x2="1" y2=".4">
+          <stop class="veio-stop" offset="0"   stop-opacity=".10"/>
+          <stop class="veio-stop" offset=".38" stop-opacity=".42"/>
+          <stop class="veio-stop" offset=".72" stop-opacity=".26"/>
+          <stop class="veio-stop" offset="1"   stop-opacity=".06"/>
+        </linearGradient>
+
+        <filter id="halo" x="-25%" y="-200%" width="150%" height="500%">
+          <feGaussianBlur stdDeviation="3.4"/>
+        </filter>
+
+        <pattern id="grade" width="60" height="60" patternUnits="userSpaceOnUse">
+          <path class="grade-linha" d="M60 0 H0 V60" stroke-opacity=".05" stroke-width=".6"/>
+        </pattern>
       </defs>
 
-      <circle cx="430" cy="310" r="230" fill="url(#pHalo)"/>
-      <circle cx="430" cy="310" r="132" fill="url(#pCorpo)"/>
+      <!-- pedra: nuvens de tom, como mármore polido tem -->
+      <rect width="900" height="620" fill="url(#grade)"/>
+      <ellipse cx="380" cy="300" rx="470" ry="330" fill="url(#polimento)"/>
+      <ellipse class="nuvem" cx="700" cy="140" rx="260" ry="180"/>
+      <ellipse class="nuvem" cx="180" cy="520" rx="300" ry="170"/>
 
-      <!-- faixas atmosféricas, recortadas no disco -->
-      <g clip-path="url(#pCorte)" opacity=".32">
-        <ellipse cx="430" cy="250" rx="150" ry="17" fill="#ffd0d8" opacity=".5"/>
-        <ellipse cx="430" cy="294" rx="150" ry="12" fill="#5a0d1a" opacity=".55"/>
-        <ellipse cx="430" cy="336" rx="150" ry="22" fill="#ffb9c6" opacity=".3"/>
-        <ellipse cx="430" cy="382" rx="150" ry="15" fill="#4a0a18" opacity=".6"/>
-        <circle  cx="374" cy="274" r="27" fill="#8e0f2a" opacity=".4"/>
-        <circle  cx="486" cy="354" r="18" fill="#5a0d1a" opacity=".35"/>
+      <!-- os veios. mesma geometria repetida três vezes:
+           traço largo e difuso (a pedra ao redor do veio),
+           traço fino e nítido (o veio),
+           traço curto e aceso (a luz correndo dentro dele) -->
+      <g id="veios">
+        <g stroke="url(#veio)" stroke-width="7" stroke-opacity=".22" filter="url(#halo)">
+          <path d="M -20,168 C 120,140 210,206 300,214 L 404,214 L 448,258
+                   C 520,330 604,306 690,344 L 920,344"/>
+          <path d="M -20,438 C 130,420 206,352 296,362 L 392,362 L 428,326
+                   C 508,244 570,306 654,272 L 800,272 L 920,196"/>
+          <path d="M 90,640 C 200,570 254,486 356,470 L 472,470 L 516,426
+                   C 590,352 664,432 736,442 L 920,486"/>
+        </g>
+
+        <g stroke="url(#veio)" stroke-width="1.5" stroke-linecap="round">
+          <path d="M -20,168 C 120,140 210,206 300,214 L 404,214 L 448,258
+                   C 520,330 604,306 690,344 L 920,344"/>
+          <path d="M -20,438 C 130,420 206,352 296,362 L 392,362 L 428,326
+                   C 508,244 570,306 654,272 L 800,272 L 920,196"/>
+          <path d="M 90,640 C 200,570 254,486 356,470 L 472,470 L 516,426
+                   C 590,352 664,432 736,442 L 920,486"/>
+
+          <!-- ramos que desaguam nos outros veios -->
+          <path d="M 300,214 C 320,262 286,304 296,362" stroke-opacity=".6"/>
+          <path d="M 448,258 L 448,308 C 448,368 496,388 538,398 L 690,398" stroke-opacity=".7"/>
+          <path d="M 654,272 C 632,320 658,364 690,398" stroke-opacity=".5"/>
+          <path d="M 516,426 L 570,426 L 604,392" stroke-opacity=".55"/>
+          <path d="M 128,214 L 176,214 L 208,182" stroke-opacity=".4"/>
+          <path d="M 800,272 L 800,320 L 838,344" stroke-opacity=".45"/>
+        </g>
+
+        <g class="luz-veio" stroke="var(--brilho)" stroke-width="2.2"
+           stroke-linecap="round" filter="url(#halo)">
+          <path class="pulso pulso-1" pathLength="1000"
+                d="M -20,168 C 120,140 210,206 300,214 L 404,214 L 448,258
+                   C 520,330 604,306 690,344 L 920,344"/>
+          <path class="pulso pulso-2" pathLength="1000"
+                d="M -20,438 C 130,420 206,352 296,362 L 392,362 L 428,326
+                   C 508,244 570,306 654,272 L 800,272 L 920,196"/>
+          <path class="pulso pulso-3" pathLength="1000"
+                d="M 90,640 C 200,570 254,486 356,470 L 472,470 L 516,426
+                   C 590,352 664,432 736,442 L 920,486"/>
+        </g>
       </g>
 
-      <ellipse cx="430" cy="310" rx="260" ry="92"
-               stroke="#e95a7a" stroke-width="1.2" opacity=".2" stroke-dasharray="5 9"/>
-
-      <g class="lua">
-        <circle r="27" fill="url(#pLua)"/>
-        <circle r="27" fill="none" stroke="#ffe0cf" stroke-opacity=".26" stroke-width="1"/>
-        <circle cx="-8" cy="-6" r="6"   fill="#4a2c1c" opacity=".35"/>
-        <circle cx="9"  cy="8"  r="4.5" fill="#4a2c1c" opacity=".28"/>
-      </g>
-
-      <g fill="#ffd0d8">
-        <circle class="estrela" cx="132" cy="118" r="1.8"/>
-        <circle class="estrela" cx="246" cy="72"  r="1.3"/>
-        <circle class="estrela" cx="88"  cy="286" r="1.6"/>
-        <circle class="estrela" cx="196" cy="430" r="1.4"/>
-        <circle class="estrela" cx="322" cy="196" r="1.2"/>
-        <circle class="estrela" cx="76"  cy="512" r="1.7"/>
-        <circle class="estrela" cx="404" cy="520" r="1.3"/>
-        <circle class="estrela" cx="842" cy="146" r="1.5"/>
-        <circle class="estrela" cx="806" cy="536" r="1.4"/>
-        <circle class="estrela" cx="288" cy="330" r="1.1"/>
+      <!-- ilhós de latão nos encontros: onde o veio vira trilha -->
+      <g class="ilhoses">
+        <g class="ilhos-corpo" stroke="#c9a55e" stroke-width="1.1" stroke-opacity=".55">
+          <circle class="ilhos" cx="300" cy="214" r="4.5"/>
+          <circle class="ilhos" cx="448" cy="258" r="5.5"/>
+          <circle class="ilhos" cx="392" cy="362" r="4"/>
+          <circle class="ilhos" cx="428" cy="326" r="4.5"/>
+          <circle class="ilhos" cx="516" cy="426" r="5"/>
+          <circle class="ilhos" cx="690" cy="398" r="4.5"/>
+          <circle class="ilhos" cx="654" cy="272" r="4"/>
+          <circle class="ilhos" cx="800" cy="272" r="4.5"/>
+          <circle class="ilhos" cx="176" cy="214" r="3.5"/>
+          <circle class="ilhos" cx="570" cy="426" r="3.5"/>
+        </g>
+        <g fill="#8ee6f3">
+          <circle class="ilhos" cx="448" cy="258" r="1.6" opacity=".8"/>
+          <circle class="ilhos" cx="516" cy="426" r="1.5" opacity=".7"/>
+          <circle class="ilhos" cx="300" cy="214" r="1.3" opacity=".6"/>
+          <circle class="ilhos" cx="690" cy="398" r="1.3" opacity=".65"/>
+        </g>
       </g>
     </svg>
   </div>
@@ -845,17 +968,20 @@ function aplicarIdentidade(nome) {
   $("brand").textContent = nomeAssistente;
 
   // Ícone da aba: um monograma gerado na hora, sem arquivo externo.
-  // Gema lapidada com a inicial dentro — a mesma joia da barra lateral,
-  // reduzida ao que sobrevive a 16 pixels na aba do navegador.
+  // O hexágono da barra lateral, reduzido ao que sobrevive a 16 pixels:
+  // contorno de latão, um veio atravessando, e a inicial. Faceta e ilhó
+  // somem nesse tamanho, então nem entram.
   const letra = escapar(nomeAssistente[0].toUpperCase());
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
-    '<stop offset="0" stop-color="#e95a7a"/><stop offset=".55" stop-color="#b3173e"/>' +
-    '<stop offset="1" stop-color="#5a0d1a"/></linearGradient></defs>' +
-    '<path d="M18 8h28l10 15-24 33L8 23z" fill="url(#g)"/>' +
-    '<path d="M18 8h28l10 15H8z" fill="#e95a7a" opacity=".55"/>' +
-    `<text x="32" y="42" text-anchor="middle" fill="#fff2f4"` +
+    '<defs><linearGradient id="g" x1=".2" y1="0" x2=".8" y2="1">' +
+    '<stop offset="0" stop-color="#1e2830"/><stop offset=".6" stop-color="#0b1116"/>' +
+    '<stop offset="1" stop-color="#05080a"/></linearGradient></defs>' +
+    '<path d="M32 4 56 18v28L32 60 8 46V18z" fill="url(#g)" ' +
+    'stroke="#c9a55e" stroke-width="2.2"/>' +
+    '<path d="M12 36 C20 33 22 24 30 24 L40 24 L46 18" fill="none" ' +
+    'stroke="#8ee6f3" stroke-width="2.6" stroke-linecap="round" opacity=".9"/>' +
+    `<text x="32" y="42" text-anchor="middle" fill="#eefafc"` +
     ` font-family="Georgia,serif" font-size="26" font-weight="600">${letra}</text></svg>`;
   document.querySelector("link[rel=icon]").href =
     "data:image/svg+xml," + encodeURIComponent(svg);
@@ -1434,19 +1560,19 @@ async function enviarBackup(input) {
 
 /* ---------- memórias e skills ---------- */
 
-// Cérebro em circuito com núcleo de rubi, no topo da aba de memórias.
+// Cérebro em circuito com núcleo aceso, no topo da aba de memórias.
 // É a metáfora do que aquela aba faz: o que entra ali vira parte dela.
 const CEREBRO = `
 <div class="cerebro">
   <svg viewBox="0 0 200 160" fill="none" aria-hidden="true">
     <defs>
       <radialGradient id="cNucleo" cx=".5" cy=".5" r=".5">
-        <stop offset="0" stop-color="#ffd9df"/>
-        <stop offset=".45" stop-color="#e95a7a"/>
-        <stop offset="1" stop-color="#8e0f2a" stop-opacity="0"/>
+        <stop offset="0" stop-color="#e8f6f9"/>
+        <stop offset=".45" stop-color="#8ee6f3"/>
+        <stop offset="1" stop-color="#2b8a9c" stop-opacity="0"/>
       </radialGradient>
       <linearGradient id="cTraco" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#a6653a"/>
+        <stop offset="0" stop-color="#8ee6f3"/><stop offset="1" stop-color="#c9a55e"/>
       </linearGradient>
     </defs>
     <path d="M100 26c-24-14-56-6-64 18-22 6-30 34-14 50-10 20 6 44 28 44 10 14 34 16 50 4
@@ -1457,8 +1583,8 @@ const CEREBRO = `
       <path d="M74 118h20v-16M126 118h-20v-16"/>
     </g>
     <circle cx="100" cy="80" r="26" fill="url(#cNucleo)"/>
-    <circle cx="100" cy="80" r="7" fill="#ffd9df" opacity=".9"/>
-    <g fill="#e95a7a">
+    <circle cx="100" cy="80" r="7" fill="#e8f6f9" opacity=".9"/>
+    <g fill="#8ee6f3">
       <circle class="sinapse" cx="100" cy="26" r="3"/>
       <circle class="sinapse" cx="64"  cy="52" r="2.6"/>
       <circle class="sinapse" cx="136" cy="52" r="2.6"/>
@@ -1543,8 +1669,10 @@ $("input").addEventListener("input", (e) => {
 });
 
 (async function iniciar() {
-  // Padrão de fábrica: escuro. O rubi é uma joia — ela só brilha contra o
-  // escuro. A variante clara existe e é a mesma identidade sob luz do dia.
+  // Padrão de fábrica: escuro. A luz que corre no veio só se lê contra a
+  // pedra escura. A variante clara é Carrara: a mesma pedra, veio cinza,
+  // e a energia em ciano profundo — em superfície clara, brilho não
+  // brilha, precisa de densidade.
   aplicarTema(localStorage.getItem("livia-tema") || "dark");
   vazio();
   carregarConversas();
