@@ -760,7 +760,25 @@ async def save_persona(request: Request) -> Response:
 
 
 async def listar_livros(request: Request) -> Response:
-    return JSONResponse({"livros": biblioteca.listar()})
+    """Os documentos, cada um com o estado dos DOIS índices.
+
+    Vetores e grafo são coisas separadas e podem estar em estados diferentes:
+    um documento pode estar buscável por texto e sem grafo nenhum. Mostrar só
+    um dos dois faria o André reconstruir a coisa errada quando algo desse
+    errado.
+    """
+    livros = biblioteca.listar()
+    ligado = knowledge_client.ligado()
+    for livro in livros:
+        livro["knowledge"] = knowledge_ingest.estado_de(livro) if ligado else "disabled"
+    return JSONResponse({
+        "livros": livros,
+        "conhecimento": {
+            "ligado": ligado,
+            "sem_grafo": len(knowledge_ingest.pendentes_de_grafo()),
+            "fila": db.job_pendentes() if ligado else 0,
+        },
+    })
 
 
 async def apagar_livro(request: Request) -> Response:

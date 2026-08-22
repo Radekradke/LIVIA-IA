@@ -619,3 +619,23 @@ def test_diagnostico_nao_vaza_conteudo(ligado):
     texto = json.dumps(knowledge_client.diagnostico())
     assert "http://127.0.0.1:8110" in texto
     assert "senha" not in texto.lower()
+
+
+@respx.mock
+async def test_grafo_que_cai_no_meio_nao_e_reportado_como_hibrido(ligado, monkeypatch):
+    """Honestidade da procedência: dizer "híbrida" numa busca em que o grafo
+    não contribuiu nada é a Livia se atribuindo trabalho que não fez."""
+    monkeypatch.setattr(biblioteca, "vazia", lambda: False)
+
+    async def buscar_falso(pergunta, quantos=None):
+        return [{"livro": "Manual", "slug": "manual", "pagina": 1,
+                 "origem": "", "texto": "algo", "nota": 0.6}]
+
+    monkeypatch.setattr(biblioteca, "buscar", buscar_falso)
+    respx.post(f"{SERVICO}/search/graph").mock(
+        side_effect=httpx.ConnectError("caiu agora")
+    )
+
+    _, proc = await knowledge_router.buscar("compare X com Y")
+    assert proc["modo"] == VECTOR
+    assert proc["grafo_caiu_no_meio"] is True

@@ -541,6 +541,21 @@ body.sem-servidor #input { opacity: .5; }
 }
 .mini:hover { color: var(--creme); border-color: var(--brilho); }
 .mini.destaque { color: var(--brilho); border-color: rgba(233,90,122,.45); }
+/* Estado dos DOIS índices, lado a lado. Discreto de propósito: é
+   informação de manutenção, não o assunto da tela. */
+.indices { display: flex; gap: 12px; margin-top: 7px; font-size: 11px; }
+.indice { display: flex; align-items: center; gap: 4px; color: var(--texto-fraco); }
+.indice i {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--texto-fraco);
+  flex: none;
+}
+.indice.pronto i { background: var(--verde); }
+.indice.andando i { background: var(--dourado); }
+.indice.falhou i { background: var(--brilho); }
+.indice.pronto { color: var(--verde); }
+.indice.andando { color: var(--dourado); }
+.indice.falhou { color: var(--brilho); }
+
 .aviso-painel {
   margin: 0 0 12px; padding: 11px 13px; font-size: 12.5px; line-height: 1.55;
   border: 1px solid rgba(233,90,122,.35); border-radius: var(--raio-p);
@@ -1153,7 +1168,32 @@ function trocarAba(kind) {
 
 /* ---------- biblioteca ---------- */
 async function carregarLivros() {
-  const { livros } = await (await fetch("/api/biblioteca")).json();
+  const dados = await (await fetch("/api/biblioteca")).json();
+  const livros = dados.livros || [];
+  const conhecimento = dados.conhecimento || { ligado: false, sem_grafo: 0 };
+
+  // Vetores e grafo são índices DIFERENTES e podem estar em estados
+  // diferentes. Mostrar só um faria o André reconstruir a coisa errada.
+  const ESTADO_GRAFO = {
+    ready:      ["pronto",  "pronto"],
+    processing: ["andando", "construindo…"],
+    pending:    ["andando", "na fila"],
+    failed:     ["falhou",  "falhou"],
+    outdated:   ["andando", "desatualizado"],
+    disabled:   ["",        "desligado"],
+  };
+
+  function indices(l) {
+    const vetorOk = !l.precisa_reconstruir;
+    const [classe, rotulo] = ESTADO_GRAFO[l.knowledge] || ESTADO_GRAFO.disabled;
+    const grafo = conhecimento.ligado
+      ? `<span class="indice ${classe}"><i></i>Conhecimento: ${rotulo}</span>` : "";
+    return `<div class="indices">
+      <span class="indice ${vetorOk ? "pronto" : "falhou"}"><i></i>Vetores: ${
+        vetorOk ? "pronto" : "reconstruir"}</span>
+      ${grafo}
+    </div>`;
+  }
 
   const lista = livros.length
     ? livros.map((l) => `
@@ -1167,14 +1207,34 @@ async function carregarLivros() {
               ? `${l.paginas} arquivos · ${l.trechos} trechos`
               : `${l.paginas} páginas · ${l.trechos} trechos`} · ${escapar(l.criado)}
           </div>
+          ${indices(l)}
           ${l.precisa_reconstruir ? `
             <div class="doc-meta">
               <span>os vetores deste foram feitos por outro modelo</span>
               <button class="mini destaque"
-                      onclick="reconstruir('${escapar(l.slug)}')">reconstruir</button>
+                      onclick="reconstruir('${escapar(l.slug)}')">reindexar vetores</button>
+            </div>` : ""}
+          ${conhecimento.ligado && l.knowledge !== "ready" ? `
+            <div class="doc-meta">
+              <span class="doc-acoes">
+                <button class="mini" onclick="reconstruirGrafo('${escapar(l.slug)}')">
+                  reconstruir conhecimento</button>
+              </span>
             </div>` : ""}
         </div>`).join("")
     : `<div class="none">Nenhum documento ainda.<br>Envie um arquivo ou importe uma pasta de projeto.</div>`;
+
+  // Nada pesado começa sozinho: a interface OFERECE, o André decide.
+  const faltando = conhecimento.ligado && conhecimento.sem_grafo
+    ? `<p class="aviso-painel">
+         <b>${conhecimento.sem_grafo} documento(s) ainda sem grafo de conhecimento.</b>
+         Construir liga os conceitos entre documentos e permite perguntas do tipo
+         "que relação existe entre X e Y". Leva alguns minutos por documento —
+         por isso não começa sozinho.
+         <br><br>
+         <button class="mini destaque" onclick="construirConhecimento()">construir agora</button>
+         <span id="grafoStatus" class="livro-status"></span>
+       </p>` : "";
 
   // A lista de pastas só aparece quando há alguma: um botão que não leva a
   // lugar nenhum é pior que botão nenhum.
@@ -1188,6 +1248,7 @@ async function carregarLivros() {
       que respondem e lê <b>aqueles</b> antes de responder — citando de onde
       veio. Aceita PDF, TXT, Markdown, DOCX, XLSX, CSV, JSON e HTML.
     </p>
+    ${faltando}
     ${lista}
     <div style="margin-top:12px">
       <button class="btn-livro" onclick="$('arqLivro').click()">Enviar arquivo</button>
@@ -1223,6 +1284,37 @@ async function importarProjeto(pasta) {
     body: JSON.stringify({ pasta }),
   });
   await consumirProgresso(r, status);
+  carregarLivros();
+}
+
+async function reconstruirGrafo(slug) {
+  const status = $("livroStatus");
+  if (status) { status.className = "livro-status ativo"; status.textContent = "construindo o grafo…"; }
+  const r = await fetch(`/api/conhecimento/${encodeURIComponent(slug)}/reconstruir`, {
+    method: "POST",
+  });
+  const dados = await r.json();
+  if (status) {
+    status.className = dados.ok ? "livro-status" : "livro-status erro";
+    status.textContent = dados.ok ? "conhecimento pronto." : (dados.error || "não deu.");
+  }
+  carregarLivros();
+}
+
+async function construirConhecimento() {
+  const status = $("grafoStatus");
+  if (status) { status.textContent = " construindo… isto leva alguns minutos."; }
+  const r = await fetch("/api/conhecimento/processar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tudo: true }),
+  });
+  const dados = await r.json();
+  if (status) {
+    status.textContent = dados.error
+      ? ` ${dados.error}`
+      : ` ${dados.feitos} pronto(s), ${dados.falhos} falhou(aram), ${dados.restantes} na fila.`;
+  }
   carregarLivros();
 }
 

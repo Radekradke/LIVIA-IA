@@ -185,6 +185,15 @@ async def buscar(
         do_grafo = await knowledge_client.buscar_grafo(pergunta)
         procedencia["graph_hits"] = len(do_grafo)
 
+        # O serviço pode ter caído ENTRE a checagem lá em cima e a chamada.
+        # Nesse caso a busca foi vetorial na prática, e dizer "híbrida" no
+        # /porque seria a Livia se atribuindo um trabalho que não fez.
+        if not do_grafo and not knowledge_client.disponivel():
+            procedencia["modo"] = VECTOR
+            procedencia["grafo_disponivel"] = False
+            procedencia["grafo_caiu_no_meio"] = True
+            escolhido = VECTOR if escolhido == HYBRID else escolhido
+
         # Grafo não trouxe nada numa pergunta que foi para ele sozinha: sem
         # rede de segurança, a pergunta ficaria sem contexto nenhum.
         if escolhido == GRAPH and not do_grafo:
