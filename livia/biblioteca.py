@@ -235,18 +235,76 @@ async def _embutir(textos: list[str], tarefa: str) -> tuple[np.ndarray, str]:
 # --------------------------------------------------------------------------
 
 
+# Abaixo disto por página, o que saiu do pypdf não dá para chamar de texto:
+# é PDF escaneado, ou uma casca com o conteúdo todo em imagem.
+MINIMO_POR_PAGINA = 90
+
+
+def _texto_insuficiente(paginas: list[tuple[int, str]]) -> bool:
+    """O pypdf deu conta deste arquivo?
+
+    A média é POR PÁGINA, não no total: um PDF de 200 páginas escaneadas com
+    uma capa em texto passaria no total e falharia justamente no que importa.
+    """
+    if not paginas:
+        return True
+    total = sum(len((t or "").strip()) for _, t in paginas)
+    return (total / max(1, len(paginas))) < MINIMO_POR_PAGINA
+
+
 async def adicionar(
-    nome_arquivo: str, dados: bytes, *, tipo: str = "documento"
+    nome_arquivo: str, dados: bytes, *, tipo: str = "documento", avancado: bool = False
 ) -> AsyncIterator[dict[str, object]]:
-    """Processa um arquivo, relatando o progresso conforme avança."""
+    """Processa um arquivo, relatando o progresso conforme avança.
+
+    O pypdf continua sendo o caminho rápido, e a ordem importa: ele lê um PDF
+    de texto em milissegundos, sem modelo nenhum. O parser avançado só entra
+    quando ele não consegue — ou quando o André pede na mão (`avancado=True`).
+    Inverter isso custaria minutos em todo documento para resolver um problema
+    que a maioria não tem.
+    """
     titulo = Path(nome_arquivo).stem.replace("_", " ").replace("-", " ").strip()
     slug = slugify(titulo)
 
     yield {"etapa": "lendo", "texto": "extraindo o texto…"}
-    paginas = extrair(nome_arquivo, dados)
 
-    yield {"etapa": "dividindo", "texto": f"{len(paginas)} páginas, separando em trechos…"}
-    trechos = dividir(paginas)
+    trechos: list[dict[str, object]] = []
+    paginas: list[tuple[int, str]] = []
+
+    if not avancado:
+        paginas = extrair(nome_arquivo, dados)
+
+    if avancado or _texto_insuficiente(paginas):
+        # Import tardio: o cliente do grafo não é dependência do caminho comum.
+        from . import knowledge_client
+
+        if config.PARSER_AVANCADO:
+            yield {"etapa": "lendo", "texto": "o texto veio fraco; tentando o parser avançado…"}
+            avancados = await knowledge_client.analisar_documento(nome_arquivo, dados)
+            if avancados:
+                trechos = avancados
+                paginas = paginas or [(0, "")]
+                yield {
+                    "etapa": "dividindo",
+                    "texto": f"parser avançado: {len(trechos)} blocos "
+                             f"({', '.join(sorted({str(t.get('tipo') or 'text') for t in trechos}))})",
+                }
+
+        if not trechos and _texto_insuficiente(paginas):
+            # Sem parser avançado disponível, a mensagem honesta de sempre.
+            raise BibliotecaError(
+                "Não saiu texto nenhum desse arquivo. Provavelmente é um "
+                "documento escaneado (imagens de páginas, não texto).\n\n"
+                "Para esses, ligue o parser avançado: instale o Knowledge "
+                "Engine (requirements-knowledge.txt), `pip install "
+                '"raganything[paddleocr]"` e ponha LIVIA_PARSER_AVANCADO=1 '
+                "no .env."
+            )
+
+    if not trechos:
+        yield {"etapa": "dividindo",
+               "texto": f"{len(paginas)} páginas, separando em trechos…"}
+        trechos = dividir(paginas)
     if not trechos:
         raise BibliotecaError("O arquivo não tem texto suficiente para valer a pena.")
 

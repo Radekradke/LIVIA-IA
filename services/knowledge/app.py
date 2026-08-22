@@ -11,6 +11,7 @@ não temos.
     GET    /documents                    o que o grafo conhece
     POST   /documents/{id}/rebuild       refaz o grafo a partir do registro
     POST   /search/graph                 recuperação relacional
+    POST   /parse                        parser avançado (PDF difícil)
 
 Não existe `/search/vector` de propósito. O RAG vetorial é da Livia e vai
 continuar sendo: expor um segundo aqui criaria dois mecanismos fazendo a
@@ -33,7 +34,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from . import config, registro
+from . import config, multimodal, registro
 from .cognee_engine import CogneeError, motor
 
 log = logging.getLogger("knowledge")
@@ -58,6 +59,7 @@ async def health(request: Request) -> JSONResponse:
         estado = await motor.status()
     except Exception as exc:                    # nunca deixar o health cair
         estado = {"status": "error", "engine": "cognee", "mensagem": str(exc)[:400]}
+    estado["parser"] = multimodal.diagnostico()
     return JSONResponse(estado)
 
 
@@ -173,6 +175,52 @@ async def buscar_grafo(request: Request) -> JSONResponse:
     return JSONResponse({"results": resultados, "count": len(resultados)})
 
 
+async def analisar(request: Request) -> JSONResponse:
+    """Parser avançado para o que o pypdf não venceu.
+
+    Recebe o arquivo cru. A Livia só chama isto DEPOIS de o pypdf falhar —
+    o caminho rápido continua sendo o dela, e este aqui custa minutos.
+
+    Fica no sidecar, e não na Livia, pelo mesmo motivo do Cognee: o MinerU
+    traz ~29 dependências (opencv entre elas). Manter todo o peso opcional
+    de um lado só é o que permite `pip install -r requirements.txt` continuar
+    pequeno.
+    """
+    if not multimodal.disponivel():
+        return JSONResponse(
+            {"error": multimodal.como_instalar(), "instalado": False},
+            status_code=501,
+        )
+
+    nome = request.headers.get("x-nome-arquivo", "documento.pdf")
+    dados = await request.body()
+    if not dados:
+        return JSONResponse({"error": "arquivo vazio"}, status_code=400)
+
+    import tempfile
+    from pathlib import Path as _Path
+
+    descrever = request.headers.get("x-descrever-imagens", "0") != "0"
+
+    with tempfile.TemporaryDirectory() as pasta:
+        caminho = _Path(pasta) / nome
+        caminho.write_bytes(dados)
+        try:
+            blocos = await multimodal.extrair(
+                caminho, descrever_imagens=descrever
+            )
+        except Exception as exc:
+            log.warning("[parser] falhou em %s: %s", nome, exc)
+            return JSONResponse({"error": str(exc)[:400], "blocos": []},
+                                status_code=422)
+
+    return JSONResponse({
+        "blocos": blocos,
+        "trechos": multimodal.para_trechos(blocos),
+        "tipos": sorted({b["type"] for b in blocos}),
+    })
+
+
 rotas = [
     Route("/health", health),
     Route("/documents", listar),
@@ -180,6 +228,7 @@ rotas = [
     Route("/documents/{document_id:str}", esquecer, methods=["DELETE"]),
     Route("/documents/{document_id:str}/rebuild", reconstruir, methods=["POST"]),
     Route("/search/graph", buscar_grafo, methods=["POST"]),
+    Route("/parse", analisar, methods=["POST"]),
 ]
 
 app = Starlette(routes=rotas)

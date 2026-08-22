@@ -20,6 +20,9 @@ services:
       LIVIA_DATA_DIR: /data
       LIVIA_HOST: 0.0.0.0
       LIVIA_HTTPS: "1"
+      # Dentro da rede do compose o serviço atende pelo nome, não por
+      # 127.0.0.1. Só tem efeito com LIVIA_KNOWLEDGE=1 no .env.
+      LIVIA_KNOWLEDGE_URL: http://conhecimento:8110
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8100/saude')"]
@@ -27,6 +30,44 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  # Knowledge Engine: o grafo de entidades e relações. OPCIONAL.
+  #
+  #     docker compose --profile conhecimento up -d
+  #
+  # Sem o perfil, ele não é construído nem sobe — e a Livia funciona igual.
+  #
+  # O volume próprio não é detalhe: reconstruir um grafo custa horas de CPU,
+  # e guardá-lo dentro do contêiner efêmero significaria refazer tudo a cada
+  # `docker compose up --build`.
+  conhecimento:
+    build:
+      context: .
+      dockerfile: Dockerfile.knowledge
+    restart: unless-stopped
+    # NENHUMA porta publicada. O serviço não tem senha: quem o alcançasse
+    # leria o conteúdo dos documentos. Ele é visível só para a Livia, pela
+    # rede interna do compose.
+    expose:
+      - "8110"
+    volumes:
+      - conhecimento:/data/knowledge
+    env_file:
+      - .env
+    environment:
+      LIVIA_KNOWLEDGE_DATA: /data/knowledge
+      LIVIA_KNOWLEDGE_HOST: 0.0.0.0
+      # Com Ollama noutro contêiner ou no host, ajuste estes dois no .env.
+      # host.docker.internal funciona no Docker Desktop; no Linux use o IP
+      # da bridge ou ponha o Ollama no mesmo compose.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8110/health')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles: ["conhecimento"]
 
   # Túnel do Cloudflare: dá um endereço HTTPS público sem abrir porta nenhuma
   # na VM e sem precisar de domínio próprio.
@@ -51,3 +92,4 @@ services:
 
 volumes:
   dados:
+  conhecimento:

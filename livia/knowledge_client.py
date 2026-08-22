@@ -313,3 +313,44 @@ async def reconstruir(document_id: str) -> bool:
         "POST", f"/documents/{document_id}/rebuild", timeout=TIMEOUT_INGESTAO
     )
     return bool(resposta and resposta.get("ok"))
+
+
+async def analisar_documento(
+    nome: str, dados: bytes
+) -> list[dict[str, object]] | None:
+    """Pede o parser avançado ao sidecar. None quando não dá.
+
+    Só é chamado DEPOIS de o pypdf falhar — o caminho rápido continua sendo
+    o da Livia. Timeout largo porque isto custa minutos, e roda no upload,
+    não numa resposta de chat.
+
+    Devolver None em vez de levantar é proposital: "o parser não está
+    disponível" é o caso NORMAL (a dependência é opcional), e obrigar cada
+    chamador a tratar isso como exceção transformaria o comum em erro.
+    """
+    if not disponivel():
+        return None
+
+    url = f"{config.KNOWLEDGE_URL}/parse"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(TIMEOUT_INGESTAO)) as c:
+            resposta = await c.post(
+                url,
+                content=dados,
+                headers={
+                    "x-nome-arquivo": nome,
+                    "x-descrever-imagens": "1" if config.PARSER_DESCREVE_IMAGENS else "0",
+                    "Content-Type": "application/octet-stream",
+                },
+            )
+        if resposta.status_code == 501:
+            log.debug("[parser] avançado não instalado no serviço")
+            return None
+        if resposta.status_code >= 400:
+            log.debug("[parser] serviço recusou: %s", resposta.status_code)
+            return None
+        trechos = resposta.json().get("trechos")
+        return trechos if isinstance(trechos, list) and trechos else None
+    except (httpx.HTTPError, ValueError) as exc:
+        log.debug("[parser] falhou: %s", exc)
+        return None

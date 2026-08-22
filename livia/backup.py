@@ -22,6 +22,18 @@ dos trechos, que comprimem muito bem. Depois de restaurar, o botão
 
 Índice de memória também fica de fora do zip por estar dentro do próprio
 livia.db — e é reconstruído sozinho na primeira abertura de qualquer jeito.
+
+O GRAFO DE CONHECIMENTO TAMBÉM NÃO VEM
+--------------------------------------
+Pela mesma regra: ele é INTEIRAMENTE reconstruível a partir dos trechos, que
+já estão aqui. Um grafo de alguns documentos ocupa centenas de MB e levaria o
+zip a ficar impraticável, para guardar algo que a ação "reconstruir
+conhecimento" refaz sozinha.
+
+O que importa é que o metadado suficiente para reconstruir venha — e vem: os
+`trechos.jsonl` e os `meta.json` (com `knowledge_status`) estão no pacote.
+Depois de restaurar, o painel mostra os documentos sem grafo e oferece
+construir.
 """
 
 from __future__ import annotations
