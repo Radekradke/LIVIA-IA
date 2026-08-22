@@ -75,6 +75,19 @@ def _resolver(caminho: str) -> Path:
             "de trabalho, como 'notas/plano.md'."
         )
 
+    # `..` é recusado antes de virar caminho, conferindo os DOIS separadores.
+    # No Linux, `..\..\.env` não é subida de diretório — é um nome de arquivo
+    # legal, e o `resolve()` deixaria passar. O arquivo cairia dentro da pasta
+    # de trabalho, então não vaza nada; mas a regra que o André leu ("caminho
+    # para fora é recusado") tem que valer igual nos dois sistemas, senão o
+    # mesmo pedido se comporta de um jeito no Windows dele e de outro no
+    # servidor.
+    if any(parte == ".." for parte in bruto.replace("\\", "/").split("/")):
+        raise FerramentaError(
+            f"'{caminho}' tenta sair da pasta de trabalho com '..'. Use um "
+            "caminho relativo simples, como 'notas/plano.md'."
+        )
+
     base = raiz()
     alvo = (base / bruto).resolve()
 
