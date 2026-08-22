@@ -1,12 +1,36 @@
 # Livia
 
 Assistente pessoal de projetos, com memória, rodando na sua máquina.
-Feita para 1-2 usuários. Sem servidor, sem Docker, sem conta em lugar nenhum
-além da chave gratuita do Gemini.
+Feita para 1-2 usuários. Sem servidor, sem Docker, sem conta em lugar nenhum —
+e, se você quiser, **sem internet**: com o Ollama ligado ela funciona inteira
+na sua máquina, incluindo a busca por significado na memória e na biblioteca.
 
 ---
 
 ## Como colocar para rodar
+
+Você precisa de **um** provedor de IA. Escolha o caminho:
+
+### Caminho A — tudo local (sem chave, sem cota, nada sai da máquina)
+
+**1. Instale o Ollama** em https://ollama.com e baixe os modelos:
+
+```bash
+ollama pull qwen3:8b            # conversa
+ollama pull qwen3:4b            # tarefas rápidas (triagem de memória)
+ollama pull nomic-embed-text    # busca por significado
+```
+
+**2. Configure:**
+
+```bash
+copy .env.example .env
+```
+
+No `.env`, ponha `LIVIA_OLLAMA=1`. Se quiser garantir que nada saia da máquina
+nunca, ponha também `LIVIA_LOCAL_ONLY=1`.
+
+### Caminho B — nuvem gratuita
 
 **1. Pegue a chave gratuita** em https://aistudio.google.com/apikey
 (precisa de uma conta Google; não pede cartão).
@@ -17,8 +41,11 @@ além da chave gratuita do Gemini.
 copy .env.example .env
 ```
 
-Abra o `.env` e cole a chave em `GEMINI_API_KEY`. Coloque também seu nome em
-`LIVIA_USER` — a Livia usa isso para se dirigir a você.
+Cole a chave em `GEMINI_API_KEY`.
+
+### E então, nos dois casos
+
+Coloque seu nome em `LIVIA_USER` — a Livia usa isso para se dirigir a você.
 
 **3. Instale as dependências** (só na primeira vez):
 
@@ -33,6 +60,10 @@ python run.py
 ```
 
 O navegador abre sozinho em http://127.0.0.1:8100.
+
+> Dá para combinar os dois: com o Ollama ligado **e** uma chave configurada,
+> ela usa o local primeiro e cai para a nuvem quando o local não dá conta.
+> É a configuração padrão do `.env.example`.
 
 ---
 
@@ -54,8 +85,34 @@ Consequências práticas disso:
   apagar no bloco de notas. Nada de banco misterioso.
 - Ela funciona **independente do modelo** que estiver por trás. Trocar o Gemini
   por outro não apaga nada.
-- Cada memória entra em **toda** conversa futura. Por isso o filtro é rígido:
-  memória demais deixa a assistente pior, não melhor.
+- Só as memórias **relacionadas à pergunta** entram no prompt. Ela compara
+  significados, não palavras: perguntar "qual banco a gente usa?" encontra a
+  memória sobre Supabase mesmo sem a palavra "Supabase" na pergunta.
+
+Essa última parte é a mudança mais importante da versão atual. Antes, **toda**
+memória entrava em **toda** conversa — o que funciona com vinte e quebra com
+trezentas: o orçamento estoura, as memórias boas competem com as irrelevantes,
+e acumular conhecimento passa a *piorar* as respostas. Um sistema que fica pior
+quanto mais aprende está quebrado por dentro.
+
+### As quatro coisas que ela guarda, e por que são separadas
+
+| | O que é | Onde vive |
+|---|---|---|
+| **Memória** | O que é verdade sobre você | `data/memory/*.md` |
+| **Skill** | Como fazer algo, ensinado por você | `data/skills/*.md` |
+| **Lição** | O que ela concluiu das próprias tentativas | `data/lessons/*.md` |
+| **Experiência** | O que já foi tentado e como terminou | `livia.db` |
+| **Conhecimento** | Documentos e projetos que ela consulta | `data/biblioteca/` |
+
+Misturar tudo num balaio só ("coisas que ela sabe") tornaria impossível
+responder à pergunta que mais importa quando algo sai errado: **isso veio de
+você ou foi ela que concluiu sozinha?**
+
+Os arquivos `.md` continuam sendo a fonte da verdade — abra, corrija, apague.
+O que fica no SQLite é só o derivado: vetores, contadores de uso, carimbos.
+Apagar `livia.db` custa o histórico de conversas e as experiências, mas **não
+apaga nada do que você escreveu ou ensinou**.
 
 ---
 
@@ -129,18 +186,26 @@ daqui** — o problema do disco efêmero simplesmente não existe. A limitação
 
 ---
 
-## Dois provedores, um fallback
+## Provedores e fallback
 
 Depender de um provedor gratuito só é frágil: quando a cota estoura, a
 assistente para. Por isso a conversa tenta os provedores em ordem.
 
 ```
-1. Gemini 3.6 Flash        ~4s   · abre e lê links sozinho
-   ↓ cota estourada, servidor fora, timeout
-2. Groq gpt-oss-120b       ~1,2s · não lê links, mas a busca continua funcionando
+1. Ollama (local)          · grátis, sem cota, nada sai da máquina
+   ↓ servidor desligado, modelo não baixado, timeout
+2. Groq gpt-oss-120b       ~1,2s · rápido, 1000 pedidos/dia
+   ↓ cota estourada, servidor fora
+3. Gemini 3.6 Flash        ~4s   · abre e lê links sozinho
    ↓ falhou também
-3. mensagem dizendo o que houve com cada um
+4. OpenRouter free         · só texto
+   ↓
+5. mensagem dizendo o que houve com cada um
 ```
+
+O Ollama fica desligado por padrão (`LIVIA_OLLAMA=0`): ligar sem o servidor
+instalado só faria a Livia tentar uma conexão recusada antes de seguir. Com ele
+desligado, a ordem efetiva é a de sempre — Groq, Gemini, OpenRouter.
 
 A troca é silenciosa e você vê um aviso discreto quando o reserva responde.
 
@@ -150,6 +215,32 @@ inexistente sobem na hora — trocar de provedor só esconderia o problema real.
 **A ordem é sua.** `LIVIA_PROVIDERS=groq,gemini` inverte: a Groq é cerca de 3×
 mais rápida, mas só o Gemini abre links por conta própria (a busca no
 DuckDuckGo funciona nos dois, porque entra como texto no prompt).
+
+**Capacidade é filtro, não preferência.** O modelo local não recebe uma tarefa
+que ele não sabe cumprir. Ferramentas com Ollama só são oferecidas quando você
+confirma em `LIVIA_OLLAMA_TOOLS=1` — vários modelos aceitam o parâmetro `tools`
+e o ignoram, e a resposta sai dizendo que fez sem ter feito. Preferimos não
+declarar a capacidade a declará-la e mentir.
+
+### Modo totalmente local
+
+```bash
+LIVIA_LOCAL_ONLY=1
+```
+
+Com isso os provedores de nuvem são **removidos** da fila, não
+despriorizados. Nem chat, nem embeddings, nem busca automática: a web nasce
+desligada nesse modo (dá para religar com `LIVIA_WEB=1` de propósito).
+
+Se o modelo local não estiver baixado, a mensagem diz exatamente o que rodar:
+
+```
+Ollama está ativo, mas o modelo qwen3:8b não foi encontrado. Rode no terminal:
+
+    ollama pull qwen3:8b
+
+(não baixo sozinha: são gigabytes na sua conexão)
+```
 
 Modelos testados na Groq, em agosto de 2026:
 
@@ -274,26 +365,107 @@ O prompt é montado em quatro camadas, nesta ordem:
 
 ---
 
-## As duas gavetas
+## As gavetas
 
 | | Para que serve | Exemplo |
 |---|---|---|
-| **Memória** (`data/memory/`) | Fatos soltos sobre você e seus projetos | "Prefere Postgres a MySQL em projetos novos" |
+| **Memória** (`data/memory/`) | Fatos sobre você e seus projetos | "Prefere Postgres a MySQL em projetos novos" |
 | **Skill** (`data/skills/`) | Um procedimento que você ensina uma vez | "Como fazer o deploy do projeto X: passo 1..." |
+| **Lição** (`data/lessons/`) | O que ela deduziu das próprias tentativas | "Quando a Epson não conecta por WPS, tentar manual antes do reset" |
 
 Memórias aparecem sozinhas conforme vocês conversam. Skills você escreve à mão,
-no painel lateral — são coisas que você quer que ela faça **sempre daquele jeito**.
+no painel lateral. Lições **ela** escreve, e por isso ficam em Markdown legível:
+o que ela concluiu sozinha tem que estar ao seu alcance para você discordar.
 
-### Como ela aprende com os erros
+### Memória por projeto
 
-Quando você corrige a Livia, o filtro de memória reconhece a correção e grava.
-Da próxima vez, a correção já está no prompt e ela não repete o erro.
-
-Se quiser forçar, use o comando direto:
+Uma memória pode valer para você em geral ou só dentro de um projeto:
 
 ```
-/lembrar quando eu falo "o projeto", é sempre o LIVIA, não o outro
+global                  → "Prefere Postgres nos projetos"
+project:livia           → "Este projeto usa SQLite"
 ```
+
+Não há contradição entre as duas: as duas são verdade, e ao falar do projeto a
+específica tem prioridade. A Livia descobre de qual projeto vocês estão falando
+pelos nomes que aparecem na conversa, pelas memórias já gravadas e pelas pastas
+da área de trabalho — sem gastar uma chamada de IA para isso. Sem evidência
+suficiente, usa a memória global; um palpite errado puxaria o contexto do
+projeto errado para dentro da resposta.
+
+### Como ela aprende com as correções
+
+Quando você corrige a Livia, três coisas acontecem:
+
+1. a correção vira memória, com peso alto;
+2. a memória antiga que dizia o contrário é marcada como **superada** — sai das
+   respostas e **continua no disco**, apontando para quem a substituiu;
+3. a rodada anterior, se estava marcada como sucesso, é revista para falha.
+
+O caso concreto:
+
+```
+antes:   "O CRM usa Firebase"
+você:    "não usamos mais Firebase, migramos para Supabase"
+depois:  "O CRM usa Supabase"                      (ativa)
+         "O CRM usa Firebase"    → superseded_by   (no disco, fora do prompt)
+```
+
+Apagar a antiga perderia o registro de que aquilo já foi verdade — e daí a
+seis meses ninguém entende por que havia código do Firebase no repositório.
+
+### Como ela aprende com o que dá certo e com o que falha
+
+Cada tarefa vira uma **experiência**: o que foi tentado, com quais ferramentas,
+e como terminou. O que conta como sucesso é só evidência operacional — a
+ferramenta rodou, o arquivo foi criado, você confirmou. **Responder não é
+acertar**, e uma resposta bonita não marca nada.
+
+Sem evidência de nenhum lado, o veredito fica indefinido e aquela experiência
+não vota em nada. Um "não sei" honesto vale mais que o sucesso inventado que
+vira heurística errada daqui a três meses.
+
+Quando o mesmo tipo de situação se repete e os resultados concordam:
+
+```
+3+ experiências parecidas, 75%+ com o mesmo resultado
+        ↓
+sucesso → lição em data/lessons/
+falha   → anti-pattern em data/lessons/
+sequência de ações repetida → SKILL CANDIDATA, esperando você aprovar
+```
+
+Uma ocorrência é anedota. O mínimo é configurável em
+`LIVIA_LEARNING_MIN_EXPERIENCES`.
+
+**Skill candidata nunca vira skill sozinha.** Ela aparece no topo da aba Skills
+com "aprovar" e "rejeitar". O motivo é simples: skill entra em todo prompt
+futuro como procedimento a seguir, e deixá-la escrever isso sem ninguém ler
+seria deixá-la mudar o próprio comportamento em silêncio.
+
+### Faxina
+
+`/manutencao-memoria` procura duplicatas, conflitos e memória esquecida.
+Ele **só relata**. Para ela mexer de verdade:
+
+```
+/manutencao-memoria aplicar
+```
+
+Não roda em thread de fundo de propósito: uma tarefa periódica frágil que
+reescreve memória sem ninguém olhando é o tipo de coisa que, quando erra,
+ninguém descobre a tempo.
+
+### Por que você lembrou disso?
+
+```
+/porque
+```
+
+Responde com as memórias, lições, skills, experiências e documentos que
+entraram na última resposta — e o que pesou mais em cada uma. Sai da conta que
+foi realmente feita, não de uma explicação gerada depois (que soaria melhor e
+poderia ser mentira).
 
 ---
 
@@ -302,8 +474,14 @@ Se quiser forçar, use o comando direto:
 | Comando | O que faz |
 |---|---|
 | `/lembrar <fato>` | Grava uma memória na hora (não gasta chamada de API) |
-| `/esquecer <nome>` | Apaga a memória com esse nome |
+| `/esquecer <nome>` | Apaga a memória de vez |
+| `/arquivar <nome>` | Tira do prompt sem apagar — dá para reativar |
 | `/memorias` | Lista tudo que está guardado |
+| `/experiencias` | O que ela já tentou, e como terminou |
+| `/licoes` | O que ela concluiu sozinha |
+| `/porque` | De onde veio o que ela usou na última resposta |
+| `/manutencao-memoria` | Relata duplicatas e memória esquecida (`aplicar` para arrumar) |
+| `/buscar <termo>` | Força uma busca na web |
 | `/ajuda` | Mostra os comandos |
 
 ---
@@ -314,23 +492,99 @@ Se quiser forçar, use o comando direto:
 run.py              sobe o servidor
 livia/
   config.py         lê o .env; tudo que muda de máquina vive aqui
-  brain.py          ÚNICA parte que sabe qual modelo de IA é usado
+  brain.py          ÚNICA parte que sabe quais modelos de IA existem
+  router.py         qual provedor atende cada tarefa (decisão local, sem IA)
+  saude.py          quem está de pé, quem está de castigo
   docs.py           leitura/escrita dos arquivos .md
-  store.py          as duas gavetas (memória e skills)
+  store.py          as gavetas (memória, skills, lições)
   persona.py        a personalidade editável
-  context.py        remonta o prompt a cada pergunta  <- o coração do truque
+  context.py        monta o prompt a cada pergunta  <- o coração do truque
+  memoria.py        busca semântica, duplicatas, contradições, escopo
+  experiencia.py    o que foi tentado, e o que virou lição
+  embeddings.py     texto -> vetor (local ou nuvem)
   learner.py        decide o que virou memória depois de cada resposta
-  db.py             histórico das conversas (SQLite)
+  biblioteca.py     documentos que ela consulta (RAG)
+  conhecimento.py   indexar uma pasta de projeto inteira
+  ferramentas.py    ler/escrever arquivo, calcular (confinado ao workspace)
+  leitura.py        extrair texto de PDF, DOCX, XLSX, CSV, JSON, HTML
+  objetos.py        gerar PDF, DOCX, XLSX, CSV
+  web.py            buscar (DuckDuckGo ou SearXNG) e ler links
+  db.py             conversas, experiências, índices e cache (SQLite)
+  backup.py         exportar e restaurar tudo num zip
   server.py         rotas HTTP e streaming
 web/index.html      a interface inteira, num arquivo só
-data/               seus dados (memórias, skills, conversas)
+data/
+  memory/           suas memórias (.md)
+  skills/           procedimentos que você ensinou (.md)
+  lessons/          o que ela deduziu sozinha (.md)
+  biblioteca/       documentos e projetos indexados
+  livia.db          conversas, experiências, vetores e contadores
 ```
+
+### O que é original e o que é derivado
+
+Essa distinção governa o projeto inteiro. **Original** é o que você escreveu:
+os `.md` e as conversas. **Derivado** é tudo que dá para recalcular: vetores,
+índices, contadores de uso.
+
+O derivado nunca é a única cópia de nada. Apagar `livia.db` custa o histórico
+de conversas e as experiências, e obriga a reconstruir os índices — mas não
+apaga uma linha do que você escreveu ou ensinou. Inverter isso transformaria um
+arquivo binário na única cópia da memória de alguém.
+
+---
+
+## Documentos e projetos
+
+A aba **Livros** aceita PDF, TXT, Markdown, DOCX, XLSX, CSV, JSON e HTML. Ela
+não decora o documento: quando você pergunta, procura os trechos que respondem
+e lê **aqueles**, citando de onde veio.
+
+### Importar uma pasta de projeto
+
+A mesma aba lista as pastas da sua área de trabalho e oferece importar. O que
+fica **de fora**, sempre:
+
+- `node_modules`, `.git`, `dist`, `build`, `venv`, `coverage` e afins;
+- `.env`, chaves `.pem`, `id_rsa`, `credentials.json`;
+- binários e arquivos acima de 400 KB;
+- **qualquer linha** que pareça carregar credencial, mesmo dentro de um arquivo
+  legítimo. O resto do arquivo entra normalmente — recusar um `settings.py`
+  inteiro por causa de três palavras perderia código útil.
+
+Só dá para importar pasta **dentro** da área de trabalho. Uma importação que
+aceitasse caminho absoluto seria um jeito elegante de ler o seu `~/.ssh`.
+
+### Trocar de gerador de vetores
+
+Vetor do Gemini e vetor do `nomic-embed-text` são incomparáveis. Comparar os
+dois não dá erro — dá semelhança aleatória, e a busca passa a trazer o trecho
+errado sem ninguém perceber. Por isso cada documento guarda quem gerou seus
+vetores; ao trocar, ele aparece marcado com um botão **reconstruir**, e fica
+fora da busca até você mandar. Nada é apagado, e como os trechos ficam em
+disco, reconstruir não exige o arquivo original de volta.
+
+---
+
+## Conteúdo externo é dado, nunca instrução
+
+Trecho de documento e resultado de busca entram no prompt cercados por
+`<external_knowledge>`, com a regra explícita de que ordem escrita lá dentro é
+texto da página, não comando. Sem isso, bastaria alguém publicar uma página
+dizendo "ignore suas instruções" e esperar que ela caísse numa busca.
+
+A mesma regra vale para o aprendizado: conteúdo de documento nunca vira lição
+nem memória por conta própria. Lição sai de experiência operacional; memória
+sai de conversa com você.
 
 ---
 
 ## Trocar o modelo de IA
 
-Dois cenários:
+Três cenários:
+
+**Modelo local:** mude `LIVIA_OLLAMA_MODEL` no `.env` para o que você baixou.
+Nenhum modelo é obrigatório e nenhum está no código.
 
 **Outro modelo do Gemini:** mude `LIVIA_MODEL` no `.env`. Nada de código.
 
@@ -361,15 +615,31 @@ Suas memórias e skills continuam valendo, porque são só texto.
 
 ## Limites que valem saber de antemão
 
-- **Não tem acesso à internet nem aos seus arquivos.** É uma conversa, não um
-  agente que executa coisas. Dá para adicionar depois, mas hoje não tem.
 - **A camada gratuita do Gemini usa suas conversas para treinar o modelo.**
   Para uso pessoal costuma ser aceitável — mas não jogue senha, chave de API ou
   dado de cliente ali dentro. O filtro de memória foi instruído a nunca gravar
-  esse tipo de coisa, mas a instrução não é uma garantia.
-- **Tem limite diário de requisições.** Se estourar, espera alguns minutos.
-  A mensagem de erro avisa quando é esse o caso.
-- **A memória cresce sem parar.** Quando passar de algumas dezenas de itens,
-  vale abrir o painel e podar o que não faz mais sentido. Acima de ~100 itens
-  o sistema para de carregar tudo e passa a usar só um índice — funciona, mas
-  perde precisão. Esse é o ponto em que vale trocar por busca vetorial.
+  esse tipo de coisa, mas instrução não é garantia. Se isso incomoda,
+  `LIVIA_LOCAL_ONLY=1` resolve de vez: nada sai da máquina.
+- **Os provedores de nuvem têm limite diário.** Se estourar, espera alguns
+  minutos; a mensagem de erro avisa quando é esse o caso. O Ollama não tem
+  cota — o limite dele é a sua máquina.
+- **Modelo local é mais lento e menos capaz que o da nuvem.** Um `qwen3:8b`
+  numa máquina sem GPU leva dezenas de segundos por resposta. A configuração
+  padrão (local primeiro, nuvem como reserva) existe justamente para você
+  escolher caso a caso sem trocar nada.
+- **Nem todo modelo local sabe usar ferramentas.** Por isso `LIVIA_OLLAMA_TOOLS`
+  nasce em 0: com ele desligado, tarefas com ferramenta vão para a nuvem e o
+  resto continua local. Ligue depois de confirmar que o seu modelo aguenta.
+- **A busca por significado precisa de um gerador de vetores.** Sem Ollama e
+  sem chave do Gemini, ela volta a carregar a memória inteira até o orçamento —
+  funciona, mas perde a seleção por relevância.
+- **A varredura de credencial na importação de projeto pega o caso comum, não
+  todos.** Ela reconhece formatos conhecidos de token e variáveis com valor
+  longo. Um segredo escrito de forma criativa pode passar. Confira o que você
+  importa.
+- **PDF escaneado não é lido.** Sem camada de texto não há o que extrair, e
+  OCR não está incluído. Ela diz isso em vez de devolver vazio.
+- **A memória cresce sem parar, mas agora isso pesa menos.** Só o que tem a ver
+  com a pergunta entra no prompt, então cem memórias não atrapalham como
+  atrapalhavam. Ainda assim, `/manutencao-memoria` de vez em quando mantém a
+  casa em ordem.
