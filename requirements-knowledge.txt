@@ -1,0 +1,27 @@
+# Dependências do Knowledge Engine — NÃO são necessárias para usar a Livia.
+#
+#     pip install -r requirements-knowledge.txt
+#     python -m services.knowledge.run
+#
+# Elas ficam separadas porque são pesadas: o cognee sozinho traz 45
+# dependências obrigatórias (openai, litellm, lancedb, gunicorn, alembic...).
+# Colocar isso no requirements.txt principal multiplicaria a instalação de
+# quem só quer conversar com a Livia.
+#
+# A Livia funciona inteira sem nada daqui. Com LIVIA_KNOWLEDGE=0 (o padrão)
+# ela nem tenta falar com o serviço.
+
+cognee>=1.5,<2
+
+# --- Parser avançado (opcional, ainda mais pesado) ----------------------
+# Só instale se você tem PDF escaneado, tabela complexa ou equação que o
+# pypdf não consegue ler. O MinerU traz ~29 dependências, incluindo opencv.
+#
+#     pip install "raganything>=1.3"
+#
+# Para OCR de PDF escaneado, o extra correspondente:
+#
+#     pip install "raganything[paddleocr]"
+#
+# Deixados comentados de propósito: instalar por engano custa gigabytes.
+# raganything>=1.3
