@@ -26,10 +26,10 @@ from starlette.responses import (
 from starlette.routing import Route
 
 from . import (
-    auth, backup, biblioteca, brain, config, context, db, ferramentas,
-    learner, persona, router, saude, web,
+    auth, backup, biblioteca, brain, conhecimento, config, context, db,
+    experiencia, ferramentas, learner, memoria, persona, router, saude, web,
 )
-from .store import memory, skills
+from .store import COLECOES, memory, skills
 
 AJUDA = """\
 **Comandos disponíveis**
@@ -37,7 +37,12 @@ AJUDA = """\
 - `/buscar <termo>` — força uma busca na web antes de responder.
 - `/lembrar <fato>` — grava uma memória na hora, sem passar pelo modelo.
 - `/esquecer <nome>` — apaga a memória com esse nome.
+- `/arquivar <nome>` — tira do prompt sem apagar (dá para reativar depois).
 - `/memorias` — lista tudo que está guardado.
+- `/experiencias` — o que ela já tentou, e como terminou.
+- `/licoes` — o que ela concluiu sozinha a partir das experiências.
+- `/porque` — por que ela lembrou do que lembrou na última resposta.
+- `/manutencao-memoria` — faxina: duplicatas, conflitos, memória esquecida.
 - `/ajuda` — mostra isto.
 
 Fora os comandos, é só conversar.
@@ -48,7 +53,12 @@ sozinha e mostra as fontes. O `/buscar` serve só para forçar quando ela não \
 achou necessário.
 
 **Sobre a memória:** coisas que valem guardar viram memória sozinhas, e você vê \
-um aviso discreto quando isso acontece.
+um aviso discreto quando isso acontece. Ela não carrega tudo em toda pergunta — \
+busca por significado o que tem a ver com o assunto. Se você corrigir alguma \
+coisa, a versão antiga é marcada como superada em vez de continuar valendo.
+
+**Sobre a manutenção:** `/manutencao-memoria` só RELATA. Para ela mexer de \
+verdade, use `/manutencao-memoria aplicar`.
 """
 
 
@@ -61,8 +71,18 @@ def _sse(payload: dict[str, object]) -> bytes:
 # --------------------------------------------------------------------------
 
 
-def _handle_command(text: str) -> str | None:
-    """Devolve a resposta se for um comando, ou None se for conversa normal."""
+# A procedência da última resposta, por conversa. Fica em memória de
+# propósito: serve para responder `/porque` logo depois, e não tem por que
+# sobreviver a um reinício.
+_ULTIMA_PROCEDENCIA: dict[int, dict[str, object]] = {}
+
+
+async def _handle_command(text: str, conversa: int = 0) -> str | None:
+    """Devolve a resposta se for um comando, ou None se for conversa normal.
+
+    Virou assíncrona porque a manutenção de memória precisa gerar vetores.
+    Os comandos continuam sem chamar modelo de linguagem nenhum.
+    """
     stripped = text.strip()
     if not stripped.startswith("/"):
         return None
@@ -83,24 +103,177 @@ def _handle_command(text: str) -> str | None:
         if not argument:
             return "Use assim: `/lembrar prefiro Postgres a MySQL`"
         name = " ".join(argument.split()[:6])
-        doc = memory.save(name, argument, kind="manual")
-        return f"Gravado como **{doc.name}**.\n\n> {doc.description}"
+        resultado = await memoria.guardar(
+            name, argument, kind="fact", origem="/lembrar",
+            importancia=0.7,  # pediu à mão: vale mais que o que ela deduziu
+        )
+        doc = resultado["memoria"]
+        aviso = ""
+        if resultado["resultado"] == "substituida":
+            aviso = f"\n\n(isto substituiu **{resultado['substituiu']}**, que dizia quase o mesmo)"
+        return f"Gravado como **{doc['name']}**.\n\n> {doc['description']}{aviso}"
 
     if command == "/esquecer":
         if not argument:
             return "Use assim: `/esquecer prefere-postgres`"
         if memory.delete(argument):
+            memoria.sincronizar()
             return f"Apaguei a memória **{argument}**."
         return f"Não achei nenhuma memória chamada **{argument}**. Veja `/memorias`."
+
+    if command == "/arquivar":
+        if not argument:
+            return "Use assim: `/arquivar prefere-postgres`"
+        if memoria.arquivar(argument):
+            return (
+                f"Arquivei **{argument}**. Ela sai das respostas mas continua no "
+                "disco — dá para reativar pelo painel."
+            )
+        return f"Não achei nenhuma memória chamada **{argument}**."
 
     if command == "/memorias":
         items = memory.all()
         if not items:
             return "Nenhuma memória gravada ainda."
+        linhas = []
+        for d in items:
+            marca = "" if d.ativa else f"  _({d.status})_"
+            escopo = "" if d.scope == "global" else f"  `{d.scope}`"
+            linhas.append(f"- **{d.name}** — {d.description}{escopo}{marca}")
+        numeros = memoria.estatisticas()
+        return (
+            f"**{numeros['ativas']} memória(s) ativa(s)** "
+            f"(de {numeros['total']} no disco):\n\n" + "\n".join(linhas)
+        )
+
+    if command == "/experiencias":
+        registros = db.experiencia_listar(15)
+        if not registros:
+            return "Nenhuma experiência registrada ainda."
+        linhas = []
+        for e in registros:
+            marca = {True: "✔", False: "✘", None: "?"}[e.get("sucesso")]
+            linhas.append(f"- {marca} **{e['tarefa']}**")
+            if e.get("erro"):
+                linhas.append(f"    - {str(e['erro'])[:160]}")
+        numeros = experiencia.estatisticas()
+        return (
+            f"**{numeros['total']} experiência(s)** — {numeros['sucessos']} deram "
+            f"certo, {numeros['falhas']} falharam, {numeros['sem_veredito']} sem "
+            f"veredito.\n\n" + "\n".join(linhas)
+        )
+
+    if command == "/licoes":
+        items = COLECOES["lessons"].all()
+        if not items:
+            return (
+                "Nenhuma lição ainda. Elas aparecem quando um padrão se repete "
+                "em várias experiências — rode `/manutencao-memoria aplicar` "
+                "para ela procurar agora."
+            )
         linhas = "\n".join(f"- **{d.name}** — {d.description}" for d in items)
-        return f"**{len(items)} memória(s):**\n\n{linhas}"
+        return f"**{len(items)} lição(ões) que ela deduziu sozinha:**\n\n{linhas}"
+
+    if command == "/porque":
+        return _explicar_ultima(conversa)
+
+    if command in ("/manutencao-memoria", "/manutencao"):
+        aplicar = argument.lower() in ("aplicar", "aplica", "sim", "vai")
+        relatorio = await memoria.manutencao(aplicar=aplicar)
+        return _texto_manutencao(relatorio, aplicar)
 
     return f"Comando `{command}` não existe. Veja `/ajuda`."
+
+
+def _explicar_ultima(conversa: int) -> str:
+    """Fase 22: de onde veio o que ela usou na última resposta."""
+    dados = _ULTIMA_PROCEDENCIA.get(conversa)
+    if not dados:
+        return "Ainda não respondi nada nesta conversa para explicar."
+
+    if dados.get("modo") == "completo":
+        return (
+            "Nesta resposta eu carreguei a memória inteira, sem seleção — é o "
+            "que acontece quando não há como gerar vetores (sem Ollama e sem "
+            "chave do Gemini). Por isso não dá para apontar o que pesou mais."
+        )
+
+    linhas: list[str] = []
+    memorias = dados.get("memorias") or []
+    if memorias:
+        linhas.append("**Memórias que usei:**")
+        for m in memorias:
+            linhas.append(f"- **{m['nome']}** — {m['motivo']} (nota {m['nota']})")
+
+    licoes = dados.get("licoes") or []
+    if licoes:
+        linhas.append("\n**Lições que pesaram:**")
+        linhas += [f"- **{l['nome']}** — {l['motivo']}" for l in licoes]
+
+    if dados.get("skills"):
+        linhas.append("\n**Skills:** " + ", ".join(dados["skills"]))
+
+    experiencias = dados.get("experiencias") or []
+    if experiencias:
+        linhas.append("\n**Experiências parecidas:**")
+        for e in experiencias:
+            marca = {True: "funcionou", False: "falhou", None: "sem veredito"}[e["sucesso"]]
+            linhas.append(f"- {e['tarefa']} → {marca}")
+
+    if dados.get("documentos"):
+        linhas.append("\n**Trechos de documento:** " + ", ".join(dados["documentos"]))
+
+    if dados.get("busca"):
+        linhas.append(f"\n**Busca na web:** \"{dados['busca']}\"")
+
+    if not linhas:
+        return (
+            "Nada da memória entrou nessa resposta — nem memória, nem lição, nem "
+            "documento. Respondi só com o que o modelo já sabe e com a conversa."
+        )
+
+    escopo = dados.get("escopo") or "global"
+    linhas.append(f"\n_Escopo considerado: {escopo}._")
+    return "\n".join(linhas)
+
+
+def _texto_manutencao(relatorio: dict[str, object], aplicar: bool) -> str:
+    partes = ["**Manutenção da memória**", ""]
+
+    duplicatas = relatorio.get("duplicatas") or []
+    obsoletas = relatorio.get("obsoletas") or []
+    conflitos = relatorio.get("conflitos") or []
+    licoes = relatorio.get("licoes") or {}
+
+    partes.append(f"- duplicatas encontradas: {len(duplicatas)}")
+    for d in duplicatas[:8]:
+        partes.append(f"    - `{d['parecida']}` ≈ `{d['mantida']}` ({d['semelhanca']})")
+
+    partes.append(f"- memórias sem uso há muito tempo: {len(obsoletas)}")
+    for o in obsoletas[:8]:
+        partes.append(f"    - `{o['nome']}` ({o['dias_sem_uso']} dias)")
+
+    if conflitos:
+        partes.append(f"- inconsistências no índice: {len(conflitos)}")
+
+    partes.append(f"- heurísticas possíveis: {len(licoes.get('heuristicas') or [])}")
+    partes.append(f"- anti-patterns possíveis: {len(licoes.get('anti_patterns') or [])}")
+    candidatas = licoes.get("candidatas") or []
+    if candidatas:
+        partes.append(f"- skills candidatas propostas: {len(candidatas)} (esperando você aprovar)")
+
+    partes.append("")
+    if aplicar:
+        partes.append(
+            f"Apliquei: {relatorio.get('arquivadas', 0)} arquivada(s), duplicatas "
+            "resolvidas por substituição (nada foi apagado) e lições gravadas."
+        )
+    else:
+        partes.append(
+            "Isto foi só um relatório — não mexi em nada. Para aplicar, mande "
+            "`/manutencao-memoria aplicar`."
+        )
+    return "\n".join(partes)
 
 
 # --------------------------------------------------------------------------
@@ -128,7 +301,7 @@ async def chat(request: Request) -> Response:
         db.add_message(conversation_id, "user", message)
 
         # Comandos respondem na hora, sem chamar o modelo.
-        command_reply = _handle_command(message)
+        command_reply = await _handle_command(message, conversation_id)
         if command_reply is not None:
             db.add_message(conversation_id, "assistant", command_reply)
             yield _sse({"type": "delta", "text": command_reply})
@@ -142,7 +315,18 @@ async def chat(request: Request) -> Response:
             return
 
         history = db.get_messages(conversation_id, limit=config.HISTORY_TURNS)
-        system_prompt = context.build_system_prompt()
+
+        # A montagem do prompt agora depende da PERGUNTA: em vez de despejar
+        # tudo, busca por significado o que tem a ver com ela. Se a seleção
+        # falhar por qualquer motivo, cai na montagem completa de antes —
+        # ficar sem memória seria pior que ficar com memória demais.
+        try:
+            system_prompt, procedencia = await context.montar(
+                message, historico=history[:-1]
+            )
+        except Exception:
+            system_prompt, procedencia = context.build_system_prompt(), {"modo": "completo"}
+        _ULTIMA_PROCEDENCIA[conversation_id] = procedencia
 
         # Contexto extra que será colado antes da pergunta. É uma LISTA de
         # propósito: biblioteca e web podem disparar na mesma pergunta, e
@@ -166,6 +350,7 @@ async def chat(request: Request) -> Response:
                         rotulo += f" p.{a['pagina']}"
                     if rotulo not in vistos:
                         vistos.append(rotulo)
+                procedencia["documentos"] = vistos
                 yield _sse({"type": "livros", "trechos": vistos})
 
         # --- web -----------------------------------------------------------
@@ -187,6 +372,7 @@ async def chat(request: Request) -> Response:
             resultados = await web.buscar(consulta, config.WEB_RESULTS)
             if resultados:
                 blocos.append(web.formatar(consulta, resultados))
+                procedencia["busca"] = consulta
                 yield _sse({
                     "type": "sources",
                     "label": "resultados da busca",
@@ -209,7 +395,17 @@ async def chat(request: Request) -> Response:
         # a pasta, calcular. Cada rodada executa o que ele pediu e devolve o
         # resultado; quando ele para de pedir, a resposta final sai em
         # streaming como sempre.
-        if config.TOOLS_ENABLED:
+        # As ações executadas viram o registro de experiência lá embaixo. O
+        # que conta como sucesso é isto aqui — ferramenta que rodou —, não a
+        # impressão de que a resposta ficou boa.
+        acoes_feitas: list[dict[str, object]] = []
+
+        # A capacidade é conferida ANTES do laço. Sem isto, uma configuração
+        # perfeitamente válida — modo local com um modelo que não chama função
+        # — derrubava a resposta inteira com "nenhum provedor sabe usar
+        # ferramentas". Não poder usar ferramenta é motivo para responder sem
+        # ela, nunca para não responder.
+        if config.TOOLS_ENABLED and router.quem_tem(router.TOOLS):
             for _ in range(config.TOOLS_MAX_ROUNDS):
                 try:
                     chamadas, eco = await brain.com_ferramentas(
@@ -231,6 +427,11 @@ async def chat(request: Request) -> Response:
                         "texto": ferramentas.resumir(chamada["nome"], chamada["args"]),
                     })
                     resultado, ok = ferramentas.executar(chamada["nome"], chamada["args"])
+                    acoes_feitas.append({
+                        "nome": chamada["nome"],
+                        "ok": ok,
+                        "resultado": resultado[:400],
+                    })
                     if not ok:
                         yield _sse({"type": "acao", "texto": f"⚠ {resultado}", "falhou": True})
                     history.append({
@@ -271,7 +472,7 @@ async def chat(request: Request) -> Response:
                                 "páginas está indisponível) — respondendo sem ele",
                         "fixo": True,
                     })
-                elif not chunks and usados and usados[0] != config.PROVIDERS[0]:
+                elif not chunks and usados and usados[0] != _principal():
                     # O principal falhou e o reserva assumiu. Vale avisar, para
                     # a pessoa entender se a resposta vier com outra cara.
                     yield _sse({
@@ -306,13 +507,28 @@ async def chat(request: Request) -> Response:
             })
 
         # Só agora, com a resposta já na tela, decidimos o que memorizar.
-        learned: list[dict[str, str]] = []
+        escopo = str(procedencia.get("escopo") or "global")
+        learned: list[dict[str, object]] = []
         try:
-            learned = await learner.extract(message, reply)
+            learned = await learner.extract(
+                message, reply,
+                escopo=None if escopo == "global" else escopo,
+                historico=history[:-1],
+            )
         except Exception:
             learned = []  # aprender é bônus; nunca pode quebrar a conversa
         if learned:
             yield _sse({"type": "learned", "memories": learned})
+
+        # E registramos o que foi tentado. O veredito sai de evidência
+        # operacional; sem evidência ele fica indefinido, e a experiência
+        # não vota em heurística nenhuma.
+        try:
+            _registrar_experiencia(
+                message, reply, acoes_feitas, conversation_id, escopo, history
+            )
+        except Exception:
+            pass  # registrar é bônus; nunca pode derrubar a conversa
 
         title = None
         if is_new:
@@ -335,6 +551,52 @@ async def chat(request: Request) -> Response:
         events(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _principal() -> str:
+    """O provedor que deveria ter atendido, com a configuração de agora.
+
+    Comparar com `config.PROVIDERS[0]` não serve mais: o primeiro da lista
+    padrão é o Ollama, e quem não o tem ligado veria "respondendo pelo
+    reserva" em toda mensagem, para sempre.
+    """
+    disponiveis = router.disponiveis()
+    return disponiveis[0] if disponiveis else ""
+
+
+def _registrar_experiencia(
+    mensagem: str,
+    resposta: str,
+    acoes: list[dict[str, object]],
+    conversa: int,
+    escopo: str,
+    history: list[dict[str, str]],
+) -> None:
+    """Guarda o que foi tentado nesta rodada, e revisa o veredito da anterior.
+
+    A revisão é o pedaço que faz isto valer: quando o André corrige agora, a
+    experiência que ficou marcada como sucesso na rodada PASSADA estava errada.
+    Sem voltar atrás, o registro premiaria justamente o que não funcionou.
+    """
+    if experiencia.e_correcao(mensagem):
+        anteriores = db.experiencia_listar(1)
+        if anteriores and anteriores[0].get("conversa") == conversa:
+            db.experiencia_atualizar(
+                int(anteriores[0]["id"]),
+                sucesso=0,
+                feedback=mensagem[:400],
+            )
+
+    experiencia.registrar(
+        mensagem,
+        acoes=acoes,
+        resultado=resposta[:2000],
+        contexto=" | ".join(
+            str(m.get("content") or "")[:120] for m in history[-3:-1]
+        ),
+        escopo=escopo,
+        conversa=conversa,
     )
 
 
@@ -364,11 +626,8 @@ async def delete_conversation(request: Request) -> Response:
 # --------------------------------------------------------------------------
 
 
-_STORES = {"memories": memory, "skills": skills}
-
-
 def _store_for(kind: str):
-    return _STORES.get(kind)
+    return COLECOES.get(kind)
 
 
 def _unknown() -> Response:
@@ -397,7 +656,17 @@ async def create_doc(request: Request) -> Response:
     if not name or not description:
         return JSONResponse({"error": "nome e descrição são obrigatórios"}, status_code=400)
 
-    doc = store.save(name, description, body, kind=str(payload.get("kind") or "manual"))
+    extra = {}
+    for campo in ("scope", "status", "importance"):
+        if payload.get(campo) is not None:
+            extra[campo] = str(payload[campo])
+
+    doc = store.save(
+        name, description, body,
+        kind=str(payload.get("kind") or "manual"),
+        extra=extra or None,
+    )
+    memoria.sincronizar(request.path_params["kind"])
     return JSONResponse({"item": doc.to_json(), "stats": context.stats()})
 
 
@@ -406,6 +675,7 @@ async def delete_doc(request: Request) -> Response:
     if store is None:
         return _unknown()
     ok = store.delete(request.path_params["name"])
+    memoria.sincronizar(request.path_params["kind"])
     return JSONResponse({"ok": ok, "stats": context.stats()})
 
 
@@ -503,13 +773,29 @@ async def diagnostico(request: Request) -> Response:
     except OSError:
         gravavel = False
 
+    from . import embeddings
+
     return JSONResponse({
         "provedores": saude.diagnostico(),
         "workspace": {"gravavel": gravavel, "pasta": ws.name},
         "banco": {"disponivel": config.DB_PATH.exists()},
-        "biblioteca": {"documentos": len(biblioteca.listar())},
+        "biblioteca": {
+            "documentos": len(biblioteca.listar()),
+            "precisam_reconstruir": biblioteca.incompativeis(),
+        },
         "ferramentas": {"ligadas": config.TOOLS_ENABLED},
-        "web": {"ligada": config.WEB_ENABLED},
+        "web": {"ligada": config.WEB_ENABLED, "buscador": web.provedor_de_busca()},
+        "local": {
+            "somente_local": config.LOCAL_ONLY,
+            "ollama": await saude.checar_ollama(),
+        },
+        "embeddings": {
+            "provedor": (embeddings.provedores() or ["nenhum"])[0],
+            "disponivel": embeddings.disponivel(),
+            "assinatura": embeddings.assinatura() if embeddings.disponivel() else "",
+        },
+        "memoria": memoria.estatisticas(),
+        "experiencias": experiencia.estatisticas(),
     })
 
 
@@ -524,13 +810,20 @@ async def health_check(request: Request) -> Response:
 
 
 async def status(request: Request) -> Response:
+    from . import embeddings
+
     return JSONResponse(
         {
             "user": config.USER_NAME,
             "name": config.ASSISTANT_NAME,
-            "model": config.MODEL,
+            "model": config.OLLAMA_MODEL if config.LOCAL_ONLY else config.MODEL,
             "auto_learn": config.AUTO_LEARN,
-            "has_key": bool(config.GEMINI_API_KEY),
+            # "tem como responder" — não é mais só a chave do Gemini: com o
+            # Ollama ligado, a Livia funciona sem chave nenhuma.
+            "has_key": bool(router.disponiveis()),
+            "local_only": config.LOCAL_ONLY,
+            "semantic": config.SEMANTIC_MEMORY and embeddings.disponivel(),
+            "candidatas": len(experiencia.candidatas()),
             **context.stats(),
         }
     )
@@ -538,6 +831,189 @@ async def status(request: Request) -> Response:
 
 async def index(request: Request) -> Response:
     return FileResponse(config.WEB_DIR / "index.html")
+
+
+# --------------------------------------------------------------------------
+# Memória, experiências e lições (painel)
+# --------------------------------------------------------------------------
+
+
+async def alterar_doc(request: Request) -> Response:
+    """Arquivar, reativar ou mudar escopo/importância de um item.
+
+    Existe separado de `create_doc` porque mudar o estado de uma memória não
+    é reescrevê-la: o corpo que o André editou à mão tem que sobreviver.
+    """
+    kind = request.path_params["kind"]
+    store = _store_for(kind)
+    if store is None:
+        return _unknown()
+
+    nome = request.path_params["name"]
+    try:
+        payload = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        return JSONResponse({"error": "corpo inválido"}, status_code=400)
+
+    acao = str(payload.get("acao") or "").strip()
+    if acao == "arquivar":
+        ok = memoria.arquivar(nome, colecao=kind)
+    elif acao == "reativar":
+        ok = memoria.reativar(nome, colecao=kind)
+    elif acao == "substituir":
+        ok = memoria.substituir(nome, str(payload.get("por") or ""), colecao=kind)
+    else:
+        campos = {
+            c: payload[c] for c in ("scope", "importance", "description", "kind")
+            if payload.get(c) is not None
+        }
+        if not campos:
+            return JSONResponse({"error": "nada para alterar"}, status_code=400)
+        ok = store.patch(nome, **campos) is not None
+        memoria.sincronizar(kind)
+
+    if not ok:
+        return JSONResponse({"error": "item não encontrado"}, status_code=404)
+
+    doc = store.get(nome)
+    return JSONResponse({
+        "item": doc.to_json() if doc else None,
+        "stats": context.stats(),
+    })
+
+
+async def detalhar_doc(request: Request) -> Response:
+    """Um item com o que o índice sabe dele: usos, última vez, origem."""
+    kind = request.path_params["kind"]
+    store = _store_for(kind)
+    if store is None:
+        return _unknown()
+
+    doc = store.get(request.path_params["name"])
+    if doc is None:
+        return JSONResponse({"error": "item não encontrado"}, status_code=404)
+
+    linha = db.memoria_linha(doc.name, kind) or {}
+    return JSONResponse({
+        "item": doc.to_json(),
+        "indice": {
+            "usos": linha.get("usos", 0),
+            "usado_em": linha.get("usado_em", ""),
+            "criado_em": linha.get("criado_em", ""),
+            "atualizado_em": linha.get("atualizado_em", ""),
+            "vetorizada": linha.get("vetor") is not None,
+        },
+    })
+
+
+async def listar_experiencias(request: Request) -> Response:
+    registros = db.experiencia_listar(60)
+    return JSONResponse({
+        "experiencias": [
+            {
+                "id": e["id"],
+                "criado_em": e["criado_em"],
+                "tarefa": e["tarefa"],
+                "sucesso": e["sucesso"],
+                "erro": e["erro"],
+                "licao": e["licao"],
+                "escopo": e["escopo"],
+                "acoes": [str(a.get("nome") or "") for a in e["acoes"]],
+            }
+            for e in registros
+        ],
+        "resumo": experiencia.estatisticas(),
+    })
+
+
+async def apagar_experiencia(request: Request) -> Response:
+    ok = db.experiencia_apagar(int(request.path_params["id"]))
+    return JSONResponse({"ok": ok})
+
+
+async def listar_candidatas(request: Request) -> Response:
+    return JSONResponse({"candidatas": experiencia.candidatas()})
+
+
+async def decidir_candidata(request: Request) -> Response:
+    """Aprovar ou rejeitar uma skill que ela propôs.
+
+    O ponto de controle humano da fase 12: nada vira procedimento permanente
+    sem alguém dizer que sim.
+    """
+    id_ = int(request.path_params["id"])
+    try:
+        payload = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        payload = {}
+
+    if str(payload.get("acao") or "").strip() == "aprovar":
+        resultado = experiencia.aprovar(id_)
+        if resultado is None:
+            return JSONResponse({"error": "candidata não encontrada"}, status_code=404)
+        return JSONResponse({"skill": resultado, "stats": context.stats()})
+
+    if not experiencia.rejeitar(id_):
+        return JSONResponse({"error": "candidata não encontrada"}, status_code=404)
+    return JSONResponse({"ok": True})
+
+
+async def manutencao_memoria(request: Request) -> Response:
+    """Faxina. Só aplica se o pedido disser explicitamente `aplicar: true`."""
+    try:
+        payload = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        payload = {}
+    relatorio = await memoria.manutencao(aplicar=bool(payload.get("aplicar")))
+    return JSONResponse(relatorio)
+
+
+async def importar_projeto(request: Request) -> Response:
+    """Indexa uma pasta do workspace, relatando o progresso por SSE."""
+    try:
+        payload = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        payload = {}
+    pasta = str(payload.get("pasta") or "").strip()
+
+    async def eventos() -> AsyncIterator[bytes]:
+        try:
+            async for passo in conhecimento.importar(pasta):
+                yield _sse(passo)
+        except (conhecimento.ConhecimentoError, biblioteca.BibliotecaError) as exc:
+            yield _sse({"etapa": "erro", "texto": str(exc)})
+        except Exception as exc:
+            yield _sse({"etapa": "erro", "texto": f"Falha inesperada: {exc}"})
+
+    return StreamingResponse(
+        eventos(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+async def listar_projetos(request: Request) -> Response:
+    return JSONResponse({"pastas": conhecimento.pastas_candidatas()})
+
+
+async def reconstruir_indice(request: Request) -> Response:
+    """Recalcula os vetores de um documento cujo gerador mudou."""
+    slug = request.path_params["slug"]
+
+    async def eventos() -> AsyncIterator[bytes]:
+        try:
+            async for passo in biblioteca.reindexar(slug):
+                yield _sse(passo)
+        except biblioteca.BibliotecaError as exc:
+            yield _sse({"etapa": "erro", "texto": str(exc)})
+        except Exception as exc:
+            yield _sse({"etapa": "erro", "texto": f"Falha inesperada: {exc}"})
+
+    return StreamingResponse(
+        eventos(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # --------------------------------------------------------------------------
@@ -665,12 +1141,33 @@ routes = [
     Route("/api/persona", save_persona, methods=["POST"]),
     Route("/api/store/{kind:str}", list_docs),
     Route("/api/store/{kind:str}", create_doc, methods=["POST"]),
+    Route("/api/store/{kind:str}/{name:str}", detalhar_doc),
+    Route("/api/store/{kind:str}/{name:str}", alterar_doc, methods=["PATCH"]),
     Route("/api/store/{kind:str}/{name:str}", delete_doc, methods=["DELETE"]),
+    Route("/api/experiencias", listar_experiencias),
+    Route("/api/experiencias/{id:int}", apagar_experiencia, methods=["DELETE"]),
+    Route("/api/candidatas", listar_candidatas),
+    Route("/api/candidatas/{id:int}", decidir_candidata, methods=["POST"]),
+    Route("/api/manutencao", manutencao_memoria, methods=["POST"]),
+    Route("/api/projetos", listar_projetos),
+    Route("/api/projetos", importar_projeto, methods=["POST"]),
+    Route("/api/biblioteca/{slug:str}/reindexar", reconstruir_indice, methods=["POST"]),
 ]
 
 @asynccontextmanager
 async def lifespan(_app: Starlette) -> AsyncIterator[None]:
     db.init()
+
+    # Migração automática (fase 34): quem atualiza a Livia abre a versão nova
+    # e continua usando. O índice se alinha com os arquivos que já existem, e
+    # os vetores são gerados sob demanda na primeira pergunta — gerar tudo
+    # aqui deixaria a subida travada por minutos numa biblioteca grande.
+    for colecao in COLECOES:
+        try:
+            memoria.sincronizar(colecao)
+        except Exception:
+            pass  # índice é derivado; falhar aqui não pode impedir o app de subir
+
     yield
 
 

@@ -21,6 +21,18 @@ QUEM SABE O QUÊ
 Só o Gemini abre links sozinho (`url_context`). Caindo para a Groq, essa
 capacidade some, mas a busca continua funcionando: os resultados do DuckDuckGo
 entram como texto no prompt, e isso qualquer modelo lê.
+
+O OLLAMA
+--------
+É o provedor local: sem chave, sem cota, sem nada saindo da máquina. Ele fala
+o próprio protocolo (`/api/chat`, NDJSON em vez de SSE), então tem funções
+próprias aqui — mas o formato de mensagem é o mesmo da OpenAI, com uma
+diferença que quebra em silêncio se você não souber: os argumentos de
+ferramenta vêm como OBJETO, não como string JSON.
+
+Ferramenta com modelo local só é oferecida quando LIVIA_OLLAMA_TOOLS=1. Vários
+modelos aceitam o parâmetro `tools` e o ignoram — a resposta sai dizendo que
+fez, sem ter feito. Preferimos não declarar a capacidade a declará-la e mentir.
 """
 
 from __future__ import annotations
@@ -442,15 +454,279 @@ async def _groq_structured(
 
 
 # --------------------------------------------------------------------------
+# Ollama (local)
+# --------------------------------------------------------------------------
+
+
+def _ollama_mensagens(
+    system_prompt: str, messages: Iterable[dict[str, object]]
+) -> list[dict[str, object]]:
+    """Histórico no formato do Ollama.
+
+    Quase igual ao da OpenAI, com uma diferença que custa caro descobrir na
+    marra: `arguments` aqui é um OBJETO, não uma string JSON. Mandar string
+    faz o modelo receber o nome do argumento como se fosse o valor.
+    """
+    saida: list[dict[str, object]] = []
+    if system_prompt.strip():
+        saida.append({"role": "system", "content": system_prompt})
+
+    for m in messages:
+        papel = m.get("role")
+
+        if papel == "assistant" and m.get("ferramentas"):
+            saida.append({
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"function": {"name": c["nome"], "arguments": c["args"]}}
+                    for c in m["ferramentas"]
+                ],
+            })
+            continue
+
+        if papel == "ferramenta":
+            saida.append({
+                "role": "tool",
+                "content": str(m.get("resultado", "")),
+            })
+            continue
+
+        texto = str(m.get("content") or "").strip()
+        if texto:
+            saida.append({
+                "role": "assistant" if papel == "assistant" else "user",
+                "content": texto,
+            })
+    return saida
+
+
+def _ollama_timeout() -> httpx.Timeout:
+    """Paciência maior que a da nuvem: a máquina é a sua, e ela pensa devagar."""
+    return httpx.Timeout(
+        connect=5.0, read=config.OLLAMA_TIMEOUT, write=30.0, pool=5.0
+    )
+
+
+def _ollama_erro(status: int, payload: str, modelo: str):
+    """Traduz a falha do Ollama para algo acionável.
+
+    Modelo não baixado é o erro nº 1 de quem acabou de instalar, e a mensagem
+    crua ("model 'x' not found, try pulling it first") não diz o comando. Aqui
+    dizemos — mas NÃO baixamos nada sozinhos: são gigabytes na conexão de
+    alguém, e isso não se faz sem pedir.
+    """
+    detalhe = _api_message(payload) or payload[:200]
+    if status == 404 or "not found" in detalhe.lower():
+        return ProvedorQuebrado(
+            f"ollama: o modelo '{modelo}' não está baixado nesta máquina. "
+            f"Rode no terminal:\n\n    ollama pull {modelo}\n\n"
+            "Depois é só mandar a mensagem de novo.",
+            "modelo",
+        )
+    if status >= 500:
+        return ProvedorIndisponivel(f"ollama: servidor devolveu {status}", "servidor")
+    return ProvedorQuebrado(f"ollama: erro {status}. {detalhe}", "modelo")
+
+
+def _ollama_fora(exc: Exception) -> ProvedorIndisponivel:
+    return ProvedorIndisponivel(
+        f"ollama: nada respondendo em {config.OLLAMA_BASE_URL} — o servidor "
+        "está desligado? Suba com `ollama serve` (ou abra o aplicativo).",
+        "servidor",
+    )
+
+
+def _ollama_linhas(bruto: str) -> dict[str, object] | None:
+    try:
+        dados = json.loads(bruto)
+    except json.JSONDecodeError:
+        return None
+    return dados if isinstance(dados, dict) else None
+
+
+async def _ollama_stream(
+    system_prompt: str,
+    messages: Iterable[dict[str, object]],
+    temperature: float,
+) -> AsyncIterator[str]:
+    """Resposta em pedaços. O Ollama manda NDJSON, uma linha por pedaço."""
+    modelo = config.OLLAMA_MODEL
+    corpo = {
+        "model": modelo,
+        "messages": _ollama_mensagens(system_prompt, messages),
+        "stream": True,
+        "options": {"temperature": temperature},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=_ollama_timeout()) as client:
+            async with client.stream(
+                "POST", f"{config.OLLAMA_BASE_URL}/api/chat", json=corpo
+            ) as resp:
+                if resp.status_code >= 400:
+                    detalhe = (await resp.aread()).decode("utf-8", "replace")
+                    raise _ollama_erro(resp.status_code, detalhe, modelo)
+
+                async for linha in resp.aiter_lines():
+                    if not linha.strip():
+                        continue
+                    dados = _ollama_linhas(linha)
+                    if dados is None:
+                        continue
+                    if isinstance(dados.get("error"), str):
+                        raise _ollama_erro(404, json.dumps(dados), modelo)
+                    mensagem = dados.get("message")
+                    if isinstance(mensagem, dict):
+                        pedaco = mensagem.get("content")
+                        if isinstance(pedaco, str) and pedaco:
+                            yield pedaco
+    except httpx.ConnectError as exc:
+        raise _ollama_fora(exc) from exc
+
+
+def _para_json_schema(schema: dict[str, object]) -> dict[str, object]:
+    """O schema do projeto é escrito no dialeto do Gemini (`"type": "OBJECT"`).
+
+    O Ollama espera JSON Schema padrão, em minúsculas. Converter aqui evita
+    reescrever os schemas espalhados pelo projeto — e evita que cada módulo
+    precise saber qual provedor vai atender.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    saida: dict[str, object] = {}
+    for chave, valor in schema.items():
+        if chave == "type" and isinstance(valor, str):
+            saida[chave] = valor.lower()
+        elif chave == "properties" and isinstance(valor, dict):
+            saida[chave] = {k: _para_json_schema(v) for k, v in valor.items()}
+        elif chave == "items" and isinstance(valor, dict):
+            saida[chave] = _para_json_schema(valor)
+        else:
+            saida[chave] = valor
+    return saida
+
+
+async def _ollama_structured(
+    system_prompt: str, user_prompt: str, schema: dict[str, object], temperature: float
+) -> object | None:
+    """JSON garantido pelo `format` do Ollama, que aceita JSON Schema direto."""
+    modelo = config.OLLAMA_FAST_MODEL or config.OLLAMA_MODEL
+    corpo = {
+        "model": modelo,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "stream": False,
+        "format": _para_json_schema(schema),
+        "options": {"temperature": temperature},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=_ollama_timeout()) as client:
+            resp = await client.post(
+                f"{config.OLLAMA_BASE_URL}/api/chat", json=corpo
+            )
+            if resp.status_code >= 400:
+                raise _ollama_erro(resp.status_code, resp.text, modelo)
+            dados = resp.json()
+    except httpx.ConnectError as exc:
+        raise _ollama_fora(exc) from exc
+
+    texto = ""
+    mensagem = dados.get("message")
+    if isinstance(mensagem, dict):
+        texto = str(mensagem.get("content") or "")
+    if not texto.strip():
+        return None
+    try:
+        return json.loads(texto)
+    except json.JSONDecodeError:
+        return None
+
+
+async def _ollama_ferramentas(system_prompt, messages, catalogo):
+    """Uma rodada com ferramentas — só quando o modelo local declara suportar.
+
+    Sem LIVIA_OLLAMA_TOOLS=1 nem chegamos aqui: o roteador não lista o Ollama
+    para tarefas que exigem `tools`.
+    """
+    modelo = config.OLLAMA_MODEL
+    corpo = {
+        "model": modelo,
+        "messages": _ollama_mensagens(system_prompt, messages),
+        "stream": False,
+        "tools": [{"type": "function", "function": f} for f in catalogo],
+        "options": {"temperature": 0.4},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=_ollama_timeout()) as client:
+            resp = await client.post(f"{config.OLLAMA_BASE_URL}/api/chat", json=corpo)
+            if resp.status_code >= 400:
+                raise _ollama_erro(resp.status_code, resp.text, modelo)
+            dados = resp.json()
+    except httpx.ConnectError as exc:
+        raise _ollama_fora(exc) from exc
+
+    mensagem = dados.get("message")
+    brutas = mensagem.get("tool_calls") if isinstance(mensagem, dict) else None
+    if not brutas:
+        return [], []
+
+    chamadas = []
+    for i, c in enumerate(brutas):
+        fn = c.get("function", {}) if isinstance(c, dict) else {}
+        args = fn.get("arguments")
+        if isinstance(args, str):          # alguns modelos mandam string mesmo
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                args = {}
+        chamadas.append({
+            "id": f"o{i}",
+            "nome": fn.get("name", ""),
+            "args": args if isinstance(args, dict) else {},
+        })
+
+    return chamadas, [{"role": "assistant", "ferramentas": chamadas}]
+
+
+async def ollama_modelos() -> list[str]:
+    """Modelos baixados na máquina. Lista vazia quando o servidor não responde."""
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
+            resp = await client.get(f"{config.OLLAMA_BASE_URL}/api/tags")
+            if resp.status_code >= 400:
+                return []
+            modelos = resp.json().get("models")
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError):
+        return []
+    if not isinstance(modelos, list):
+        return []
+    return [
+        str(m.get("name") or m.get("model") or "")
+        for m in modelos
+        if isinstance(m, dict)
+    ]
+
+
+# --------------------------------------------------------------------------
 # API pública
 # --------------------------------------------------------------------------
 
 _STREAMS = {
+    "ollama": _ollama_stream,
     "gemini": _gemini_stream,
     "groq": _groq_stream,
     "openrouter": _openrouter_stream,
 }
-_STRUCTURED = {"gemini": _gemini_structured, "groq": _groq_structured}
+_STRUCTURED = {
+    "ollama": _ollama_structured,
+    "gemini": _gemini_structured,
+    "groq": _groq_structured,
+}
 
 
 async def stream(
@@ -588,13 +864,29 @@ async def com_ferramentas(
     Não é streaming de propósito: pedidos de ferramenta chegam picotados no
     stream e remontá-los é frágil nos dois formatos. Como esta etapa não
     produz texto para o usuário ler, o ganho seria zero e o risco real.
+
+    Quem entra na fila é decidido por CAPACIDADE, não por nome. Provedor que
+    não sabe chamar função fica de fora — mandar mesmo assim produz o pior
+    resultado possível: o modelo diz que fez e não fez.
     """
-    for provedor in _provedores():
+    from . import router, saude
+
+    candidatos = router.quem_tem(router.TOOLS, _provedores())
+    if not candidatos:
+        raise BrainError(
+            "Nenhum provedor disponível sabe usar ferramentas agora."
+        )
+
+    for provedor in candidatos:
+        funcao = _FERRAMENTAS.get(provedor)
+        if funcao is None:
+            continue
         try:
-            if provedor == "groq":
-                return await _groq_ferramentas(system_prompt, messages, catalogo)
-            return await _gemini_ferramentas(system_prompt, messages, catalogo)
-        except (ProvedorIndisponivel, httpx.HTTPError):
+            return await funcao(system_prompt, messages, catalogo)
+        except ProvedorIndisponivel as exc:
+            saude.registrar_falha(provedor, exc.tipo, str(exc))
+            continue
+        except httpx.HTTPError:
             continue
         except BrainError:
             raise
@@ -668,6 +960,14 @@ async def _gemini_ferramentas(system_prompt, messages, catalogo):
     return chamadas, [{"role": "assistant", "ferramentas": chamadas}]
 
 
+# O OpenRouter não aparece aqui de propósito: ver o comentário em config.
+_FERRAMENTAS = {
+    "ollama": _ollama_ferramentas,
+    "gemini": _gemini_ferramentas,
+    "groq": _groq_ferramentas,
+}
+
+
 async def structured(
     system_prompt: str,
     user_prompt: str,
@@ -680,11 +980,14 @@ async def structured(
     Devolve None em qualquer falha. Quem chama isto — o filtro de memória e a
     decisão de buscar na web — é acessório: se falhar, a conversa segue.
     """
-    for provedor in _provedores():
+    from . import router
+
+    for provedor in router.quem_tem(router.STRUCTURED, _provedores()):
+        funcao = _STRUCTURED.get(provedor)
+        if funcao is None:
+            continue
         try:
-            return await _STRUCTURED[provedor](
-                system_prompt, user_prompt, schema, temperature
-            )
+            return await funcao(system_prompt, user_prompt, schema, temperature)
         except Exception:
             continue
     return None

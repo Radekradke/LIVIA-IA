@@ -8,6 +8,20 @@ Com isto você baixa um .zip com tudo e restaura depois. Não é elegante, mas �
 a diferença entre perder meses de contexto e perder cinco minutos.
 
 O zip NÃO leva o .env: chaves de API não devem passear em arquivo de backup.
+
+O QUE ENTRA E O QUE FICA DE FORA
+--------------------------------
+Entra tudo que é ORIGINAL: memórias, skills, lições, personalidade e o banco
+(que carrega as conversas, as experiências e as skills candidatas).
+
+Da biblioteca entram o `meta.json` e o `trechos.jsonl` — o texto —, mas NÃO o
+`vetores.npy`. O motivo é tamanho: uma biblioteca com alguns livros passa
+fácil de 50 MB de vetores, e eles são inteiramente reconstrutíveis a partir
+dos trechos, que comprimem muito bem. Depois de restaurar, o botão
+"reconstruir" de cada documento refaz os vetores em segundos.
+
+Índice de memória também fica de fora do zip por estar dentro do próprio
+livia.db — e é reconstruído sozinho na primeira abertura de qualquer jeito.
 """
 
 from __future__ import annotations
@@ -19,8 +33,11 @@ from datetime import datetime
 from . import config
 
 # Só o que é seu. O banco entra inteiro; os .md entram um a um.
-_PASTAS = ("memory", "skills")
+_PASTAS = ("memory", "skills", "lessons")
 _ARQUIVOS = ("personalidade.md", "livia.db")
+
+# Da biblioteca, só o que não dá para recalcular. Ver o cabeçalho.
+_BIBLIOTECA_ARQUIVOS = ("meta.json", "trechos.jsonl")
 
 
 def exportar() -> tuple[bytes, str]:
@@ -40,12 +57,32 @@ def exportar() -> tuple[bytes, str]:
             for arquivo in sorted(origem.glob("*.md")):
                 zf.write(arquivo, f"{pasta}/{arquivo.name}")
 
+        # Biblioteca: texto sim, vetores não.
+        origem = config.DATA_DIR / "biblioteca"
+        if origem.exists():
+            for pasta in sorted(origem.iterdir()):
+                if not pasta.is_dir():
+                    continue
+                for nome in _BIBLIOTECA_ARQUIVOS:
+                    arquivo = pasta / nome
+                    if arquivo.exists():
+                        zf.write(arquivo, f"biblioteca/{pasta.name}/{nome}")
+
         zf.writestr(
             "LEIA-ME.txt",
             "Backup da Livia\n"
             f"Gerado em: {datetime.now().isoformat(timespec='seconds')}\n\n"
             "Para restaurar: painel lateral > aba Jeito > Restaurar backup,\n"
             "ou descompacte por cima da pasta data/ com o servidor parado.\n\n"
+            "O que tem aqui dentro:\n"
+            "  memory/      suas memorias\n"
+            "  skills/      os procedimentos que voce ensinou\n"
+            "  lessons/     o que ela deduziu das proprias experiencias\n"
+            "  biblioteca/  o texto dos documentos (sem os vetores)\n"
+            "  livia.db     conversas, experiencias e indices\n\n"
+            "Os vetores da biblioteca NAO vem no zip: sao grandes e da para\n"
+            "recalcular a partir do texto. Depois de restaurar, use o botao\n"
+            "'reconstruir' de cada documento na aba Livros.\n\n"
             "Este arquivo NAO contem chaves de API (elas ficam so no .env).\n",
         )
 
@@ -59,7 +96,10 @@ def importar(dados: bytes) -> dict[str, int]:
     Sobrescreve o que existir com o mesmo nome, e mantém o que não estiver no
     backup — restaurar nunca apaga memória que você criou depois.
     """
-    contagem = {"memorias": 0, "skills": 0, "personalidade": 0, "conversas": 0}
+    contagem = {
+        "memorias": 0, "skills": 0, "licoes": 0,
+        "personalidade": 0, "conversas": 0, "documentos": 0,
+    }
 
     with zipfile.ZipFile(io.BytesIO(dados)) as zf:
         for item in zf.namelist():
@@ -79,10 +119,31 @@ def importar(dados: bytes) -> dict[str, int]:
             elif item.startswith("skills/") and item.endswith(".md"):
                 destino = config.DATA_DIR / item
                 contagem["skills"] += 1
+            elif item.startswith("lessons/") and item.endswith(".md"):
+                destino = config.DATA_DIR / item
+                contagem["licoes"] += 1
+            elif item.startswith("biblioteca/") and item.endswith(
+                (".json", ".jsonl")
+            ):
+                destino = config.DATA_DIR / item
+                if item.endswith("meta.json"):
+                    contagem["documentos"] += 1
             else:
                 continue  # LEIA-ME.txt e qualquer coisa inesperada
 
             destino.parent.mkdir(parents=True, exist_ok=True)
             destino.write_bytes(zf.read(item))
+
+    # O índice acompanha os arquivos restaurados. Sem isto, uma memória
+    # recuperada existiria em disco e não apareceria na busca até alguém
+    # reiniciar o servidor.
+    try:
+        from . import memoria
+        from .store import COLECOES
+
+        for colecao in COLECOES:
+            memoria.sincronizar(colecao)
+    except Exception:
+        pass  # índice é derivado; ele se refaz na próxima abertura
 
     return contagem

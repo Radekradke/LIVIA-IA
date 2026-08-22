@@ -1,10 +1,22 @@
-"""As duas gavetas onde a Livia guarda o que sabe.
+"""As gavetas onde a Livia guarda o que sabe.
 
-- memória: fatos soltos sobre você e seus projetos ("prefere Python").
-- skills: procedimentos que você ensina uma vez e ela reusa ("como eu faço deploy").
+- memória: fatos sobre você e seus projetos ("prefere Python").
+- skills:  procedimentos que você ensina uma vez e ela reusa ("como faço deploy").
+- lições:  regras que ELA deduziu das próprias experiências ("nesta situação,
+           tentar B antes de A"), incluindo os anti-patterns.
 
-A diferença é só de propósito — mecanicamente são a mesma coisa: arquivos .md
-numa pasta. Por isso as duas usam a mesma classe.
+A diferença é de propósito, não de mecânica — as três são arquivos .md numa
+pasta, e por isso usam a mesma classe.
+
+A distinção entre as três importa e não deve ser dissolvida:
+
+    MEMÓRIA      o que é verdade sobre o André
+    SKILL        como fazer algo, ensinado por ele
+    LIÇÃO        o que a experiência mostrou, deduzido por ela
+
+Misturar as três num balaio só ("coisas que ela sabe") tornaria impossível
+responder à pergunta que mais importa quando algo sai errado: isso veio do
+André ou foi ela que concluiu sozinha?
 """
 
 from __future__ import annotations
@@ -29,8 +41,24 @@ class Store:
     def get(self, name: str) -> Doc | None:
         return docs.find(self.directory, name)
 
-    def save(self, name: str, description: str, body: str = "", kind: str = "nota") -> Doc:
-        return docs.write(self.directory, name, description, body, kind)
+    def save(
+        self,
+        name: str,
+        description: str,
+        body: str = "",
+        kind: str = "nota",
+        extra: dict[str, str] | None = None,
+    ) -> Doc:
+        return docs.write(self.directory, name, description, body, kind, extra)
+
+    def patch(self, name: str, **campos: object) -> Doc | None:
+        """Muda o cabeçalho sem mexer no corpo (status, escopo, importância)."""
+        return docs.patch(self.directory, name, **campos)
+
+    def ativos(self) -> list[Doc]:
+        """Só o que ainda vale. Substituída e arquivada ficam no disco, e é
+        de propósito: o histórico é a prova de por que ela mudou de ideia."""
+        return [d for d in self.all() if d.ativa]
 
     def delete(self, name: str) -> bool:
         return docs.delete(self.directory, name)
@@ -46,7 +74,11 @@ class Store:
         índice de uma linha por item, e o modelo pede o conteúdo completo se
         precisar. Isso mantém o custo estável mesmo com centenas de arquivos.
         """
-        items = self.all()
+        # Só o que está ativo. Uma memória substituída continua no disco (o
+        # histórico é a prova de por que ela mudou de ideia), mas mandá-la
+        # para o prompt junto com a que a substituiu recriaria exatamente a
+        # contradição que substituir existe para resolver.
+        items = self.ativos()
         if not items:
             return ""
 
@@ -66,3 +98,8 @@ class Store:
 
 memory = Store(config.MEMORY_DIR, config.MEMORY_BUDGET_CHARS, "memória")
 skills = Store(config.SKILLS_DIR, config.SKILL_BUDGET_CHARS, "skill")
+lessons = Store(config.LESSONS_DIR, config.SKILL_BUDGET_CHARS, "lição")
+
+# Nome da coleção -> gaveta. Usado pelo servidor e pelo índice semântico para
+# não repetir este mapa em três lugares.
+COLECOES = {"memories": memory, "skills": skills, "lessons": lessons}

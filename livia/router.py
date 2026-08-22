@@ -16,6 +16,17 @@ Duas coisas decidem o destino:
 
 O resultado é sempre uma FILA, nunca uma escolha única — quem chama tenta em
 ordem e cai para o seguinte quando um falha.
+
+LOCAL PRIMEIRO
+--------------
+Quando o Ollama está ligado, ele encabeça a fila de tudo que sabe fazer:
+é grátis, não tem cota e nada sai da máquina. Isso NÃO é regra fixa — a
+ordem sai de LIVIA_PROVIDERS, e quem quiser a nuvem na frente é só escrever
+`LIVIA_PROVIDERS=groq,ollama`. O que o código garante é a capacidade: o
+Ollama nunca recebe uma tarefa que o modelo local não sabe cumprir.
+
+Com LIVIA_LOCAL_ONLY=1, os provedores de nuvem somem da fila inteira. Não
+é preferência: é filtro. Nenhuma linha de conversa sai da máquina.
 """
 
 from __future__ import annotations
@@ -54,19 +65,48 @@ class TaskProfile:
 # O OpenRouter fica fora de `tools` e `structured` de propósito: o modelo
 # gratuito que ele escolhe varia, e nem todos honram esses formatos. Melhor
 # não oferecer do que oferecer e quebrar de forma imprevisível.
+#
+# O Ollama declara FAST porque o modelo pequeno local resolve triagem bem, e
+# EMBEDDINGS porque serve vetor local. Não declara TOOLS aqui: essa depende do
+# modelo que o André baixou, e é acrescentada em `capacidades()` só quando ele
+# confirma em LIVIA_OLLAMA_TOOLS=1.
 CATALOGO: dict[str, ProviderSpec] = {
+    "ollama": ProviderSpec(
+        "ollama",
+        frozenset({CHAT, FAST, STRUCTURED, EMBEDDINGS, LONG_CONTEXT}),
+        priority=0,
+    ),
     "groq": ProviderSpec(
-        "groq", frozenset({CHAT, FAST, TOOLS, STRUCTURED}), priority=0
+        "groq", frozenset({CHAT, FAST, TOOLS, STRUCTURED}), priority=1
     ),
     "gemini": ProviderSpec(
         "gemini",
         frozenset({CHAT, TOOLS, STRUCTURED, URL_CONTEXT, LONG_CONTEXT, EMBEDDINGS}),
-        priority=1,
+        priority=2,
     ),
     "openrouter": ProviderSpec(
-        "openrouter", frozenset({CHAT, SPECIALIST}), priority=2
+        "openrouter", frozenset({CHAT, SPECIALIST}), priority=3
     ),
 }
+
+def capacidades(nome: str) -> frozenset[str]:
+    """O que este provedor sabe fazer AGORA, com a configuração atual.
+
+    Existe porque o Ollama é o único cujo repertório muda conforme a máquina:
+    o modelo que o André baixou pode ou não saber chamar função, e essa
+    resposta está no .env, não no catálogo. Todos os outros são estáticos.
+    """
+    spec = CATALOGO.get(nome)
+    if spec is None:
+        return frozenset()
+    if nome == "ollama" and config.OLLAMA_TOOLS:
+        return spec.capabilities | {TOOLS}
+    return spec.capabilities
+
+
+def local(nome: str) -> bool:
+    return nome in config.LOCAL_PROVIDERS
+
 
 _URL = re.compile(r"https?://\S+", re.IGNORECASE)
 
@@ -84,6 +124,22 @@ _TECNICO = re.compile(
 _CURTO = 220   # caracteres; abaixo disso é conversa, não tarefa
 
 
+def _preferido(padrao: str | None, *exigidas: str) -> str | None:
+    """Quem deveria atender primeiro, dando a vez ao local quando ele serve.
+
+    A regra é uma só: se existe um provedor local ligado e ele tem TODAS as
+    capacidades que a tarefa exige, ele passa na frente — custa zero e nada
+    sai da máquina. Não tendo, vale o padrão de sempre.
+
+    Isto é só preferência. A fila continua completa atrás, e o `brain` cai
+    para o próximo quando o local falha ou está fora do ar.
+    """
+    for nome in config.LOCAL_PROVIDERS:
+        if configurado(nome) and set(exigidas) <= capacidades(nome):
+            return nome
+    return padrao
+
+
 def classificar(
     mensagem: str,
     *,
@@ -95,40 +151,64 @@ def classificar(
     texto = (mensagem or "").strip()
 
     if precisa_estruturado:
-        return TaskProfile("estruturado", frozenset({STRUCTURED}), "groq")
+        return TaskProfile(
+            "estruturado", frozenset({STRUCTURED}), _preferido("groq", STRUCTURED)
+        )
 
     if precisa_ferramentas:
-        return TaskProfile("ferramentas", frozenset({TOOLS}), "groq")
+        return TaskProfile(
+            "ferramentas", frozenset({TOOLS}), _preferido("groq", TOOLS)
+        )
 
     if _URL.search(texto):
-        # Só o Gemini abre links por conta própria.
+        # Só o Gemini abre links por conta própria. Nem o modelo local: ele
+        # não busca a página, ele inventa o que acha que estava nela.
         return TaskProfile("com_link", frozenset({URL_CONTEXT}), "gemini")
 
     if tem_documento:
-        return TaskProfile("documento", frozenset({LONG_CONTEXT}), "gemini")
+        return TaskProfile(
+            "documento", frozenset({LONG_CONTEXT}), _preferido("gemini", LONG_CONTEXT)
+        )
 
     if _TECNICO.search(texto):
-        return TaskProfile("tecnico", frozenset({CHAT}), "openrouter")
+        return TaskProfile(
+            "tecnico", frozenset({CHAT}), _preferido("openrouter", CHAT)
+        )
 
     if len(texto) <= _CURTO:
-        return TaskProfile("conversa", frozenset({CHAT}), "groq")
+        return TaskProfile("conversa", frozenset({CHAT}), _preferido("groq", CHAT))
 
-    return TaskProfile("geral", frozenset({CHAT}), None)
+    return TaskProfile("geral", frozenset({CHAT}), _preferido(None, CHAT))
+
+
+def configurado(nome: str) -> bool:
+    """Este provedor tem o que precisa para ser tentado?
+
+    Para os de nuvem, é ter chave. Para o Ollama, é estar ligado — ele não usa
+    chave nenhuma. Se o servidor local estiver desligado, quem descobre é a
+    primeira tentativa, e o `saude` tira ele da fila por alguns segundos.
+    """
+    if nome == "ollama":
+        return bool(config.OLLAMA_ENABLED)
+    return bool({
+        "gemini": config.GEMINI_API_KEY,
+        "groq": config.GROQ_API_KEY,
+        "openrouter": getattr(config, "OPENROUTER_API_KEY", ""),
+    }.get(nome))
 
 
 def disponiveis() -> list[str]:
     """Provedores configurados, na ordem que o André pediu no .env."""
-    chaves = {
-        "gemini": config.GEMINI_API_KEY,
-        "groq": config.GROQ_API_KEY,
-        "openrouter": getattr(config, "OPENROUTER_API_KEY", ""),
-    }
-    ordem = [p for p in config.PROVIDERS if chaves.get(p)]
-    # Um provedor com chave mas fora de LIVIA_PROVIDERS entra no fim, para
+    ordem = [p for p in config.PROVIDERS if p in CATALOGO and configurado(p)]
+    # Um provedor configurado mas fora de LIVIA_PROVIDERS entra no fim, para
     # configurar a chave já bastar — sem exigir mexer em duas variáveis.
-    for nome, chave in chaves.items():
-        if chave and nome not in ordem and nome in CATALOGO:
+    for nome in CATALOGO:
+        if nome not in ordem and configurado(nome):
             ordem.append(nome)
+
+    # Modo totalmente local: a nuvem não é despriorizada, é removida.
+    if config.LOCAL_ONLY:
+        ordem = [n for n in ordem if local(n)]
     return ordem
 
 
@@ -141,7 +221,7 @@ def fila(perfil: TaskProfile, candidatos: list[str] | None = None) -> list[str]:
     nomes = candidatos if candidatos is not None else disponiveis()
     aptos = [
         n for n in nomes
-        if n in CATALOGO and perfil.required_capabilities <= CATALOGO[n].capabilities
+        if n in CATALOGO and perfil.required_capabilities <= capacidades(n)
     ]
 
     def peso(nome: str) -> tuple[int, int, int]:
@@ -174,4 +254,4 @@ def escolher(
 def quem_tem(capacidade: str, candidatos: list[str] | None = None) -> list[str]:
     """Provedores configurados que declaram uma capacidade."""
     nomes = candidatos if candidatos is not None else disponiveis()
-    return [n for n in nomes if n in CATALOGO and capacidade in CATALOGO[n].capabilities]
+    return [n for n in nomes if capacidade in capacidades(n)]

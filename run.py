@@ -8,7 +8,7 @@ from threading import Timer
 
 import uvicorn
 
-from livia import auth, config
+from livia import auth, config, router
 
 LINHA = "=" * 70
 
@@ -51,21 +51,42 @@ def main() -> int:
 
     url = f"http://{config.HOST}:{config.PORT}"
 
-    if not config.GEMINI_API_KEY and not config.GROQ_API_KEY:
+    provedores = router.disponiveis()
+
+    if not provedores:
+        # "Falta a chave" deixou de ser a única forma de não ter provedor:
+        # com o Ollama ligado ela funciona sem chave nenhuma. Oferecer só o
+        # caminho da nuvem esconderia metade da resposta.
         print(LINHA)
-        print("  Nenhuma chave de API configurada.")
+        print("  Nenhum provedor de IA configurado.")
         print()
-        print("  1. Chave gratuita em https://aistudio.google.com/apikey")
-        print("  2. Copie .env.example para .env  (copie, não mova)")
-        print("  3. Cole a chave em GEMINI_API_KEY")
+        print("  Dois caminhos, os dois de graça:")
+        print()
+        print("  LOCAL (nada sai da sua máquina)")
+        print("    1. instale o Ollama: https://ollama.com")
+        print(f"    2. ollama pull {config.OLLAMA_MODEL}")
+        print("    3. ponha LIVIA_OLLAMA=1 no .env")
+        print()
+        print("  NUVEM (gratuita)")
+        print("    1. chave em https://aistudio.google.com/apikey")
+        print("    2. copie .env.example para .env  (copie, não mova)")
+        print("    3. cole a chave em GEMINI_API_KEY")
         print()
         print("  A interface abre mesmo assim, mas o chat vai dar erro.")
         print(LINHA)
         print()
 
     print(f"  {config.ASSISTANT_NAME} rodando em {url}")
-    print(f"  Provedores: {' -> '.join(config.PROVIDERS)}")
-    print(f"  Modelo: {config.MODEL}")
+    # A ordem EFETIVA, não a lista crua do .env: um provedor sem chave (ou o
+    # Ollama desligado) não entra na fila, e imprimir o contrário faria a
+    # pessoa procurar problema no lugar errado.
+    print(f"  Provedores: {' -> '.join(provedores) or 'nenhum'}")
+    if config.LOCAL_ONLY:
+        print("  Modo: TOTALMENTE LOCAL (nada sai desta máquina)")
+    if config.OLLAMA_ENABLED:
+        print(f"  Local: {config.OLLAMA_MODEL} em {config.OLLAMA_BASE_URL}")
+    if "gemini" in provedores or "groq" in provedores:
+        print(f"  Nuvem: {config.MODEL} / {config.GROQ_MODEL}")
     print(f"  Senha: {'sim' if auth.protegido() else 'NÃO (só acesso local)'}")
     print(f"  Dados: {config.DATA_DIR}")
     print("  Ctrl+C para parar.\n")

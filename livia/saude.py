@@ -135,27 +135,95 @@ def diagnostico() -> dict[str, dict[str, object]]:
 
     agora = time.time()
     modelos = {
+        "ollama": config.OLLAMA_MODEL,
         "gemini": config.MODEL,
         "groq": config.GROQ_MODEL,
         "openrouter": config.OPENROUTER_MODEL,
     }
-    chaves = {
-        "gemini": config.GEMINI_API_KEY,
-        "groq": config.GROQ_API_KEY,
-        "openrouter": config.OPENROUTER_API_KEY,
-    }
 
     saida: dict[str, dict[str, object]] = {}
-    for nome, spec in router.CATALOGO.items():
+    for nome in router.CATALOGO:
         e = _de(nome)
-        configurado = bool(chaves.get(nome))
+        configurado = router.configurado(nome)
         saida[nome] = {
             "configurado": configurado,
             "disponivel": configurado and e.disponivel(agora),
             "modelo": modelos.get(nome, ""),
-            "capacidades": sorted(spec.capabilities),
+            "capacidades": sorted(router.capacidades(nome)),
+            "local": router.local(nome),
             "quebrado": e.quebrado,
             "descanso_segundos": max(0, round(e.ate - agora, 1)) if e.ate != float("inf") else None,
             "ultimo_erro": e.ultimo_erro,
         }
     return saida
+
+
+async def checar_ollama() -> dict[str, object]:
+    """Diagnóstico honesto do servidor local, com o comando que falta rodar.
+
+    Quatro estados diferentes se parecem com "o Ollama não funciona", e cada
+    um pede uma ação distinta. Chutar entre eles é o que faz alguém passar uma
+    tarde reinstalando o servidor quando só faltava um `ollama pull`.
+    """
+    from . import brain, config
+
+    if not config.OLLAMA_ENABLED:
+        return {
+            "ligado": False,
+            "ok": False,
+            "mensagem": "O provedor local está desligado. Ligue com LIVIA_OLLAMA=1 no .env.",
+        }
+
+    instalados = await brain.ollama_modelos()
+    if not instalados:
+        return {
+            "ligado": True,
+            "ok": False,
+            "servidor": False,
+            "mensagem": (
+                f"Não achei nada respondendo em {config.OLLAMA_BASE_URL}. "
+                "O servidor do Ollama está de pé? Suba com `ollama serve` "
+                "ou abra o aplicativo."
+            ),
+        }
+
+    # O Ollama aceita "qwen3:8b" e "qwen3" para a mesma coisa quando a tag é
+    # `latest`. Comparar string crua marcaria como ausente um modelo que está lá.
+    def tem(modelo: str) -> bool:
+        if not modelo:
+            return False
+        alvo = modelo if ":" in modelo else f"{modelo}:latest"
+        return any(i == alvo or i.split(":")[0] == modelo for i in instalados)
+
+    faltando = [
+        m for m in (
+            config.OLLAMA_MODEL, config.OLLAMA_FAST_MODEL, config.OLLAMA_EMBED_MODEL
+        )
+        if m and not tem(m)
+    ]
+
+    if faltando:
+        comandos = "\n".join(f"    ollama pull {m}" for m in dict.fromkeys(faltando))
+        return {
+            "ligado": True,
+            "ok": False,
+            "servidor": True,
+            "faltando": list(dict.fromkeys(faltando)),
+            "instalados": instalados,
+            "mensagem": (
+                "O Ollama está ativo, mas "
+                + ("estes modelos não foram encontrados" if len(faltando) > 1
+                   else f"o modelo {faltando[0]} não foi encontrado")
+                + ". Rode no terminal:\n\n"
+                + comandos
+                + "\n\n(não baixo sozinha: são gigabytes na sua conexão)"
+            ),
+        }
+
+    return {
+        "ligado": True,
+        "ok": True,
+        "servidor": True,
+        "instalados": instalados,
+        "mensagem": f"Ollama de pé com {config.OLLAMA_MODEL}.",
+    }
