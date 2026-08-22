@@ -513,6 +513,8 @@ livia/
   backup.py         exportar e restaurar tudo num zip
   server.py         rotas HTTP e streaming
 web/index.html      a interface inteira, num arquivo só
+web/sw.js           service worker: casca offline e cache honesto
+web/icones/         ícones do aplicativo instalável
 data/
   memory/           suas memórias (.md)
   skills/           procedimentos que você ensinou (.md)
@@ -531,6 +533,56 @@ O derivado nunca é a única cópia de nada. Apagar `livia.db` custa o históric
 de conversas e as experiências, e obriga a reconstruir os índices — mas não
 apaga uma linha do que você escreveu ou ensinou. Inverter isso transformaria um
 arquivo binário na única cópia da memória de alguém.
+
+---
+
+## Instalar como aplicativo (PWA)
+
+Abra a Livia no Chrome ou Edge e clique no ícone de instalar na barra de
+endereço. Ela vira um aplicativo de janela própria, com ícone na barra de
+tarefas — sem abas, sem barra de endereço.
+
+### O que "offline" significa aqui — e o que não significa
+
+Vale ser exato, porque é fácil prometer demais. **A inteligência da Livia é o
+Python rodando na sua máquina.** Mesmo no modo totalmente local, quem pensa é
+o servidor; o navegador só desenha. Então:
+
+| | |
+|---|---|
+| Abrir o app instantâneo, sem esperar rede | ✅ |
+| **Ler** conversas, memórias e lições já vistas com o servidor desligado | ✅ |
+| Ser avisado com clareza do que está acontecendo | ✅ |
+| **Conversar** com o servidor desligado | ❌ e nenhum cache resolve |
+
+Com o `python run.py` parado, o app abre, mostra uma faixa explicando, troca o
+indicador de "online" para "sem servidor", e deixa você navegar pelo que já
+viu. Se você digitar uma pergunta, ele avisa antes de enviar — **sem apagar o
+que você escreveu**.
+
+Uma PWA mal feita é pior que nenhuma: abre, parece funcionar, e só quebra
+quando a pessoa já digitou. Por isso o service worker nunca serve resposta de
+chat do cache, e todo dado vindo do cache aparece marcado na interface.
+
+### A pegadinha do endereço
+
+Service worker só funciona em **contexto seguro**. Na prática:
+
+| Endereço | Instala como app? |
+|---|---|
+| `http://127.0.0.1:8100` (mesma máquina) | ✅ localhost é confiável por definição |
+| `http://localhost:8100` | ✅ |
+| `http://192.168.0.10:8100` (pela rede) | ❌ o navegador recusa o worker |
+| `https://...` (túnel do Cloudflare) | ✅ |
+
+Se você acessa do celular pela rede local por IP, o app **continua
+funcionando inteiro** — só não instala nem guarda nada offline. Para ter as
+duas coisas no celular, use o túnel HTTPS (ver *Colocar na internet*).
+
+### Trocando o nome
+
+O manifesto é gerado pelo servidor, então `LIVIA_NAME=Ada` instala um
+aplicativo chamado Ada, com o nome certo na janela e no ícone.
 
 ---
 

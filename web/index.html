@@ -2,9 +2,20 @@
 <html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Livia</title>
 <link rel="icon" href="data:,">
+
+<!-- Aplicativo instalável. O manifesto é gerado pelo servidor para respeitar
+     LIVIA_NAME; a cor da barra troca com o tema, coisa que o manifesto não
+     sabe fazer sozinho. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icones/apple-touch-icon.png">
+<meta name="theme-color" content="#140a0c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fffdfb" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Livia">
 <style>
 /* ══════════════════════════════════════════════════════════════════
    LIVIA — tema rubi
@@ -155,7 +166,30 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   width: 6px; height: 6px; border-radius: 50%; background: #4ad07f;
   box-shadow: 0 0 8px #4ad07f; animation: pulso 2.6s ease-in-out infinite;
 }
+/* Sem servidor a bolinha para de pulsar e fica âmbar. O pulso é o sinal de
+   "está viva"; mantê-lo com o Python desligado seria a interface mentindo. */
+.online.fora i {
+  background: var(--dourado); box-shadow: 0 0 8px var(--dourado); animation: none;
+}
+.online.fora { color: var(--dourado); }
 @keyframes pulso { 50% { opacity: .35; transform: scale(.8); } }
+
+/* Faixa de aviso quando o app está aberto e o servidor não responde. Fica
+   sobre o chat porque é ali que a pessoa vai tentar digitar. */
+.faixa-fora {
+  display: none; padding: 10px 16px; text-align: center;
+  font-size: 13px; line-height: 1.5;
+  background: rgba(139,90,43,.18); border-bottom: 1px solid rgba(139,90,43,.4);
+  color: var(--texto-suave);
+}
+.faixa-fora code {
+  font-family: var(--mono); font-size: 12px; color: var(--creme);
+  background: rgba(0,0,0,.25); padding: 1px 5px; border-radius: 4px;
+}
+body.sem-servidor .faixa-fora { display: block; }
+/* Digitar uma pergunta que não tem como ser respondida é pior que o campo
+   desabilitado: a pessoa escreve, envia e perde o texto. */
+body.sem-servidor #input { opacity: .5; }
 
 .btn-new {
   margin: 18px 0 20px; padding: 12px 16px; border-radius: var(--raio);
@@ -617,7 +651,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     </svg>
     <div class="marca-txt">
       <div class="brand" id="brand">LIVIA</div>
-      <div class="online"><i></i>online</div>
+      <div class="online" id="conexao"><i></i>online</div>
     </div>
   </div>
 
@@ -698,6 +732,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   </div>
 
   <div id="thread">
+    <div class="faixa-fora">
+      A Livia não está respondendo. O servidor dela é um programa na sua
+      máquina — abra o terminal e rode <code>python run.py</code>.<br>
+      Enquanto isso, dá para ler as conversas e memórias que você já viu.
+    </div>
     <div class="wrap" id="messages"></div>
   </div>
 
@@ -928,6 +967,22 @@ async function enviar() {
   const texto = input.value.trim();
   if (!texto) return;
 
+  // Sem servidor não há resposta possível. Limpar o campo e mostrar um erro
+  // genérico faria a pessoa perder o que escreveu por nada — o texto fica
+  // onde está, e a explicação vem antes.
+  if (!servidorDePe) {
+    await conferirServidor();          // pode ter voltado desde a última checagem
+    if (!servidorDePe) {
+      const aviso = addMensagem("assistant", "");
+      aviso.querySelector(".body").innerHTML =
+        '<div class="error">A Livia não está rodando. O servidor dela é um ' +
+        'programa na sua máquina: abra o terminal e rode <code>python run.py</code>.' +
+        '<br><br>Sua mensagem continua no campo abaixo.</div>';
+      descer();
+      return;
+    }
+  }
+
   const inicial = $("messages").querySelector(".empty");
   if (inicial) inicial.remove();
 
@@ -1006,7 +1061,14 @@ async function enviar() {
       }
     }
   } catch (e) {
-    corpo.innerHTML = `<div class="error">${escapar(e.message)}</div>`;
+    // TypeError de fetch = não chegou no servidor. Qualquer outra coisa é
+    // erro de verdade, e o texto dele ajuda mais que uma mensagem genérica.
+    const semServidor = e instanceof TypeError;
+    if (semServidor) marcarConexao(false);
+    corpo.innerHTML = semServidor
+      ? '<div class="error">Perdi contato com o servidor da Livia no meio da ' +
+        'resposta. Confira se o <code>python run.py</code> continua rodando.</div>'
+      : `<div class="error">${escapar(e.message)}</div>`;
   } finally {
     corpo.classList.remove("cursor");
     ocupado = false;
@@ -1042,6 +1104,7 @@ function novaConversa() {
 async function carregarConversas() {
   try {
     const r = await fetch("/api/conversations");
+    veioDoCache(r);
     const { conversations } = await r.json();
     if (!conversations.length) {
       $("convos").innerHTML = '<div class="none" style="padding:20px 10px">Nenhuma ainda.</div>';
@@ -1663,6 +1726,65 @@ function mostrarStats(s) {
   $("stats").textContent = partes.join(" · ");
 }
 
+/* ---------- aplicativo instalável e estado da conexão ---------- */
+
+// A diferença entre "sem internet" e "sem servidor" importa aqui. O
+// navigator.onLine só sabe da PRIMEIRA, e para a Livia ela quase nunca é a
+// relevante: o servidor é local, então dá para estar sem internet nenhuma e
+// tudo funcionar. Quem manda é o /saude.
+let servidorDePe = true;
+
+function marcarConexao(dePe, doCache) {
+  servidorDePe = dePe;
+  document.body.classList.toggle("sem-servidor", !dePe);
+  const alvo = $("conexao");
+  if (!alvo) return;
+  alvo.classList.toggle("fora", !dePe);
+  alvo.lastChild.textContent = dePe ? "online" : (doCache ? "lendo do cache" : "sem servidor");
+}
+
+async function conferirServidor() {
+  try {
+    // cache: no-store para não medir o cache em vez do servidor.
+    const r = await fetch("/saude", { cache: "no-store" });
+    marcarConexao(r.ok);
+  } catch {
+    marcarConexao(false);
+  }
+}
+
+// Toda resposta que veio do cache do worker vem marcada. Mostrar dado velho
+// sem dizer que é velho seria a interface mentindo com cara de verdade.
+function veioDoCache(resposta) {
+  if (resposta && resposta.headers && resposta.headers.get("X-Livia-Cache")) {
+    marcarConexao(false, true);
+    return true;
+  }
+  return false;
+}
+
+async function registrarApp() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    // Versão nova do app: assume na hora, em vez de esperar todas as abas
+    // fecharem. Sem isto, uma correção pode levar dias para chegar.
+    reg.addEventListener("updatefound", () => {
+      const novo = reg.installing;
+      if (!novo) return;
+      novo.addEventListener("statechange", () => {
+        if (novo.state === "installed" && navigator.serviceWorker.controller) {
+          novo.postMessage("atualizar");
+        }
+      });
+    });
+  } catch {
+    // Service worker não registra fora de contexto seguro — acessar por IP
+    // da rede (http://192.168.x.x) é o caso comum. A Livia continua
+    // funcionando inteira; só não instala como aplicativo.
+  }
+}
+
 /* ---------- início ---------- */
 $("input").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); }
@@ -1673,6 +1795,16 @@ $("input").addEventListener("input", (e) => {
 });
 
 (async function iniciar() {
+  registrarApp();
+  conferirServidor();
+  // Voltar de segundo plano é quando mais provavelmente algo mudou: a
+  // máquina dormiu, o servidor caiu, o Ctrl+C aconteceu.
+  window.addEventListener("online", conferirServidor);
+  window.addEventListener("offline", () => marcarConexao(false));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) conferirServidor();
+  });
+
   // Padrão de fábrica: escuro. O rubi é uma joia — ela só brilha contra o
   // escuro. A variante clara existe e é a mesma identidade sob luz do dia.
   aplicarTema(localStorage.getItem("livia-tema") || "dark");
@@ -1680,7 +1812,9 @@ $("input").addEventListener("input", (e) => {
   carregarConversas();
   carregarDocs();
   try {
-    const s = await (await fetch("/api/status")).json();
+    const resposta = await fetch("/api/status");
+    const s = await resposta.json();
+    veioDoCache(resposta);
     aplicarIdentidade(s.name);
     mostrarStats(s);
     atualizarBadges();

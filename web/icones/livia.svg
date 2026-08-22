@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- A mesma gema do cabeçalho. Serve de ícone porque é a identidade do app
+       e não depende do nome: quem trocar LIVIA_NAME continua reconhecendo. -->
+  <defs>
+    <linearGradient id="gTopo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
+    </linearGradient>
+    <linearGradient id="gBaixo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
+    </linearGradient>
+    <radialGradient id="gNucleo" cx=".5" cy=".42" r=".5">
+      <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#gBaixo)"/>
+  <path d="M14 7h20l8 11H6z" fill="url(#gTopo)"/>
+  <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".30"/>
+  <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
+  <circle cx="24" cy="20" r="10" fill="url(#gNucleo)"/>
+  <path d="M6 18h36" stroke="#ffd9df" stroke-opacity=".45" stroke-width=".8"/>
+</svg>

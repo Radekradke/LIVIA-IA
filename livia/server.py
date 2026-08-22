@@ -834,6 +834,110 @@ async def index(request: Request) -> Response:
 
 
 # --------------------------------------------------------------------------
+# Aplicativo instalável (PWA)
+# --------------------------------------------------------------------------
+#
+# O que isto entrega e o que NÃO entrega: ver o cabeçalho de web/sw.js. Em
+# resumo — a Livia vira um aplicativo de janela própria que abre na hora e
+# deixa LER o que já foi visto com o servidor desligado. Conversar offline
+# não existe e nenhum cache resolve: quem pensa é o Python.
+
+
+async def manifesto(request: Request) -> Response:
+    """O manifesto é GERADO, não é arquivo estático.
+
+    Porque o nome dela é configurável: quem puser LIVIA_NAME=Ada instala um
+    aplicativo chamado Ada, com o mesmo cuidado que a aba do navegador e o
+    cabeçalho já têm.
+    """
+    nome = config.ASSISTANT_NAME
+    return JSONResponse(
+        {
+            "name": f"{nome} — assistente pessoal",
+            "short_name": nome,
+            "description": (
+                f"{nome} roda na sua máquina. Memória em arquivos de texto, "
+                "e opção de funcionar sem internet nenhuma."
+            ),
+            "start_url": "/",
+            "scope": "/",
+            "display": "standalone",
+            "orientation": "any",
+            "lang": "pt-BR",
+            "dir": "ltr",
+            # A cor da barra é a do tema escuro, que é o padrão de fábrica.
+            # A variante clara é tratada por <meta name="theme-color"> com
+            # media query, que o manifesto não sabe fazer.
+            "background_color": "#140a0c",
+            "theme_color": "#140a0c",
+            "categories": ["productivity", "utilities"],
+            "icons": [
+                {"src": "/icones/icone-192.png", "sizes": "192x192",
+                 "type": "image/png", "purpose": "any"},
+                {"src": "/icones/icone-512.png", "sizes": "512x512",
+                 "type": "image/png", "purpose": "any"},
+                # `maskable` tem margem: o Android recorta o ícone num
+                # círculo e comeria as pontas da gema sem ela.
+                {"src": "/icones/icone-192-mask.png", "sizes": "192x192",
+                 "type": "image/png", "purpose": "maskable"},
+                {"src": "/icones/icone-512-mask.png", "sizes": "512x512",
+                 "type": "image/png", "purpose": "maskable"},
+                {"src": "/icones/livia.svg", "sizes": "any",
+                 "type": "image/svg+xml", "purpose": "any"},
+            ],
+        },
+        media_type="application/manifest+json",
+    )
+
+
+async def serviceworker(request: Request) -> Response:
+    """O worker precisa ser servido da RAIZ para valer no site inteiro.
+
+    Um `/static/sw.js` só controlaria `/static/`. E ele nunca pode ser
+    cacheado pelo navegador: é justamente o arquivo que precisa mudar para
+    consertar um cache errado.
+    """
+    return FileResponse(
+        config.WEB_DIR / "sw.js",
+        media_type="application/javascript",
+        headers={
+            "Service-Worker-Allowed": "/",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+    )
+
+
+async def icone(request: Request) -> Response:
+    """Ícones do aplicativo. Nome conferido contra uma lista fechada.
+
+    A alternativa — montar o caminho com o que veio na URL — deixaria
+    `/icones/../../.env` valer. Aqui vale a mesma regra das ferramentas: o
+    caminho vem de fora, então quem confere é o código.
+    """
+    permitidos = {
+        "livia.svg": "image/svg+xml",
+        "icone-192.png": "image/png",
+        "icone-512.png": "image/png",
+        "icone-192-mask.png": "image/png",
+        "icone-512-mask.png": "image/png",
+        "apple-touch-icon.png": "image/png",
+    }
+    nome = request.path_params["nome"]
+    tipo = permitidos.get(nome)
+    if tipo is None:
+        return PlainTextResponse("não encontrado", status_code=404)
+
+    caminho = config.WEB_DIR / "icones" / nome
+    if not caminho.exists():
+        return PlainTextResponse("não encontrado", status_code=404)
+    return FileResponse(
+        caminho,
+        media_type=tipo,
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+# --------------------------------------------------------------------------
 # Memória, experiências e lições (painel)
 # --------------------------------------------------------------------------
 
@@ -1020,7 +1124,16 @@ async def reconstruir_indice(request: Request) -> Response:
 # Acesso
 # --------------------------------------------------------------------------
 
-LIVRES = {"/entrar", "/api/entrar", "/saude"}
+# Rotas que dispensam sessão. As três novas entram porque o navegador busca
+# manifesto e ícone SEM enviar cookie — deixá-las atrás da senha faria o
+# aplicativo simplesmente não aparecer como instalável, sem erro nenhum
+# visível. Nenhuma delas devolve conteúdo seu: são o nome dela, a gema e a
+# lógica de cache.
+LIVRES = {"/entrar", "/api/entrar", "/saude", "/manifest.webmanifest", "/sw.js"}
+
+
+def _livre(caminho: str) -> bool:
+    return caminho in LIVRES or caminho.startswith("/icones/")
 
 
 _LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
@@ -1054,7 +1167,7 @@ class ExigirSenha(BaseHTTPMiddleware):
                 return await call_next(request)
             return PlainTextResponse(SEM_SENHA, status_code=403)
 
-        if request.url.path in LIVRES:
+        if _livre(request.url.path):
             return await call_next(request)
 
         if auth.token_valido(request.cookies.get(auth.COOKIE)):
@@ -1122,6 +1235,9 @@ async def sair(request: Request) -> Response:
 
 routes = [
     Route("/", index),
+    Route("/manifest.webmanifest", manifesto),
+    Route("/sw.js", serviceworker),
+    Route("/icones/{nome:str}", icone),
     Route("/entrar", pagina_entrar),
     Route("/api/entrar", fazer_login, methods=["POST"]),
     Route("/sair", sair),
