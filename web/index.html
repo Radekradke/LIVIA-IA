@@ -463,6 +463,45 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   padding: 34px 16px; line-height: 1.65;
 }
 
+/* Etiquetas do painel: escopo, estado, veredito de experiência.
+   Uma etiqueta só existe quando diz algo que o padrão não diz — memória
+   global e ativa não ganha nenhuma, senão tudo vira ruído visual. */
+.tag {
+  display: inline-block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; margin-right: 5px;
+  border: 1px solid var(--linha-forte); color: var(--texto-fraco);
+}
+.tag.projeto { color: var(--brilho); border-color: rgba(233,90,122,.4); }
+.tag.arquivada, .tag.superseded { opacity: .75; }
+.tag.ok { color: #74c69d; border-color: rgba(116,198,157,.4); }
+.tag.falhou { color: var(--brilho); border-color: rgba(233,90,122,.45); }
+.doc.inativa { opacity: .55; }
+.doc-meta {
+  margin-top: 8px; font-size: 11.5px; color: var(--texto-fraco);
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+}
+.doc-acoes { display: flex; gap: 6px; }
+.mini {
+  font-family: var(--sans); font-size: 11.5px; padding: 3px 9px;
+  border: 1px solid var(--linha-forte); border-radius: 999px;
+  background: transparent; color: var(--texto-suave); cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.mini:hover { color: var(--creme); border-color: var(--brilho); }
+.mini.destaque { color: var(--brilho); border-color: rgba(233,90,122,.45); }
+.aviso-painel {
+  margin: 0 0 12px; padding: 11px 13px; font-size: 12.5px; line-height: 1.55;
+  border: 1px solid rgba(233,90,122,.35); border-radius: var(--raio-p);
+  color: var(--texto-suave);
+}
+.aviso-painel b { color: var(--creme); }
+.tab .contador {
+  display: inline-block; min-width: 15px; margin-left: 4px; padding: 0 4px;
+  font-family: var(--mono); font-size: 9.5px; line-height: 15px;
+  border-radius: 999px; background: var(--brilho); color: #fff;
+}
+
 .add { border-top: 1px solid var(--linha); padding: 15px 16px 17px; }
 .add input, .add textarea {
   width: 100%; margin-bottom: 9px; padding: 10px 13px;
@@ -659,7 +698,9 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 <aside id="panel" class="hidden">
   <div class="tabs">
     <button class="tab active" data-kind="memories" onclick="trocarAba('memories')">Memórias</button>
-    <button class="tab" data-kind="skills" onclick="trocarAba('skills')">Skills</button>
+    <button class="tab" data-kind="skills" onclick="trocarAba('skills')">Skills<span id="badgeSkills"></span></button>
+    <button class="tab" data-kind="lessons" onclick="trocarAba('lessons')">Lições</button>
+    <button class="tab" data-kind="experiencias" onclick="trocarAba('experiencias')">Experiências</button>
     <button class="tab" data-kind="livros" onclick="trocarAba('livros')">Livros</button>
     <button class="tab" data-kind="persona" onclick="trocarAba('persona')">Jeito</button>
   </div>
@@ -925,10 +966,17 @@ async function enviar() {
         } else if (evt.type === "sources") {
           mostrarFontes(bolha, evt.label, evt.urls);
         } else if (evt.type === "learned") {
+          // Distinguir "gravei uma nova" de "isto desfez o que eu achava
+          // antes" importa: a segunda é a que a pessoa vai querer conferir.
+          const substituiu = evt.memories.filter((m) => m.substituiu);
           const nomes = evt.memories.map((m) => m.name).join(", ");
           const tag = document.createElement("div");
           tag.className = "learned";
-          tag.innerHTML = `✓ memorizei <b>${escapar(nomes)}</b>`;
+          tag.innerHTML = substituiu.length
+            ? `✓ atualizei <b>${escapar(nomes)}</b> — o que eu sabia antes ` +
+              `(<b>${escapar(substituiu.map((m) => m.substituiu).join(", "))}</b>) ` +
+              `ficou marcado como superado`
+            : `✓ memorizei <b>${escapar(nomes)}</b>`;
           bolha.appendChild(tag);
           carregarDocs();
         } else if (evt.type === "done") {
@@ -1010,13 +1058,16 @@ async function apagarConversa(id) {
 /* ---------- painel ---------- */
 function togglePanel() { $("panel").classList.toggle("hidden"); }
 
+const ABAS_SEM_FORMULARIO = ["persona", "livros", "experiencias"];
+
 function trocarAba(kind) {
   abaAtual = kind;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.kind === kind));
-  $("addForm").style.display = (kind === "persona" || kind === "livros") ? "none" : "";
+  $("addForm").style.display = ABAS_SEM_FORMULARIO.includes(kind) ? "none" : "";
   if (kind === "persona") carregarPersona();
   else if (kind === "livros") carregarLivros();
+  else if (kind === "experiencias") carregarExperiencias();
   else carregarDocs();
 }
 
@@ -1026,30 +1077,116 @@ async function carregarLivros() {
 
   const lista = livros.length
     ? livros.map((l) => `
-        <div class="doc">
+        <div class="doc ${l.precisa_reconstruir ? "inativa" : ""}">
           <div class="doc-top">
             <span class="doc-name">${escapar(l.titulo)}</span>
             <button class="x" onclick="apagarLivro('${escapar(l.slug)}')" title="remover">×</button>
           </div>
           <div class="doc-body" style="margin-top:5px">
-            ${l.paginas} páginas · ${l.trechos} trechos · ${escapar(l.criado)}
+            ${l.tipo === "projeto"
+              ? `${l.paginas} arquivos · ${l.trechos} trechos`
+              : `${l.paginas} páginas · ${l.trechos} trechos`} · ${escapar(l.criado)}
           </div>
+          ${l.precisa_reconstruir ? `
+            <div class="doc-meta">
+              <span>os vetores deste foram feitos por outro modelo</span>
+              <button class="mini destaque"
+                      onclick="reconstruir('${escapar(l.slug)}')">reconstruir</button>
+            </div>` : ""}
         </div>`).join("")
-    : `<div class="none">Nenhum livro ainda.<br>Envie um PDF e ela passa a consultá-lo.</div>`;
+    : `<div class="none">Nenhum documento ainda.<br>Envie um arquivo ou importe uma pasta de projeto.</div>`;
+
+  // A lista de pastas só aparece quando há alguma: um botão que não leva a
+  // lugar nenhum é pior que botão nenhum.
+  let projetos = { pastas: [] };
+  try { projetos = await (await fetch("/api/projetos")).json(); } catch {}
+  const importaveis = (projetos.pastas || []).filter((p) => p.importavel);
 
   $("docs").innerHTML = `
     <p class="persona-ajuda">
-      Ela não decora o livro. Quando você pergunta, ela procura os trechos que
-      respondem e lê <b>aqueles</b> antes de responder — citando livro e página.
-      Aceita PDF, TXT e Markdown.
+      Ela não decora o documento. Quando você pergunta, ela procura os trechos
+      que respondem e lê <b>aqueles</b> antes de responder — citando de onde
+      veio. Aceita PDF, TXT, Markdown, DOCX, XLSX, CSV, JSON e HTML.
     </p>
     ${lista}
     <div style="margin-top:12px">
       <button class="btn-livro" onclick="$('arqLivro').click()">Enviar arquivo</button>
-      <input type="file" id="arqLivro" accept=".pdf,.txt,.md,.markdown"
+      <input type="file" id="arqLivro"
+             accept=".pdf,.txt,.md,.markdown,.docx,.csv,.tsv,.json,.xlsx,.html"
              style="display:none" onchange="enviarLivro(this)">
       <div id="livroStatus" class="livro-status"></div>
-    </div>`;
+    </div>
+    ${importaveis.length ? `
+      <p class="persona-ajuda" style="margin-top:16px">
+        <b>Pastas da sua área de trabalho.</b> Importar indexa o código e a
+        documentação do projeto. Dependências, build e arquivos de credencial
+        ficam de fora — e linha que pareça ter chave é removida antes de entrar.
+      </p>
+      ${importaveis.map((p) => `
+        <div class="doc">
+          <div class="doc-top">
+            <span class="doc-name">${escapar(p.nome)}</span>
+            <button class="mini destaque"
+                    onclick="importarProjeto('${escapar(p.nome)}')">importar</button>
+          </div>
+          <div class="doc-body" style="margin-top:5px">${p.arquivos} arquivos indexáveis</div>
+        </div>`).join("")}` : ""}`;
+}
+
+async function importarProjeto(pasta) {
+  const status = $("livroStatus");
+  if (status) { status.className = "livro-status ativo"; status.textContent = "lendo a pasta…"; }
+
+  const r = await fetch("/api/projetos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pasta }),
+  });
+  await consumirProgresso(r, status);
+  carregarLivros();
+}
+
+async function reconstruir(slug) {
+  const status = $("livroStatus");
+  if (status) { status.className = "livro-status ativo"; status.textContent = "reconstruindo…"; }
+  const r = await fetch(`/api/biblioteca/${encodeURIComponent(slug)}/reindexar`, {
+    method: "POST",
+  });
+  await consumirProgresso(r, status);
+  carregarLivros();
+}
+
+// O mesmo laço de SSE que o envio de arquivo usa. Três cópias disto era o
+// caminho garantido para as três divergirem.
+async function consumirProgresso(resposta, status) {
+  const leitor = resposta.body.getReader();
+  const dec = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await leitor.read();
+    if (done) break;
+    buffer += dec.decode(value, { stream: true });
+    const partes = buffer.split("\n\n");
+    buffer = partes.pop();
+
+    for (const parte of partes) {
+      if (!parte.startsWith("data: ")) continue;
+      const evt = JSON.parse(parte.slice(6));
+      if (!status) continue;
+      if (evt.etapa === "erro") {
+        status.className = "livro-status erro";
+        status.textContent = evt.texto;
+      } else if (evt.etapa === "pronto") {
+        status.className = "livro-status";
+        status.textContent = evt.livro && evt.livro.segredos_removidos
+          ? `pronto — ${evt.livro.segredos_removidos} linha(s) com credencial foram deixadas de fora`
+          : "pronto.";
+      } else {
+        status.textContent = evt.texto || "";
+      }
+    }
+  }
 }
 
 async function apagarLivro(slug) {
@@ -1239,30 +1376,225 @@ const CEREBRO = `
   </svg>
 </div>`;
 
+const VAZIO = {
+  memories: "Nada memorizado ainda.<br>Conversem um pouco — ela guarda sozinha.",
+  skills: "Nenhuma skill ensinada.<br>Use o formulário abaixo.",
+  lessons: "Nenhuma lição ainda.<br>Elas nascem quando um padrão se repete nas experiências.",
+};
+
+// Uma etiqueta só aparece quando diz algo que o padrão não diz. Memória
+// global e ativa não ganha nenhuma — senão toda linha vira ruído.
+function etiquetas(d) {
+  const partes = [];
+  if (d.scope && d.scope !== "global") {
+    partes.push(`<span class="tag projeto">${escapar(d.scope.replace("project:", ""))}</span>`);
+  }
+  if (d.status === "superseded") {
+    partes.push(`<span class="tag superseded">substituída</span>`);
+  } else if (d.status === "archived") {
+    partes.push(`<span class="tag arquivada">arquivada</span>`);
+  }
+  if (d.importance >= 0.9) partes.push(`<span class="tag">sempre</span>`);
+  return partes.join("");
+}
+
+function cartaoDoc(d) {
+  const inativa = d.status && d.status !== "active";
+  const acao = inativa
+    ? `<button class="mini" onclick="mudarDoc('${escapar(d.name)}','reativar')">reativar</button>`
+    : `<button class="mini" onclick="mudarDoc('${escapar(d.name)}','arquivar')">arquivar</button>`;
+  const origem = d.superseded_by
+    ? `substituída por <b>${escapar(d.superseded_by)}</b>`
+    : (d.source ? escapar(d.source) : "");
+
+  return `
+    <div class="doc ${inativa ? "inativa" : ""}">
+      <div class="doc-top">
+        <span class="doc-name">${escapar(d.name)}</span>
+        <button class="x" onclick="apagarDoc('${escapar(d.name)}')" title="apagar de vez">×</button>
+      </div>
+      <div class="doc-desc">${etiquetas(d)}${escapar(d.description)}</div>
+      ${d.body.trim() ? `<div class="doc-body">${escapar(d.body.trim().slice(0, 300))}</div>` : ""}
+      <div class="doc-meta">
+        <span>${origem || escapar(d.kind || "")}</span>
+        <span class="doc-acoes">
+          ${acao}
+          <button class="mini" onclick="verOrigem('${escapar(d.name)}')">origem</button>
+        </span>
+      </div>
+    </div>`;
+}
+
+// Skills candidatas: o ponto de controle humano. Ficam no topo da aba de
+// skills, porque é lá que a pessoa vai procurar por elas.
+async function blocoCandidatas() {
+  if (abaAtual !== "skills") return "";
+  try {
+    const { candidatas } = await (await fetch("/api/candidatas")).json();
+    if (!candidatas.length) return "";
+    return `
+      <p class="aviso-painel">
+        <b>${candidatas.length} skill(s) que ela deduziu sozinha</b> a partir de
+        procedimentos que deram certo várias vezes. Nada disso entra nas
+        respostas antes de você aprovar.
+      </p>
+      ${candidatas.map((c) => `
+        <div class="doc">
+          <div class="doc-top">
+            <span class="doc-name">${escapar(c.nome)}</span>
+            <span class="tag">confiança ${c.confianca}</span>
+          </div>
+          <div class="doc-desc">${escapar(c.descricao)}</div>
+          <div class="doc-body">${escapar(c.passos)}</div>
+          <div class="doc-meta">
+            <span>${(c.evidencia || []).length} experiência(s)</span>
+            <span class="doc-acoes">
+              <button class="mini destaque" onclick="decidirCandidata(${c.id},'aprovar')">aprovar</button>
+              <button class="mini" onclick="decidirCandidata(${c.id},'rejeitar')">rejeitar</button>
+            </span>
+          </div>
+        </div>`).join("")}`;
+  } catch { return ""; }
+}
+
 async function carregarDocs() {
-  if (abaAtual === "persona") return;
+  if (abaAtual === "persona" || abaAtual === "experiencias") return;
   try {
     const r = await fetch(`/api/store/${abaAtual}`);
     const { items } = await r.json();
-    const topo = abaAtual === "memories" ? CEREBRO : "";
+    const topo = (abaAtual === "memories" ? CEREBRO : "") + (await blocoCandidatas());
     if (!items.length) {
-      $("docs").innerHTML = topo + `<div class="none">${
-        abaAtual === "memories"
-          ? "Nada memorizado ainda.<br>Conversem um pouco — ela guarda sozinha."
-          : "Nenhuma skill ensinada.<br>Use o formulário abaixo."
-      }</div>`;
+      $("docs").innerHTML = topo + `<div class="none">${VAZIO[abaAtual] || ""}</div>`;
       return;
     }
-    $("docs").innerHTML = topo + items.map((d) => `
-      <div class="doc">
-        <div class="doc-top">
-          <span class="doc-name">${escapar(d.name)}</span>
-          <button class="x" onclick="apagarDoc('${escapar(d.name)}')" title="apagar">×</button>
-        </div>
-        <div class="doc-desc">${escapar(d.description)}</div>
-        ${d.body.trim() ? `<div class="doc-body">${escapar(d.body.trim().slice(0, 300))}</div>` : ""}
-      </div>`).join("");
+    $("docs").innerHTML = topo +
+      (abaAtual === "memories" ? botaoManutencao() : "") +
+      items.map(cartaoDoc).join("");
   } catch { /* idem */ }
+}
+
+function botaoManutencao() {
+  return `<div style="margin-bottom:12px;text-align:center">
+    <button class="mini" onclick="manutencao(false)">revisar memória</button>
+    <span id="manutencaoStatus" class="livro-status"></span>
+  </div>`;
+}
+
+async function manutencao(aplicar) {
+  const alvo = $("manutencaoStatus");
+  if (alvo) alvo.textContent = "revisando…";
+  const r = await fetch("/api/manutencao", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ aplicar }),
+  });
+  const rel = await r.json();
+  const total = (rel.duplicatas || []).length + (rel.obsoletas || []).length;
+
+  if (!alvo) return;
+  if (aplicar) {
+    alvo.textContent = "pronto.";
+    carregarDocs();
+    return;
+  }
+  if (!total) { alvo.textContent = "nada a arrumar."; return; }
+
+  alvo.innerHTML = `${(rel.duplicatas || []).length} duplicata(s), ` +
+    `${(rel.obsoletas || []).length} sem uso. ` +
+    `<button class="mini destaque" onclick="manutencao(true)">arrumar</button>`;
+}
+
+async function mudarDoc(nome, acao) {
+  await fetch(`/api/store/${abaAtual}/${encodeURIComponent(nome)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ acao }),
+  });
+  carregarDocs();
+}
+
+async function verOrigem(nome) {
+  const r = await fetch(`/api/store/${abaAtual}/${encodeURIComponent(nome)}`);
+  if (!r.ok) return;
+  const { item, indice } = await r.json();
+  const usada = indice.usado_em ? quando(indice.usado_em) : "nunca";
+  alert(
+    `${item.name}\n\n` +
+    `${item.description}\n\n` +
+    `origem: ${item.source || "não registrada"}\n` +
+    `escopo: ${item.scope}\n` +
+    `criada: ${item.created || "?"}\n` +
+    `usada: ${indice.usos}x — última vez ${usada}`
+  );
+}
+
+async function decidirCandidata(id, acao) {
+  await fetch(`/api/candidatas/${id}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ acao }),
+  });
+  carregarDocs();
+  atualizarBadges();
+}
+
+/* ---------- experiências ---------- */
+
+async function carregarExperiencias() {
+  try {
+    const { experiencias, resumo } = await (await fetch("/api/experiencias")).json();
+    if (!experiencias.length) {
+      $("docs").innerHTML = `<div class="none">
+        Nada registrado ainda.<br>
+        Cada tarefa que ela executa vira uma experiência aqui.
+      </div>`;
+      return;
+    }
+
+    const cartoes = experiencias.map((e) => {
+      const marca = e.sucesso === true
+        ? `<span class="tag ok">funcionou</span>`
+        : e.sucesso === false
+          ? `<span class="tag falhou">falhou</span>`
+          : `<span class="tag">sem veredito</span>`;
+      return `
+        <div class="doc">
+          <div class="doc-top">
+            <span class="doc-name">${quando(e.criado_em)}</span>
+            <button class="x" onclick="apagarExperiencia(${e.id})" title="apagar">×</button>
+          </div>
+          <div class="doc-desc">${marca}${escapar(e.tarefa.slice(0, 240))}</div>
+          ${e.acoes.length ? `<div class="doc-body">${escapar(e.acoes.join(" → "))}</div>` : ""}
+          ${e.erro ? `<div class="doc-body">erro: ${escapar(e.erro.slice(0, 200))}</div>` : ""}
+          ${e.licao ? `<div class="doc-meta">lição: ${escapar(e.licao)}</div>` : ""}
+        </div>`;
+    }).join("");
+
+    $("docs").innerHTML = `
+      <p class="aviso-painel">
+        <b>${resumo.total} experiência(s)</b> — ${resumo.sucessos} deram certo,
+        ${resumo.falhas} falharam, ${resumo.sem_veredito} sem veredito.
+        Só evidência conta como sucesso: ferramenta que rodou, ou você confirmando.
+        Ela não marca acerto por ter respondido bonito.
+      </p>
+      ${cartoes}`;
+  } catch { /* idem */ }
+}
+
+async function apagarExperiencia(id) {
+  await fetch(`/api/experiencias/${id}`, { method: "DELETE" });
+  carregarExperiencias();
+}
+
+async function atualizarBadges() {
+  try {
+    const s = await (await fetch("/api/status")).json();
+    const badge = $("badgeSkills");
+    if (badge) {
+      badge.innerHTML = s.candidatas
+        ? `<span class="contador">${s.candidatas}</span>` : "";
+    }
+  } catch { /* enfeite */ }
 }
 
 async function salvarDoc() {
@@ -1297,8 +1629,12 @@ async function apagarDoc(name) {
 
 function mostrarStats(s) {
   const plural = (n, um, muitos) => `${n} ${n === 1 ? um : muitos}`;
-  $("stats").textContent =
-    `${plural(s.memories, "memória", "memórias")} · ${plural(s.skills, "skill", "skills")}`;
+  const partes = [
+    plural(s.memories, "memória", "memórias"),
+    plural(s.skills, "skill", "skills"),
+  ];
+  if (s.lessons) partes.push(plural(s.lessons, "lição", "lições"));
+  $("stats").textContent = partes.join(" · ");
 }
 
 /* ---------- início ---------- */
@@ -1321,13 +1657,21 @@ $("input").addEventListener("input", (e) => {
     const s = await (await fetch("/api/status")).json();
     aplicarIdentidade(s.name);
     mostrarStats(s);
+    atualizarBadges();
     if (!s.has_key) {
+      // "sem chave" deixou de ser a única forma de estar sem provedor: com o
+      // Ollama ligado a Livia funciona sem chave nenhuma, então o aviso
+      // precisa oferecer os dois caminhos.
       $("messages").innerHTML = `
         <div class="empty">
-          <h2>Falta a chave da API</h2>
-          <p>Pegue uma gratuita em
+          <h2>Nenhum provedor configurado</h2>
+          <p>Dois caminhos, os dois de graça:</p>
+          <p><b>Local</b> — instale o <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>,
+             rode <code>ollama pull qwen3:8b</code> e ponha <code>LIVIA_OLLAMA=1</code> no <code>.env</code>.
+             Nada sai da sua máquina.</p>
+          <p><b>Nuvem</b> — pegue uma chave gratuita em
              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>,
-             copie <code>.env.example</code> para <code>.env</code> e cole a chave lá.</p>
+             copie <code>.env.example</code> para <code>.env</code> e cole em <code>GEMINI_API_KEY</code>.</p>
           <p>Depois reinicie o servidor.</p>
         </div>`;
     }
