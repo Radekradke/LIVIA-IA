@@ -27,6 +27,7 @@
   --creme:       #f1e2d0;
 
   --fundo:       #0d0707;
+  --verde:       #74c69d;
   --painel:      rgba(32, 16, 18, .72);
   --painel-alto: rgba(46, 22, 25, .82);
   --sunk:        rgba(18, 9, 11, .68);
@@ -60,6 +61,7 @@
   --creme:       #3a1c18;
 
   --fundo:       #f7efe6;
+  --verde:       #2f7d55;
   --painel:      rgba(255, 252, 249, .86);
   --painel-alto: #fffdfb;
   --sunk:        rgba(226, 210, 199, .55);
@@ -421,10 +423,18 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 #panel.hidden { display: none; }
 
-.tabs { display: flex; padding: 0 8px; border-bottom: 1px solid var(--linha); }
+/* Seis abas não cabem na largura do painel. Rolar na horizontal é melhor
+   que abreviar os nomes: "Exp." e "Conh." não dizem nada para quem abre a
+   interface pela primeira vez. A barra de rolagem fica escondida — o gesto
+   funciona sem ela, e ela roubaria altura de uma faixa já apertada. */
+.tabs {
+  display: flex; padding: 0 8px; border-bottom: 1px solid var(--linha);
+  overflow-x: auto; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
-  position: relative; flex: 1; padding: 17px 3px 14px; margin-bottom: -1px;
-  font-size: 12.5px; font-weight: 600; letter-spacing: .03em;
+  position: relative; flex: 0 0 auto; padding: 17px 9px 14px; margin-bottom: -1px;
+  font-size: 12px; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
   color: var(--texto-fraco); transition: color .16s;
 }
 .tab:hover { color: var(--texto-suave); }
@@ -457,6 +467,13 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .doc .x:hover { color: var(--brilho); }
 .doc-desc { margin-top: 6px; line-height: 1.5; color: var(--texto); }
 .doc-body { margin-top: 8px; color: var(--texto-suave); white-space: pre-wrap; font-size: 12.5px; line-height: 1.5; }
+/* Corpo já convertido de Markdown: aqui o pre-wrap atrapalharia, porque as
+   quebras viraram parágrafos de verdade. */
+.doc-body.md { white-space: normal; }
+.doc-body.md b { color: var(--creme); font-weight: 600; }
+.doc-body.md p { margin: 0 0 6px; }
+.doc-body.md p:last-child { margin-bottom: 0; }
+.doc-body.md ul, .doc-body.md ol { margin: 4px 0 6px; padding-left: 18px; }
 
 .none {
   color: var(--texto-fraco); font-size: 13.5px; text-align: center;
@@ -474,7 +491,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .tag.projeto { color: var(--brilho); border-color: rgba(233,90,122,.4); }
 .tag.arquivada, .tag.superseded { opacity: .75; }
-.tag.ok { color: #74c69d; border-color: rgba(116,198,157,.4); }
+.tag.ok { color: var(--verde); border-color: color-mix(in srgb, var(--verde) 40%, transparent); }
 .tag.falhou { color: var(--brilho); border-color: rgba(233,90,122,.45); }
 .doc.inativa { opacity: .55; }
 .doc-meta {
@@ -1398,6 +1415,15 @@ function etiquetas(d) {
   return partes.join("");
 }
 
+// Cortar no meio de um `**` deixaria asterisco solto na tela. Cortamos na
+// última quebra de linha antes do limite.
+function cortar(texto, limite) {
+  if (texto.length <= limite) return texto;
+  const pedaco = texto.slice(0, limite);
+  const quebra = pedaco.lastIndexOf("\n");
+  return (quebra > limite * 0.4 ? pedaco.slice(0, quebra) : pedaco) + "\n\n…";
+}
+
 function cartaoDoc(d) {
   const inativa = d.status && d.status !== "active";
   const acao = inativa
@@ -1414,7 +1440,7 @@ function cartaoDoc(d) {
         <button class="x" onclick="apagarDoc('${escapar(d.name)}')" title="apagar de vez">×</button>
       </div>
       <div class="doc-desc">${etiquetas(d)}${escapar(d.description)}</div>
-      ${d.body.trim() ? `<div class="doc-body">${escapar(d.body.trim().slice(0, 300))}</div>` : ""}
+      ${d.body.trim() ? `<div class="doc-body md">${renderizar(cortar(d.body.trim(), 420))}</div>` : ""}
       <div class="doc-meta">
         <span>${origem || escapar(d.kind || "")}</span>
         <span class="doc-acoes">

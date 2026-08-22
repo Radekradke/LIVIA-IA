@@ -477,8 +477,8 @@ def _gravar_licao(proposta: dict[str, object], tipo: str) -> None:
         ]
     corpo_linhas += [
         "",
-        "_Deduzido pela Livia a partir das próprias experiências. "
-        "Se estiver errado, edite ou apague este arquivo._",
+        "*Deduzido pela Livia a partir das próprias experiências. "
+        "Se estiver errado, edite ou apague este arquivo.*",
     ]
 
     lessons.save(
