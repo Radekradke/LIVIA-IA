@@ -352,3 +352,34 @@ def test_candidata_inexistente_devolve_404(cliente):
     c, cookie = cliente
     r = c.post("/api/candidatas/99999", json={"acao": "aprovar"}, cookies=cookie)
     assert r.status_code == 404
+
+
+@respx.mock
+def test_sem_provedor_de_ferramenta_ela_responde_assim_mesmo(cliente, vetores, monkeypatch):
+    """Regressão: modo local com modelo que não chama função.
+
+    Antes, o servidor entrava no laço de ferramentas, recebia "nenhum provedor
+    sabe usar ferramentas" e devolvia isso como ERRO — a conversa morria numa
+    configuração perfeitamente válida. Não poder usar ferramenta é motivo para
+    responder sem ela, nunca para não responder.
+    """
+    monkeypatch.setattr(config, "TOOLS_ENABLED", True)
+    monkeypatch.setattr(config, "OLLAMA_ENABLED", True)
+    monkeypatch.setattr(config, "OLLAMA_TOOLS", False)
+    monkeypatch.setattr(config, "LOCAL_ONLY", True)
+    monkeypatch.setattr(config, "PROVIDERS", ["ollama"])
+
+    respx.post("http://127.0.0.1:11434/api/chat").mock(
+        return_value=httpx.Response(
+            200,
+            text=json.dumps({"message": {"content": "respondi sem ferramenta"}, "done": True})
+            + "\n",
+        )
+    )
+
+    eventos = conversar(cliente, "me diz uma coisa")
+    tipos = [e.get("type") for e in eventos]
+    texto = "".join(e.get("text", "") for e in eventos if e.get("type") == "delta")
+
+    assert "error" not in tipos, [e for e in eventos if e.get("type") == "error"]
+    assert "respondi sem ferramenta" in texto

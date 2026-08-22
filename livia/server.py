@@ -400,7 +400,12 @@ async def chat(request: Request) -> Response:
         # impressão de que a resposta ficou boa.
         acoes_feitas: list[dict[str, object]] = []
 
-        if config.TOOLS_ENABLED:
+        # A capacidade é conferida ANTES do laço. Sem isto, uma configuração
+        # perfeitamente válida — modo local com um modelo que não chama função
+        # — derrubava a resposta inteira com "nenhum provedor sabe usar
+        # ferramentas". Não poder usar ferramenta é motivo para responder sem
+        # ela, nunca para não responder.
+        if config.TOOLS_ENABLED and router.quem_tem(router.TOOLS):
             for _ in range(config.TOOLS_MAX_ROUNDS):
                 try:
                     chamadas, eco = await brain.com_ferramentas(
