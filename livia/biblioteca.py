@@ -456,6 +456,11 @@ async def buscar(pergunta: str, quantos: int | None = None) -> list[dict[str, ob
             achados.append(
                 {
                     "livro": livro["titulo"],
+                    # O slug identifica o documento de forma estável, e é o
+                    # que permite casar um resultado do vetor com o mesmo
+                    # trecho vindo do grafo. Campo acrescentado depois: quem
+                    # já lia este dicionário continua lendo igual.
+                    "slug": livro["slug"],
                     "pagina": trecho.get("pagina", 0),
                     "origem": trecho.get("origem", ""),
                     "texto": trecho.get("texto", ""),
