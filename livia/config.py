@@ -228,5 +228,79 @@ SKILL_AUTO_APPROVE = _flag("LIVIA_SKILL_AUTO_APPROVE", "0")
 # Registrar cada tarefa como experiência (o que foi tentado, deu certo ou não).
 EXPERIENCE_ENABLED = _flag("LIVIA_EXPERIENCE", "1")
 
+
+# ========================================================================
+# KNOWLEDGE ENGINE (grafo de conhecimento) — opcional, desligado por padrão
+# ========================================================================
+# A biblioteca acha TRECHO PARECIDO. Isso não responde "que relação existe
+# entre X e Y" quando a resposta está espalhada em três documentos que não se
+# parecem entre si. O Knowledge Engine monta um grafo de entidades e relações
+# e responde esse tipo de pergunta.
+#
+# Ele roda como SERVIÇO SEPARADO, e isso não é preciosismo: o motor de
+# referência (Cognee) traz 45 dependências obrigatórias, entre elas openai,
+# litellm e lancedb. Colocar isso no requirements.txt multiplicaria a
+# instalação da Livia e arrastaria uma nuvem inteira para um projeto que usa
+# numpy e SQLite de propósito.
+#
+# Com LIVIA_KNOWLEDGE=0 (padrão) nada disso existe, e a Livia funciona
+# exatamente como antes.
+KNOWLEDGE_ENABLED = _flag("LIVIA_KNOWLEDGE", "0")
+
+# Endereço do serviço. Precisa ser local: ver a checagem em knowledge_client.
+KNOWLEDGE_URL = os.getenv(
+    "LIVIA_KNOWLEDGE_URL", "http://127.0.0.1:8110"
+).strip().rstrip("/")
+
+# Teto para RECUPERAR conhecimento durante uma resposta. Curto de propósito:
+# o chat não pode ficar esperando o grafo. Indexação é outra história e roda
+# fora do pedido do chat (ver a fila em db.py).
+KNOWLEDGE_TIMEOUT = _float_env("LIVIA_KNOWLEDGE_TIMEOUT", 4.0)
+
+# Quanto tempo o serviço fica de castigo depois de falhar. Sem isto, cada
+# mensagem pagaria uma conexão recusada antes de cair no vetor.
+KNOWLEDGE_DESCANSO = _float_env("LIVIA_KNOWLEDGE_COOLDOWN", 60.0)
+
+# Orçamento de contexto do grafo, separado do orçamento do RAG. Melhor 4
+# evidências de 4 fontes do que 10 trechos da mesma página.
+KNOWLEDGE_MAX_RESULTS = _int_env("LIVIA_KNOWLEDGE_MAX_RESULTS", 6)
+KNOWLEDGE_MAX_CHARS = _int_env("LIVIA_KNOWLEDGE_MAX_CHARS", 8_000)
+
+# Construir o grafo dos documentos que já estão na biblioteca. Fica desligado
+# porque processar uma biblioteca inteira leva horas de CPU, e começar isso
+# sozinho no primeiro boot seria uma péssima surpresa. A interface oferece.
+KNOWLEDGE_AUTO_INGEST = _flag("LIVIA_KNOWLEDGE_AUTO_INGEST", "0")
+
+# Subir o serviço junto com a Livia. Desligado: o serviço tem dependências
+# próprias e pode nem estar instalado.
+KNOWLEDGE_AUTOSTART = _flag("LIVIA_KNOWLEDGE_AUTOSTART", "0")
+
+# --- Modelos do Knowledge Engine ----------------------------------------
+# INDEPENDENTES dos modelos da Livia, de propósito. Extrair entidades e
+# relações depende muito de saída estruturada confiável, e o modelo bom para
+# conversar não é necessariamente bom nisso. Mudar isto NÃO mexe em
+# LIVIA_PROVIDERS nem em LIVIA_OLLAMA_MODEL.
+KNOWLEDGE_PROVIDER = os.getenv("LIVIA_KNOWLEDGE_PROVIDER", "ollama").strip().lower()
+KNOWLEDGE_LLM_MODEL = os.getenv("LIVIA_KNOWLEDGE_LLM_MODEL", "llama3.1:8b").strip()
+KNOWLEDGE_LLM_ENDPOINT = os.getenv(
+    "LIVIA_KNOWLEDGE_LLM_ENDPOINT", "http://127.0.0.1:11434/v1"
+).strip()
+KNOWLEDGE_EMBED_MODEL = os.getenv(
+    "LIVIA_KNOWLEDGE_EMBED_MODEL", "nomic-embed-text"
+).strip()
+KNOWLEDGE_EMBED_ENDPOINT = os.getenv(
+    "LIVIA_KNOWLEDGE_EMBED_ENDPOINT", "http://127.0.0.1:11434"
+).strip()
+
+# --- Parser avançado (documentos difíceis) ------------------------------
+# O pypdf continua sendo o caminho rápido. O parser avançado só entra quando
+# ele não consegue tirar texto — PDF escaneado, tabela complexa, equação.
+# Também é opcional e pesado (MinerU traz ~29 dependências).
+PARSER_AVANCADO = _flag("LIVIA_PARSER_AVANCADO", "0")
+
+# Descrever imagem e diagrama com um modelo de visão custa uma chamada por
+# figura. Desligado por padrão; e em LOCAL_ONLY só vale com modelo local.
+PARSER_DESCREVE_IMAGENS = _flag("LIVIA_PARSER_IMAGENS", "0")
+
 for _d in (DATA_DIR, MEMORY_DIR, SKILLS_DIR, LESSONS_DIR):
     _d.mkdir(parents=True, exist_ok=True)

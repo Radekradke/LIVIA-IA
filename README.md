@@ -511,10 +511,20 @@ livia/
   web.py            buscar (DuckDuckGo ou SearXNG) e ler links
   db.py             conversas, experiências, índices e cache (SQLite)
   backup.py         exportar e restaurar tudo num zip
+  knowledge.py      contrato do grafo: KnowledgeHit, dedup, orçamento
+  knowledge_client.py  fala com o serviço (circuit breaker, LOCAL_ONLY)
+  knowledge_router.py  escolhe vetor, grafo ou os dois
+  knowledge_ingest.py  ingestão dupla, fila e estado por documento
   server.py         rotas HTTP e streaming
 web/index.html      a interface inteira, num arquivo só
 web/sw.js           service worker: casca offline e cache honesto
 web/icones/         ícones do aplicativo instalável
+services/
+  knowledge/        o Knowledge Engine, com dependências próprias
+    app.py          contrato HTTP do sidecar
+    cognee_engine.py  ÚNICO arquivo que sabe o que é Cognee
+    registro.py     a procedência, que não depende do motor
+    multimodal.py   parser avançado (opcional)
 data/
   memory/           suas memórias (.md)
   skills/           procedimentos que você ensinou (.md)
@@ -583,6 +593,189 @@ duas coisas no celular, use o túnel HTTPS (ver *Colocar na internet*).
 
 O manifesto é gerado pelo servidor, então `LIVIA_NAME=Ada` instala um
 aplicativo chamado Ada, com o nome certo na janela e no ícone.
+
+---
+
+## Conhecimento avançado
+
+Três coisas diferentes, que resolvem problemas diferentes:
+
+```
+Biblioteca      encontra TRECHOS parecidos com a pergunta
+Knowledge Engine  conecta CONCEITOS entre documentos
+Parser avançado   consegue LER documentos difíceis
+```
+
+A biblioteca sozinha responde bem "o que o capítulo 4 diz sobre X". Ela não
+responde bem isto:
+
+> Qual banco de dados aparece relacionado ao projeto em que a Alice trabalha?
+
+Porque a resposta não está escrita em lugar nenhum. Está em dois documentos:
+
+```
+doc_a:  "Alice trabalha no Projeto Orion."
+doc_b:  "O Projeto Orion utiliza PostgreSQL."
+```
+
+Nenhum dos dois se parece com a pergunta, e mesmo que a busca traga os dois,
+nada diz que estão ligados. Um grafo de entidades e relações diz.
+
+### Como fica o fluxo
+
+```
+                      pergunta
+                          │
+                    Query Router          ← heurística local, sem gastar IA
+                          │
+        ┌─────────────────┼─────────────────┐
+        │                 │                 │
+     simples          relacional          síntese
+        │                 │                 │
+   RAG vetorial         Grafo            os dois
+        │                 │                 │
+        └─────────────────┼─────────────────┘
+                          │
+                   deduplicar + orçamento
+                          │
+                    contexto final → modelo
+```
+
+Ingestão continua sendo dupla, com a biblioteca sempre na frente:
+
+```
+arquivo
+   ├──→ biblioteca (trechos + vetores)   ← termina primeiro, nunca é desfeita
+   └──→ Knowledge Engine (grafo)         ← entra numa fila; pode falhar
+```
+
+**Se o grafo falhar, o documento continua indexado e buscável.** O que se
+perde é a capacidade de responder perguntas relacionais sobre ele.
+
+### O modelo não é retreinado
+
+Vale repetir, porque é a mesma ideia do resto do projeto: **nenhum documento
+altera os pesos de nenhum modelo.** O grafo é um índice em disco, como os
+vetores. O que muda é o que entra no prompt.
+
+### Ligar
+
+O motor roda como serviço separado, e isso não é preciosismo: ele traz **45
+dependências obrigatórias** (openai, litellm, lancedb, gunicorn). Deixá-las
+fora do `requirements.txt` é o que mantém a Livia instalável em 30 segundos.
+
+```bash
+pip install -r requirements-knowledge.txt
+python -m services.knowledge.run
+```
+
+E no `.env`:
+
+```bash
+LIVIA_KNOWLEDGE=1
+```
+
+Os modelos do grafo são **independentes** dos da Livia — extrair entidades
+depende de saída estruturada confiável, e o modelo bom de conversa não é
+necessariamente bom nisso:
+
+```bash
+ollama pull llama3.1:8b
+ollama pull nomic-embed-text
+```
+
+> ⚠️ **Configure os dois lados.** A documentação do Cognee avisa que, se você
+> configurar só o LLM, o embedding *"defaults to OpenAI"* — e aí o conteúdo dos
+> seus documentos vai para a nuvem sem aviso nenhum. Com `LIVIA_LOCAL_ONLY=1`
+> o serviço **se recusa a subir** se detectar isso.
+
+### Construir o grafo dos documentos que você já tem
+
+Não precisa reenviar nada. O painel mostra:
+
+> **23 documentos ainda sem grafo de conhecimento.** [construir agora]
+
+Ele usa os `trechos.jsonl` que já estão em disco. Nada começa sozinho — uma
+biblioteca grande levaria horas de CPU, e isso não pode acontecer num boot
+sem ninguém pedir.
+
+### Os dois índices são separados
+
+Cada documento mostra os dois estados, e as ações têm nomes distintos:
+
+| | O que refaz |
+|---|---|
+| **reindexar vetores** | os embeddings da biblioteca |
+| **reconstruir conhecimento** | o grafo de entidades |
+
+### Quando a heurística não pega
+
+O roteador decide por regex, sem gastar chamada de modelo. Ele acerta a
+maioria, não todas. Para forçar:
+
+```
+/grafo qual a relação entre esses dois assuntos?
+```
+
+### Procedência
+
+Todo resultado do grafo carrega documento, título e página. **Resultado sem
+procedência é descartado** — um grafo sabe afirmar "X causa Y" sem dizer onde
+leu isso, e depois que entra no prompt é indistinguível de invenção.
+
+O `/porque` mostra o caminho:
+
+```
+Conhecimento (por semelhança + grafo):
+- doc a, p. 1
+- doc b, p. 1
+
+Relações que levaram até isso:
+- Alice → trabalha em → Projeto Orion
+- Projeto Orion → utiliza → PostgreSQL
+
+Busca híbrida: 2 por texto, 3 pelo grafo, 1 repetido descartado.
+```
+
+### Fontes que discordam
+
+Se um documento diz "usamos MySQL" e outro diz "migramos para PostgreSQL", a
+Livia **não escolhe um vencedor em silêncio**. Ela mostra os dois e avisa que
+divergem — escolher sozinha destruiria a informação histórica.
+
+### Parser avançado (PDF difícil)
+
+O `pypdf` continua sendo o caminho rápido: ele lê um PDF de texto em
+milissegundos. O parser pesado só entra quando ele não consegue.
+
+```
+PDF → pypdf → saiu texto? → sim → fluxo de sempre
+                          → não → parser avançado (se instalado)
+                                → senão, a mensagem explicando
+```
+
+```bash
+pip install "raganything>=1.3"
+pip install "raganything[paddleocr]"   # OCR de página escaneada
+```
+
+E `LIVIA_PARSER_AVANCADO=1` no `.env`. Tabela, equação e figura mantêm o tipo
+— uma equação que virasse `x2 + y2 = z2` em silêncio seria pior que uma
+equação faltando, porque a primeira parece certa.
+
+### Docker
+
+```bash
+docker compose --profile conhecimento up -d
+```
+
+Sem o perfil, o serviço nem é construído. Ele não publica porta nenhuma: não
+tem senha, e quem o alcançasse leria o conteúdo dos documentos.
+
+### O que não vem no backup
+
+O grafo. Ele é inteiramente reconstruível a partir dos `trechos.jsonl`, que
+**vêm** no backup. Depois de restaurar, o painel oferece construir de novo.
 
 ---
 

@@ -127,6 +127,26 @@ CREATE TABLE IF NOT EXISTS embedding_cache (
     criado_em  TEXT NOT NULL,
     PRIMARY KEY (hash, assinatura)
 );
+
+-- Fila do Knowledge Engine. Construir grafo leva minutos e não pode
+-- acontecer dentro do pedido HTTP do upload. Uma tabela resolve: sobrevive
+-- a reinício e não acrescenta serviço nenhum para manter de pé.
+--
+-- `operacao` guarda também os tombstones de remoção: documento apagado com
+-- o serviço offline vira um 'remove' pendente, senão o grafo acumularia
+-- conhecimento órfão aparecendo em respostas futuras.
+CREATE TABLE IF NOT EXISTS knowledge_jobs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id  TEXT NOT NULL,
+    operacao     TEXT NOT NULL DEFAULT 'ingest',
+    situacao     TEXT NOT NULL DEFAULT 'queued',
+    criado_em    TEXT NOT NULL,
+    atualizado_em TEXT NOT NULL,
+    tentativas   INTEGER NOT NULL DEFAULT 0,
+    erro         TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_situacao ON knowledge_jobs(situacao, id);
 """
 
 
@@ -554,3 +574,133 @@ def candidata_situacao(id_: int, situacao: str) -> bool:
             "UPDATE skill_candidates SET situacao = ? WHERE id = ?", (situacao, id_)
         )
         return cur.rowcount > 0
+
+
+# --------------------------------------------------------------------------
+# Fila do Knowledge Engine
+# --------------------------------------------------------------------------
+#
+# Construir o grafo de um documento leva minutos. Isso não pode acontecer
+# dentro do pedido HTTP do upload — a conexão morreria antes, e o André
+# ficaria olhando uma barra travada.
+#
+# A fila é uma TABELA, não Celery nem Redis. Para 1-2 usuários e alguns
+# documentos por semana, uma tabela com quatro estados resolve, sobrevive a
+# reinício e não acrescenta serviço nenhum para manter de pé.
+#
+# Os "tombstones" moram aqui também: quando o André apaga um documento com o
+# serviço offline, a remoção local acontece na hora e fica registrada uma
+# operação pendente. Sem isso o grafo acumularia conhecimento órfão — trechos
+# de documento que não existe mais, aparecendo em respostas futuras.
+
+
+def job_enfileirar(document_id: str, operacao: str = "ingest") -> int:
+    """Põe (ou repõe) um documento na fila.
+
+    Reenfileirar um documento que já está lá zera a tentativa em vez de criar
+    uma segunda entrada: dois jobs para o mesmo documento construiriam o grafo
+    duas vezes e o segundo sobrescreveria o primeiro.
+    """
+    agora = _now()
+    with _connect() as conn:
+        existente = conn.execute(
+            "SELECT id FROM knowledge_jobs WHERE document_id = ? AND operacao = ? "
+            "AND situacao IN ('queued', 'processing')",
+            (document_id, operacao),
+        ).fetchone()
+        if existente:
+            conn.execute(
+                "UPDATE knowledge_jobs SET situacao = 'queued', atualizado_em = ?, "
+                "erro = '' WHERE id = ?",
+                (agora, existente["id"]),
+            )
+            return int(existente["id"])
+
+        cur = conn.execute(
+            "INSERT INTO knowledge_jobs (document_id, operacao, situacao, "
+            "criado_em, atualizado_em) VALUES (?, ?, 'queued', ?, ?)",
+            (document_id, operacao, agora, agora),
+        )
+        return int(cur.lastrowid)
+
+
+def job_proximo() -> dict[str, object] | None:
+    """Pega o próximo da fila e já marca como em processamento.
+
+    A marcação no mesmo passo evita dois processos pegarem o mesmo job. Não é
+    fila distribuída, mas o servidor pode ter mais de um worker.
+    """
+    with _connect() as conn:
+        linha = conn.execute(
+            "SELECT * FROM knowledge_jobs WHERE situacao = 'queued' "
+            "ORDER BY id LIMIT 1"
+        ).fetchone()
+        if linha is None:
+            return None
+        conn.execute(
+            "UPDATE knowledge_jobs SET situacao = 'processing', atualizado_em = ?, "
+            "tentativas = tentativas + 1 WHERE id = ?",
+            (_now(), linha["id"]),
+        )
+    return dict(linha)
+
+
+def job_terminar(id_: int, ok: bool, erro: str = "") -> None:
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE knowledge_jobs SET situacao = ?, erro = ?, atualizado_em = ? "
+            "WHERE id = ?",
+            ("completed" if ok else "failed", erro[:500], _now(), id_),
+        )
+
+
+def job_listar(limite: int = 50) -> list[dict[str, object]]:
+    with _connect() as conn:
+        linhas = conn.execute(
+            "SELECT * FROM knowledge_jobs ORDER BY id DESC LIMIT ?", (limite,)
+        ).fetchall()
+    return [dict(l) for l in linhas]
+
+
+def job_pendentes() -> int:
+    with _connect() as conn:
+        linha = conn.execute(
+            "SELECT COUNT(*) AS n FROM knowledge_jobs "
+            "WHERE situacao IN ('queued', 'processing')"
+        ).fetchone()
+    return int(linha["n"])
+
+
+def job_recuperar_abandonados() -> int:
+    """Jobs em `processing` no arranque foram interrompidos por um reinício.
+
+    Voltam para a fila em vez de virar `failed`: a interrupção não diz nada
+    sobre o documento, e desistir na primeira queda de energia obrigaria o
+    André a reenfileirar tudo à mão.
+
+    Com tentativas demais, vira `failed` — aí o problema é o documento, e
+    repetir para sempre só ocuparia a fila.
+    """
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE knowledge_jobs SET situacao = 'failed', "
+            "erro = 'abandonado depois de tentativas demais', atualizado_em = ? "
+            "WHERE situacao = 'processing' AND tentativas >= 3",
+            (_now(),),
+        )
+        cur = conn.execute(
+            "UPDATE knowledge_jobs SET situacao = 'queued', atualizado_em = ? "
+            "WHERE situacao = 'processing'",
+            (_now(),),
+        )
+        return cur.rowcount
+
+
+def job_limpar(document_id: str) -> None:
+    """Tira da fila os jobs de um documento que não existe mais."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM knowledge_jobs WHERE document_id = ? AND situacao IN "
+            "('queued', 'failed', 'completed')",
+            (document_id,),
+        )

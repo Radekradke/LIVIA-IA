@@ -1,0 +1,41 @@
+# Imagem do Knowledge Engine. SEPARADA da Livia de propósito.
+#
+# O motor (Cognee) traz 45 dependências obrigatórias — openai, litellm,
+# lancedb, gunicorn, alembic. Colocá-las na imagem principal faria todo mundo
+# que só quer conversar com a Livia baixar isso.
+#
+# Este serviço é OPCIONAL: `docker compose up -d` sem perfil nenhum não o
+# constrói nem o sobe.
+#
+#     docker compose --profile conhecimento up -d
+
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    LIVIA_KNOWLEDGE_DATA=/data/knowledge \
+    LIVIA_KNOWLEDGE_HOST=0.0.0.0
+
+WORKDIR /app
+
+# `python-magic-bin` (dependência do cognee) precisa da libmagic do sistema.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# O requirements da Livia entra porque o sidecar usa Starlette e uvicorn dela
+# — foi por isso que ele não virou uma dependência nova.
+COPY requirements.txt requirements-knowledge.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir -r requirements-knowledge.txt
+
+COPY services/ ./services/
+
+RUN mkdir -p /data/knowledge
+
+EXPOSE 8110
+
+RUN useradd --create-home --uid 1000 livia && chown -R livia:livia /data /app
+USER livia
+
+CMD ["python", "-m", "services.knowledge.run"]
