@@ -59,7 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation
 -- edita à mão. `nome` é o slug, o mesmo do arquivo .md.
 CREATE TABLE IF NOT EXISTS memory_index (
     nome         TEXT PRIMARY KEY,
-    colecao      TEXT NOT NULL DEFAULT 'memory',
+    colecao      TEXT NOT NULL DEFAULT 'memories',
     kind         TEXT NOT NULL DEFAULT 'fact',
     escopo       TEXT NOT NULL DEFAULT 'global',
     status       TEXT NOT NULL DEFAULT 'active',
@@ -260,6 +260,13 @@ def _para_blob(vetor: "np.ndarray") -> bytes:
     return np.asarray(vetor, dtype=np.float32).tobytes()
 
 
+# Sentinela para distinguir "não passei este campo" de "quero apagar este
+# campo". Sem ela, `vetor=None` era indistinguível de campo ausente, e a
+# invalidação do vetor ao mudar o texto não acontecia — a busca continuaria
+# comparando a pergunta com o texto de ontem.
+_AUSENTE = object()
+
+
 def _de_blob(dados: bytes | None) -> "np.ndarray | None":
     if not dados:
         return None
@@ -295,7 +302,7 @@ def limpar_cache_embeddings() -> int:
 # --------------------------------------------------------------------------
 
 
-def memoria_linhas(colecao: str = "memory") -> list[dict[str, object]]:
+def memoria_linhas(colecao: str = "memories") -> list[dict[str, object]]:
     with _connect() as conn:
         linhas = conn.execute(
             "SELECT * FROM memory_index WHERE colecao = ? ORDER BY nome", (colecao,)
@@ -303,7 +310,7 @@ def memoria_linhas(colecao: str = "memory") -> list[dict[str, object]]:
     return [_linha_memoria(l) for l in linhas]
 
 
-def memoria_linha(nome: str, colecao: str = "memory") -> dict[str, object] | None:
+def memoria_linha(nome: str, colecao: str = "memories") -> dict[str, object] | None:
     with _connect() as conn:
         linha = conn.execute(
             "SELECT * FROM memory_index WHERE nome = ? AND colecao = ?", (nome, colecao)
@@ -317,16 +324,16 @@ def _linha_memoria(linha: sqlite3.Row) -> dict[str, object]:
     return dados
 
 
-def memoria_upsert(nome: str, colecao: str = "memory", **campos: object) -> None:
+def memoria_upsert(nome: str, colecao: str = "memories", **campos: object) -> None:
     """Cria ou atualiza a linha de índice de uma memória.
 
     Só os campos passados são tocados. Isso importa: sincronizar o Markdown
     não pode zerar o contador de uso, e registrar um uso não pode desfazer
     uma mudança de escopo feita segundos antes.
     """
-    vetor = campos.pop("vetor", None)
-    if vetor is not None:
-        campos["vetor"] = _para_blob(vetor)
+    vetor = campos.pop("vetor", _AUSENTE)
+    if vetor is not _AUSENTE:
+        campos["vetor"] = _para_blob(vetor) if vetor is not None else None
 
     with _connect() as conn:
         existe = conn.execute(
@@ -354,14 +361,14 @@ def memoria_upsert(nome: str, colecao: str = "memory", **campos: object) -> None
         )
 
 
-def memoria_apagar(nome: str, colecao: str = "memory") -> None:
+def memoria_apagar(nome: str, colecao: str = "memories") -> None:
     with _connect() as conn:
         conn.execute(
             "DELETE FROM memory_index WHERE nome = ? AND colecao = ?", (nome, colecao)
         )
 
 
-def memoria_registrar_uso(nomes: list[str], colecao: str = "memory") -> None:
+def memoria_registrar_uso(nomes: list[str], colecao: str = "memories") -> None:
     """Marca as memórias que acabaram de entrar num prompt.
 
     É o sinal mais barato e mais honesto de utilidade: memória que nunca é
@@ -378,7 +385,7 @@ def memoria_registrar_uso(nomes: list[str], colecao: str = "memory") -> None:
         )
 
 
-def memoria_nomes(colecao: str = "memory") -> set[str]:
+def memoria_nomes(colecao: str = "memories") -> set[str]:
     with _connect() as conn:
         linhas = conn.execute(
             "SELECT nome FROM memory_index WHERE colecao = ?", (colecao,)
@@ -422,9 +429,9 @@ def experiencia_gravar(
 
 
 def experiencia_atualizar(id_: int, **campos: object) -> None:
-    vetor = campos.pop("vetor", None)
-    if vetor is not None:
-        campos["vetor"] = _para_blob(vetor)
+    vetor = campos.pop("vetor", _AUSENTE)
+    if vetor is not _AUSENTE:
+        campos["vetor"] = _para_blob(vetor) if vetor is not None else None
     if not campos:
         return
     atribuicoes = ", ".join(f"{c} = ?" for c in campos)
