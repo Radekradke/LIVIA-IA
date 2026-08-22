@@ -54,7 +54,19 @@ _RELACIONAL = re.compile(
     r"\bquem\s+(?:está|esta|aparece)\s+(?:conectad|ligad|relacionad)\w*|"
     r"\bo\s+que\s+liga\b|\bque\s+liga(?:ção)?\b|"
     r"\bjuntando\s+os\s+documentos\b|\bcruzando\b|"
-    r"\bem\s+comum\b|\bdiferença\s+entre\b"
+    r"\bem\s+comum\b|\bdiferença\s+entre\b|"
+    # Síntese: pedir CONCLUSÃO quase sempre significa cruzar documentos, mesmo
+    # sem nenhuma palavra relacional na frase. Era o furo mais visível da
+    # heurística — "o que dá para concluir sobre o banco usado no projeto da
+    # Alice" não casava com nada e ia para o vetor sozinho.
+    r"\bo\s+que\s+(?:dá|da|podemos|posso|se)\s+(?:para\s+)?conclui\w+|"
+    r"\bque\s+conclus\w+|\bconclui\w+\s+(?:sobre|que)\b|"
+    r"\bresum\w+\s+o\s+que\s+(?:os|as)\s+\w+\s+dizem\b|"
+    # Referência indireta: "o banco USADO NO projeto", "a linguagem ESCOLHIDA
+    # PELA equipe". A coisa não é nomeada — é alcançada por um caminho, que é
+    # exatamente o que um grafo sabe percorrer e o vetor não.
+    r"\b(?:usad|utilizad|escolhid|adotad|feit|control|mantid)[oa]s?\s+"
+    r"(?:n[oa]s?|pel[oa]s?|em|por)\s+\w+"
     r")",
     re.IGNORECASE,
 )

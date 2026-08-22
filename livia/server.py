@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -27,14 +28,18 @@ from starlette.routing import Route
 
 from . import (
     auth, backup, biblioteca, brain, conhecimento, config, context, db,
-    experiencia, ferramentas, learner, memoria, persona, router, saude, web,
+    experiencia, ferramentas, knowledge_client, knowledge_ingest,
+    knowledge_router, learner, memoria, persona, router, saude, web,
 )
 from .store import COLECOES, memory, skills
+
+log = logging.getLogger("livia.server")
 
 AJUDA = """\
 **Comandos disponíveis**
 
 - `/buscar <termo>` — força uma busca na web antes de responder.
+- `/grafo <pergunta>` — força a busca pelo grafo de conhecimento.
 - `/lembrar <fato>` — grava uma memória na hora, sem passar pelo modelo.
 - `/esquecer <nome>` — apaga a memória com esse nome.
 - `/arquivar <nome>` — tira do prompt sem apagar (dá para reativar depois).
@@ -91,9 +96,9 @@ async def _handle_command(text: str, conversa: int = 0) -> str | None:
     command = command.lower()
     argument = argument.strip()
 
-    # /buscar não é atalho: continua o fluxo normal de conversa, só que
-    # forçando a busca na web. Devolver None deixa passar adiante.
-    if command == "/buscar":
+    # /buscar e /grafo não são atalhos: continuam o fluxo normal de conversa,
+    # só que forçando um tipo de busca. Devolver None deixa passar adiante.
+    if command in ("/buscar", "/grafo"):
         return None
 
     if command == "/ajuda":
@@ -191,14 +196,20 @@ def _explicar_ultima(conversa: int) -> str:
     if not dados:
         return "Ainda não respondi nada nesta conversa para explicar."
 
-    if dados.get("modo") == "completo":
-        return (
-            "Nesta resposta eu carreguei a memória inteira, sem seleção — é o "
-            "que acontece quando não há como gerar vetores (sem Ollama e sem "
-            "chave do Gemini). Por isso não dá para apontar o que pesou mais."
-        )
-
     linhas: list[str] = []
+
+    if dados.get("modo") == "completo":
+        # A memória não foi selecionada — mas o conhecimento pode ter sido.
+        # São dois sistemas independentes, e cortar a explicação aqui
+        # escondia de onde vieram os documentos citados na resposta.
+        linhas.append(
+            "Sobre a memória: carreguei tudo, sem seleção — é o que acontece "
+            "quando não há como gerar vetores (sem Ollama e sem chave do "
+            "Gemini). Por isso não dá para apontar qual memória pesou mais."
+        )
+        if not dados.get("documentos"):
+            return linhas[0]
+
     memorias = dados.get("memorias") or []
     if memorias:
         linhas.append("**Memórias que usei:**")
@@ -220,8 +231,32 @@ def _explicar_ultima(conversa: int) -> str:
             marca = {True: "funcionou", False: "falhou", None: "sem veredito"}[e["sucesso"]]
             linhas.append(f"- {e['tarefa']} → {marca}")
 
+    conhecimento = dados.get("conhecimento") or {}
     if dados.get("documentos"):
-        linhas.append("\n**Trechos de documento:** " + ", ".join(dados["documentos"]))
+        modo = str(conhecimento.get("modo") or "vector")
+        rotulo = {
+            "vector": "por semelhança de texto",
+            "graph": "pelo grafo de relações",
+            "hybrid": "por semelhança + grafo",
+        }.get(modo, modo)
+        linhas.append(f"\n**Conhecimento ({rotulo}):**")
+        for d in dados["documentos"]:
+            linhas.append(f"- {d}")
+
+        if conhecimento.get("relacoes"):
+            linhas.append("\n**Relações que levaram até isso:**")
+            for caminho in conhecimento["relacoes"][:6]:
+                linhas.append("- " + " → ".join(caminho))
+
+        if modo == "hybrid":
+            linhas.append(
+                f"\n_Busca híbrida: {conhecimento.get('vector_hits', 0)} por texto, "
+                f"{conhecimento.get('graph_hits', 0)} pelo grafo, "
+                f"{conhecimento.get('duplicados', 0)} repetidos descartados._"
+            )
+
+        if conhecimento.get("divergencias"):
+            linhas.append("\n**As fontes divergem** — ver o aviso na resposta.")
 
     if dados.get("busca"):
         linhas.append(f"\n**Busca na web:** \"{dados['busca']}\"")
@@ -334,24 +369,46 @@ async def chat(request: Request) -> Response:
         # silêncio — que foi exatamente o bug da primeira versão disto.
         blocos: list[str] = []
 
-        # --- biblioteca ----------------------------------------------------
-        # Busca sempre (é local e barato); injeta só o que passar do limiar.
-        if not biblioteca.vazia():
+        # --- conhecimento (biblioteca + grafo) -------------------------------
+        # O roteador decide entre vetor, grafo e híbrido por heurística local,
+        # sem gastar chamada de modelo. Com o grafo desligado ou fora do ar
+        # ele vira exatamente a busca vetorial de sempre — é por isso que
+        # ligar a funcionalidade não muda nada para quem não a usa.
+        if not biblioteca.vazia() or knowledge_client.disponivel():
+            # A heurística acerta a maioria, não todas. `/grafo` é a saída
+            # manual para quando o André sabe que a pergunta é relacional e a
+            # regex não percebeu.
+            forcar_grafo = message.strip().lower().startswith("/grafo")
+            pergunta_busca = message.strip()[6:].strip() if forcar_grafo else message
             try:
-                achados = await biblioteca.buscar(message)
-            except Exception:
-                achados = []
-            if achados:
-                blocos.append(biblioteca.formatar(achados))
+                hits, proc_conhecimento = await knowledge_router.buscar(
+                    pergunta_busca,
+                    modo=knowledge_router.HYBRID if forcar_grafo else None,
+                )
+            except Exception as exc:
+                # O conhecimento é bônus. Falhar aqui responde sem ele.
+                log.debug("[knowledge] busca falhou: %s", exc)
+                hits, proc_conhecimento = [], {}
+
+            if hits:
+                blocos.append(knowledge_router.formatar(hits, proc_conhecimento))
                 vistos: list[str] = []
-                for a in achados:
-                    rotulo = str(a["livro"])
-                    if a["pagina"]:
-                        rotulo += f" p.{a['pagina']}"
+                for h in hits:
+                    rotulo = h.rotulo()
                     if rotulo not in vistos:
                         vistos.append(rotulo)
                 procedencia["documentos"] = vistos
+                procedencia["conhecimento"] = proc_conhecimento
                 yield _sse({"type": "livros", "trechos": vistos})
+
+                # Metadado OPCIONAL: interface antiga ignora sem quebrar.
+                if proc_conhecimento.get("modo") != knowledge_router.VECTOR:
+                    yield _sse({
+                        "type": "knowledge",
+                        "mode": proc_conhecimento.get("modo"),
+                        "sources": len(vistos),
+                        "graph_hits": proc_conhecimento.get("graph_hits", 0),
+                    })
 
         # --- web -----------------------------------------------------------
         # Link colado na mensagem: o modelo lê direto, sem busca nenhuma.
@@ -707,7 +764,21 @@ async def listar_livros(request: Request) -> Response:
 
 
 async def apagar_livro(request: Request) -> Response:
-    ok = biblioteca.remover(request.path_params["slug"])
+    """Apaga da biblioteca e pede a remoção no grafo.
+
+    A remoção local NUNCA espera pelo grafo: com o serviço offline, o pedido
+    fica registrado como tombstone e sai na próxima vez que a fila rodar.
+    Sem isso, o grafo guardaria trechos de um documento que não existe mais e
+    eles apareceriam em respostas futuras — o pior tipo de fantasma.
+    """
+    slug = request.path_params["slug"]
+    ok = biblioteca.remover(slug)
+    if ok:
+        knowledge_ingest.agendar_remocao(slug)
+        try:
+            await knowledge_ingest.processar_fila(1)
+        except Exception:
+            pass          # o tombstone fica na fila para a próxima
     return JSONResponse({"ok": ok})
 
 
@@ -726,6 +797,11 @@ async def enviar_livro(request: Request) -> Response:
     async def eventos() -> AsyncIterator[bytes]:
         try:
             async for passo in biblioteca.adicionar(nome, dados):
+                # A biblioteca é a principal. Ela termina primeiro, e só
+                # depois o grafo entra na fila — construir grafo leva minutos
+                # e mataria a conexão deste upload.
+                if passo.get("etapa") == "pronto":
+                    passo = _com_grafo(passo)
                 yield _sse(passo)
         except biblioteca.BibliotecaError as exc:
             yield _sse({"etapa": "erro", "texto": str(exc)})
@@ -737,6 +813,86 @@ async def enviar_livro(request: Request) -> Response:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _com_grafo(passo: dict[str, object]) -> dict[str, object]:
+    """Depois que a biblioteca terminou, o grafo entra na fila.
+
+    Nunca ao contrário, e nunca com rollback: se o grafo falhar, o documento
+    continua indexado e buscável. Perder a indexação porque o serviço
+    opcional não subiu trocaria o que funciona pelo que é bônus.
+    """
+    livro = passo.get("livro")
+    if not isinstance(livro, dict):
+        return passo
+    slug = str(livro.get("slug") or "")
+    if slug and knowledge_ingest.agendar(slug):
+        livro["knowledge_status"] = "pending"
+        passo["grafo"] = "na fila"
+    return passo
+
+
+# --------------------------------------------------------------------------
+# Knowledge Engine
+# --------------------------------------------------------------------------
+
+
+async def knowledge_status(request: Request) -> Response:
+    """Estado do grafo: serviço, modelos e documentos."""
+    return JSONResponse({
+        "servico": await knowledge_client.status(),
+        "resumo": knowledge_ingest.resumo(),
+        "jobs": db.job_listar(20) if knowledge_client.ligado() else [],
+    })
+
+
+async def knowledge_processar(request: Request) -> Response:
+    """Roda a fila. É o botão "construir conhecimento agora".
+
+    Existe como ação explícita porque uma biblioteca de 23 documentos levaria
+    horas de CPU, e nada disso pode começar sozinho num boot.
+    """
+    if not knowledge_client.ligado():
+        return JSONResponse(
+            {"error": knowledge_client.impedimento()}, status_code=409
+        )
+
+    try:
+        payload = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        payload = {}
+
+    # Enfileira o que ainda não tem grafo, se pedirem.
+    if payload.get("tudo"):
+        for slug in knowledge_ingest.pendentes_de_grafo():
+            knowledge_ingest.agendar(slug)
+
+    limite = 50
+    try:
+        limite = max(1, min(200, int(payload.get("limite") or 50)))
+    except (TypeError, ValueError):
+        pass
+
+    resultado = await knowledge_ingest.processar_fila(limite)
+    return JSONResponse(resultado)
+
+
+async def knowledge_reconstruir(request: Request) -> Response:
+    """Reconstrói o grafo de UM documento.
+
+    Diferente de reindexar embeddings, que é outra ação e outro botão: uma
+    mexe nos vetores da biblioteca, a outra no grafo. Confundir as duas faria
+    o André refazer a coisa errada quando algo desse errado.
+    """
+    slug = request.path_params["slug"]
+    if not knowledge_client.ligado():
+        return JSONResponse(
+            {"error": knowledge_client.impedimento()}, status_code=409
+        )
+
+    knowledge_ingest.agendar(slug, "ingest")
+    resultado = await knowledge_ingest.processar_fila(1)
+    return JSONResponse({"ok": resultado["feitos"] == 1, **resultado})
 
 
 async def baixar_backup(request: Request) -> Response:
@@ -796,6 +952,10 @@ async def diagnostico(request: Request) -> Response:
         },
         "memoria": memoria.estatisticas(),
         "experiencias": experiencia.estatisticas(),
+        "conhecimento": {
+            **knowledge_ingest.resumo(),
+            "servico": await knowledge_client.status(),
+        },
     })
 
 
@@ -1268,6 +1428,10 @@ routes = [
     Route("/api/projetos", listar_projetos),
     Route("/api/projetos", importar_projeto, methods=["POST"]),
     Route("/api/biblioteca/{slug:str}/reindexar", reconstruir_indice, methods=["POST"]),
+    Route("/api/conhecimento", knowledge_status),
+    Route("/api/conhecimento/processar", knowledge_processar, methods=["POST"]),
+    Route("/api/conhecimento/{slug:str}/reconstruir", knowledge_reconstruir,
+          methods=["POST"]),
 ]
 
 @asynccontextmanager
@@ -1283,6 +1447,15 @@ async def lifespan(_app: Starlette) -> AsyncIterator[None]:
             memoria.sincronizar(colecao)
         except Exception:
             pass  # índice é derivado; falhar aqui não pode impedir o app de subir
+
+    # Jobs de grafo interrompidos por um reinício voltam para a fila. NÃO
+    # começam a rodar sozinhos: quem manda processar é o André.
+    try:
+        recuperados = knowledge_ingest.recuperar_apos_reinicio()
+        if recuperados:
+            log.info("[knowledge] %d job(s) voltaram para a fila", recuperados)
+    except Exception:
+        pass
 
     yield
 
