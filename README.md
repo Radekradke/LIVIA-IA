@@ -779,6 +779,64 @@ O grafo. Ele é inteiramente reconstruível a partir dos `trechos.jsonl`, que
 
 ---
 
+## Medir se a busca está achando
+
+A suíte de testes prova que a busca **não quebra**. Não prova que ela
+**acha** — são coisas diferentes, e a segunda é a que decide se a resposta
+presta.
+
+Isso importa porque os números que governam a recuperação foram todos
+escolhidos no olho: o limiar de relevância, o tamanho do trecho, o peso da
+recência na memória. Nenhum é errado; o problema é que não havia como
+descobrir, e portanto nenhum ia melhorar nunca.
+
+```
+python -m livia.avaliacao --criar     # escreve um modelo em data/avaliacao/
+python -m livia.avaliacao             # mede
+```
+
+O conjunto é um arquivo seu, com perguntas suas:
+
+```json
+{
+  "piso": {"acerto": 0.70, "mrr": 0.50},
+  "casos": [
+    {
+      "pergunta": "como o projeto trata documento escaneado?",
+      "documento": "manual-livia",
+      "contem": ["parser avançado"]
+    }
+  ]
+}
+```
+
+Você não precisa escrever a resposta certa — só como reconhecê-la: de qual
+documento ela deveria vir, e/ou um pedaço de texto que o trecho certo contém.
+Trinta a cinquenta perguntas já dão um número em que dá para confiar.
+
+A saída diz duas coisas:
+
+| | |
+|---|---|
+| **acerto@k** | em que fração das perguntas o trecho certo apareceu entre os k primeiros |
+| **MRR** | quão no alto ele apareceu — achar em primeiro vale 1, em quinto vale 0,2 |
+
+`acerto@k` é a que manda. Se o trecho certo não chegou, nenhum modelo salva a
+resposta: não há o que a IA faça com um contexto que não chegou.
+
+Com `--salvar`, a medição vira referência, e a próxima execução mostra o que
+se moveu. É assim que se descobre que uma mudança piorou a busca — no dia em
+que ela foi feita, e não meses depois.
+
+O `piso` no arquivo é o orçamento de regressão: abaixo dele o comando sai com
+código 1, e serve para travar um merge.
+
+> Rodar isto exige o Ollama (ou a chave do Gemini) de pé e documentos na
+> biblioteca. Sem isso o comando avisa e não mede, em vez de imprimir um zero
+> que pareceria resultado.
+
+---
+
 ## Documentos e projetos
 
 A aba **Livros** aceita PDF, TXT, Markdown, DOCX, XLSX, CSV, JSON e HTML. Ela
