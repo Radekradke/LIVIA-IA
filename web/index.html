@@ -1210,7 +1210,7 @@ async function carregarLivros() {
           ${indices(l)}
           ${l.precisa_reconstruir ? `
             <div class="doc-meta">
-              <span>os vetores deste foram feitos por outro modelo</span>
+              <span>os vetores deste não batem com o gerador de agora</span>
               <button class="mini destaque"
                       onclick="reconstruir('${escapar(l.slug)}')">reindexar vetores</button>
             </div>` : ""}
@@ -1223,6 +1223,20 @@ async function carregarLivros() {
             </div>` : ""}
         </div>`).join("")
     : `<div class="none">Nenhum documento ainda.<br>Envie um arquivo ou importe uma pasta de projeto.</div>`;
+
+  // Quando o gerador de vetores muda, TODO documento cai de uma vez. Oferecer
+  // só o botão por documento faria o André clicar quinze vezes sem saber por
+  // quê — e um documento não reindexado some da busca em silêncio.
+  const desatualizados = livros.filter((l) => l.precisa_reconstruir);
+  const refazer = desatualizados.length > 1
+    ? `<p class="aviso-painel">
+         <b>${desatualizados.length} documento(s) com vetores de outro gerador.</b>
+         Eles ficam de fora da busca até serem reindexados — trocar o modelo de
+         embedding torna os vetores antigos incomparáveis com os novos.
+         <br><br>
+         <button class="mini destaque" onclick="reindexarTudo()">reindexar todos</button>
+         <span id="reindexStatus" class="livro-status"></span>
+       </p>` : "";
 
   // Nada pesado começa sozinho: a interface OFERECE, o André decide.
   const faltando = conhecimento.ligado && conhecimento.sem_grafo
@@ -1248,6 +1262,7 @@ async function carregarLivros() {
       que respondem e lê <b>aqueles</b> antes de responder — citando de onde
       veio. Aceita PDF, TXT, Markdown, DOCX, XLSX, CSV, JSON e HTML.
     </p>
+    ${refazer}
     ${faltando}
     ${lista}
     <div style="margin-top:12px">
@@ -1315,6 +1330,30 @@ async function construirConhecimento() {
       ? ` ${dados.error}`
       : ` ${dados.feitos} pronto(s), ${dados.falhos} falhou(aram), ${dados.restantes} na fila.`;
   }
+  carregarLivros();
+}
+
+async function reindexarTudo() {
+  // Um de cada vez, de propósito: com modelo local, paralelizar isto só
+  // enfileira no Ollama e tira do André a noção de progresso.
+  const status = $("reindexStatus");
+  const livros = await (await fetch("/api/biblioteca")).json();
+  const pendentes = (livros.livros || []).filter((l) => l.precisa_reconstruir);
+
+  for (let i = 0; i < pendentes.length; i++) {
+    if (status) status.textContent = ` ${i + 1} de ${pendentes.length}: ${pendentes[i].titulo}…`;
+    try {
+      const r = await fetch(
+        `/api/biblioteca/${encodeURIComponent(pendentes[i].slug)}/reindexar`,
+        { method: "POST" },
+      );
+      await consumirProgresso(r, null);
+    } catch {
+      // Um documento que falha não pode parar a fila: o próximo pode dar certo,
+      // e o que sobrar continua marcado na lista.
+    }
+  }
+  if (status) status.textContent = " pronto.";
   carregarLivros();
 }
 
