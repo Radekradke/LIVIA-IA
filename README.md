@@ -503,7 +503,10 @@ livia/
   experiencia.py    o que foi tentado, e o que virou lição
   embeddings.py     texto -> vetor (local ou nuvem)
   learner.py        decide o que virou memória depois de cada resposta
-  biblioteca.py     documentos que ela consulta (RAG)
+  biblioteca.py     documentos que ela consulta (RAG por significado)
+  lexical.py        busca por palavra exata (BM25, no FTS5 do SQLite)
+  triagem.py        desata a pergunta antes de buscar; decide a web junto
+  avaliacao.py      mede se a busca acha (acerto@k, MRR, conjunto dourado)
   conhecimento.py   indexar uma pasta de projeto inteira
   ferramentas.py    ler/escrever arquivo, calcular (confinado ao workspace)
   leitura.py        extrair texto de PDF, DOCX, XLSX, CSV, JSON, HTML
