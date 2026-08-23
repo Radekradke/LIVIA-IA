@@ -29,7 +29,8 @@ from starlette.routing import Route
 from . import (
     auth, backup, biblioteca, brain, conhecimento, config, context, db,
     experiencia, ferramentas, knowledge_client, knowledge_ingest,
-    knowledge_router, learner, lexical, memoria, persona, router, saude, web,
+    knowledge_router, learner, lexical, memoria, persona, router, saude,
+    triagem, web,
 )
 from .store import COLECOES, memory, skills
 
@@ -279,6 +280,15 @@ def _explicar_ultima(conversa: int) -> str:
     if dados.get("busca"):
         linhas.append(f"\n**Busca na web:** \"{dados['busca']}\"")
 
+    # A pergunta reescrita precisa aparecer: se a busca trouxe algo estranho,
+    # a explicação costuma estar aqui, e sem mostrar isto o André veria a
+    # Livia procurando por algo que ele não pediu, sem jeito de descobrir.
+    if dados.get("pergunta_busca"):
+        linhas.append(
+            f"\n_Para buscar, li a pergunta como: \"{dados['pergunta_busca']}\" — "
+            "ela dependia do que veio antes. A resposta usou a sua, original._"
+        )
+
     if not linhas:
         return (
             "Nada da memória entrou nessa resposta — nem memória, nem lição, nem "
@@ -387,6 +397,28 @@ async def chat(request: Request) -> Response:
         # silêncio — que foi exatamente o bug da primeira versão disto.
         blocos: list[str] = []
 
+        # --- triagem ---------------------------------------------------------
+        # Uma chamada ao modelo rápido responde duas coisas sobre a mensagem:
+        # se ela precisa de web, e se ela se entende sozinha. A segunda é o
+        # que conserta "e o próximo?": vetorizar essa frase crua devolve ruído,
+        # porque o assunto está na mensagem ANTERIOR.
+        #
+        # A reescrita alimenta só a BUSCA. O modelo continua lendo a pergunta
+        # original — trocar o que o André escreveu pelo que a máquina achou
+        # que ele quis dizer responderia outra coisa com confiança total.
+        tem_link = config.WEB_ENABLED and bool(web.urls_em(message))
+        forcada = message.strip().lower().startswith("/buscar")
+
+        try:
+            triado = await triagem.avaliar(
+                message, history[:-1], tem_link=tem_link or forcada
+            )
+        except Exception:
+            triado = triagem.Triagem(pergunta_busca=message)
+
+        if triado.reescrita:
+            procedencia["pergunta_busca"] = triado.pergunta_busca
+
         # --- conhecimento (biblioteca + grafo) -------------------------------
         # O roteador decide entre vetor, grafo e híbrido por heurística local,
         # sem gastar chamada de modelo. Com o grafo desligado ou fora do ar
@@ -397,7 +429,10 @@ async def chat(request: Request) -> Response:
             # manual para quando o André sabe que a pergunta é relacional e a
             # regex não percebeu.
             forcar_grafo = message.strip().lower().startswith("/grafo")
-            pergunta_busca = message.strip()[6:].strip() if forcar_grafo else message
+            pergunta_busca = (
+                message.strip()[6:].strip() if forcar_grafo
+                else triado.pergunta_busca
+            )
             try:
                 hits, proc_conhecimento = await knowledge_router.buscar(
                     pergunta_busca,
@@ -430,17 +465,10 @@ async def chat(request: Request) -> Response:
 
         # --- web -----------------------------------------------------------
         # Link colado na mensagem: o modelo lê direto, sem busca nenhuma.
-        tem_link = config.WEB_ENABLED and bool(web.urls_em(message))
-        consulta = None
-        forcada = message.strip().lower().startswith("/buscar")
-
-        if forcada:
-            consulta = message.strip()[7:].strip() or None
-        elif config.WEB_ENABLED and not tem_link:
-            try:
-                consulta = await web.precisa_buscar(message)
-            except Exception:
-                consulta = None
+        # A decisão de buscar já saiu da triagem lá em cima, na mesma chamada
+        # que desatou a pergunta — duas perguntas sobre a mesma frase não
+        # justificam duas idas ao modelo.
+        consulta = message.strip()[7:].strip() or None if forcada else triado.consulta_web
 
         if consulta:
             yield _sse({"type": "status", "text": f"buscando: {consulta}"})

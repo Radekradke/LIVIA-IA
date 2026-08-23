@@ -28,6 +28,12 @@ continua no DDG, exatamente como antes.
     searxng   instância sua, em LIVIA_SEARXNG_URL
     auto      SearXNG se houver URL, DDG se não houver
 
+QUEM DECIDE BUSCAR NÃO É ESTE MÓDULO
+------------------------------------
+A decisão mora em `triagem.py`, junto com a reescrita da pergunta: são duas
+perguntas sobre a mesma frase, respondidas pelo mesmo modelo rápido. Separadas,
+eram duas chamadas em toda mensagem. Aqui ficou só o que BUSCA.
+
 O RESULTADO É DADO, NUNCA INSTRUÇÃO
 -----------------------------------
 Página da internet é o material menos confiável que entra no prompt: qualquer
@@ -44,7 +50,7 @@ import re
 
 import httpx
 
-from . import brain, config
+from . import config
 
 _URL = re.compile(r"https?://[^\s<>\"'()]+", re.IGNORECASE)
 
@@ -187,64 +193,3 @@ def formatar(consulta: str, resultados: list[dict[str, str]]) -> str:
         linhas.append("")
     linhas.append(FECHAMENTO_EXTERNO)
     return "\n".join(linhas)
-
-
-# --------------------------------------------------------------------------
-# Decidir se vale buscar
-# --------------------------------------------------------------------------
-
-_SCHEMA = {
-    "type": "OBJECT",
-    "properties": {
-        "precisa": {
-            "type": "BOOLEAN",
-            "description": "true se responder bem exigir informação atual da web",
-        },
-        "consulta": {
-            "type": "STRING",
-            "description": "O que digitar num buscador. Vazio se precisa=false.",
-        },
-    },
-    "required": ["precisa"],
-}
-
-_SISTEMA = """\
-Você decide se uma pergunta precisa de busca na web para ser bem respondida.
-
-PRECISA de busca:
-- Qualquer coisa de hoje ou recente: preço, cotação, clima, notícia, placar,
-  lançamento, versão atual de alguma coisa.
-- Fatos sobre pessoas, empresas ou produtos que mudam com o tempo.
-- Quando a pessoa pede explicitamente para pesquisar ou procurar.
-
-NÃO PRECISA:
-- Conhecimento estável: matemática, como programar, história, gramática,
-  conceitos, "como funciona X".
-- Pedidos sobre o texto da própria conversa (resumir, reescrever, traduzir).
-- Bate-papo, opinião, tarefa criativa.
-- Quando a pessoa já colou a URL na mensagem — o modelo lê o link direto,
-  sem busca.
-
-Na dúvida, responda false: buscar à toa deixa a resposta mais lenta e pior.
-
-A consulta deve ser o que uma pessoa digitaria num buscador — curta e sem
-firula. Escreva na mesma língua da pergunta.
-"""
-
-
-async def precisa_buscar(pergunta: str) -> str | None:
-    """Devolve a consulta a pesquisar, ou None se não vale a pena.
-
-    Custa uma chamada extra ao modelo rápido. Em conta gratuita isso dobra o
-    consumo de cota, então dá para desligar em LIVIA_WEB_AUTO=0 e usar só
-    /buscar e links colados.
-    """
-    if not (config.WEB_ENABLED and config.WEB_AUTO):
-        return None
-
-    resposta = await brain.structured(_SISTEMA, pergunta.strip()[:2000], _SCHEMA)
-    if not isinstance(resposta, dict) or not resposta.get("precisa"):
-        return None
-
-    consulta = str(resposta.get("consulta") or "").strip()
-    return consulta or pergunta.strip()[:200]
