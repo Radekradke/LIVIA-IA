@@ -384,11 +384,14 @@ async def chat(request: Request) -> Response:
         # falhar por qualquer motivo, cai na montagem completa de antes —
         # ficar sem memória seria pior que ficar com memória demais.
         try:
-            system_prompt, procedencia = await context.montar(
-                message, historico=history[:-1]
-            )
+            montagem = await context.montar(message, historico=history[:-1])
         except Exception:
-            system_prompt, procedencia = context.build_system_prompt(), {"modo": "completo"}
+            montagem = context.Montagem(
+                sistema=context.build_system_prompt(),
+                procedencia={"modo": "completo"},
+            )
+        system_prompt = montagem.sistema
+        procedencia = montagem.procedencia
         _ULTIMA_PROCEDENCIA[conversation_id] = procedencia
 
         # Contexto extra que será colado antes da pergunta. É uma LISTA de
@@ -396,6 +399,14 @@ async def chat(request: Request) -> Response:
         # sobrescrever uma com a outra descartaria material relevante em
         # silêncio — que foi exatamente o bug da primeira versão disto.
         blocos: list[str] = []
+
+        # A memória selecionada entra AQUI, e não no prompt do sistema. Ela
+        # muda a cada pergunta, e o cache de prefixo da inferência local só
+        # reaproveita o que não muda — com ela lá em cima, o llama.cpp refazia
+        # o prompt inteiro toda mensagem. É a mesma razão pela qual biblioteca,
+        # grafo e web sempre foram para cá.
+        if montagem.lembranca:
+            blocos.append(montagem.lembranca.strip())
 
         # --- triagem ---------------------------------------------------------
         # Uma chamada ao modelo rápido responde duas coisas sobre a mensagem:

@@ -28,6 +28,30 @@ uma troca péssima.
 `montar()` é a nova: assíncrona, recebe a pergunta e traz só o que tem a ver
 com ela. É a que o servidor usa.
 
+O QUE É FIXO E O QUE MUDA A CADA PERGUNTA
+-----------------------------------------
+`montar` devolve as duas partes SEPARADAS, e o motivo é de desempenho local:
+
+    sistema     regras + personalidade. Idêntico byte a byte em toda mensagem.
+    lembranca   memórias, lições, skills, experiências. Muda a cada pergunta.
+
+Em inferência local (llama.cpp, debaixo do Ollama) o cache de KV reaproveita
+o PREFIXO COMUM entre uma chamada e a seguinte. Se o começo do prompt muda,
+mesmo pouco, o servidor refaz o prefill inteiro — segundos de espera por
+mensagem, em CPU, invisíveis porque parecem "o modelo pensando".
+
+Enquanto a memória selecionada morava no prompt do sistema, ela mudava o
+começo do prompt a cada pergunta, e o cache nunca acertava. Separando, o
+prefixo fica estável e a parte volátil vai para o turno do usuário — que é
+onde a biblioteca, o grafo e a web já iam, pelo mesmo motivo.
+
+Isto é uma mudança de POSIÇÃO, não de conteúdo: o modelo continua recebendo
+exatamente a mesma informação. O que não dá para afirmar sem medir é o efeito
+na QUALIDADE — instrução em turno de usuário pode pesar um pouco diferente
+de instrução em prompt de sistema. Por isso existe `LIVIA_PROMPT_ESTAVEL=0`,
+que volta ao arranjo antigo, e o `python -m livia.avaliacao` para comparar os
+dois com número em vez de opinião.
+
 ORÇAMENTO POR TIPO
 ------------------
 Cada camada tem teto próprio (LIVIA_MEMORY_MAX_ITEMS e companhia). Um teto
@@ -38,6 +62,7 @@ inteira e a memória sumiria do prompt sem ninguém perceber por quê.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 
 from . import config, persona
 from .store import lessons, memory, skills
@@ -181,17 +206,43 @@ def build_system_prompt() -> str:
 # --------------------------------------------------------------------------
 
 
+@dataclass
+class Montagem:
+    """O prompt em duas partes, mais a procedência.
+
+    A separação existe para o cache de prefixo da inferência local funcionar
+    (ver o cabeçalho do módulo). Quem não se importa com isso usa `.completo`
+    e recebe exatamente a string de antes.
+    """
+
+    sistema: str                     # invariante entre mensagens
+    lembranca: str = ""              # muda a cada pergunta
+    procedencia: dict[str, object] = field(default_factory=dict)
+
+    @property
+    def completo(self) -> str:
+        return self.sistema + self.lembranca
+
+    def __iter__(self):
+        """Desempacota como (prompt, procedência), como antes.
+
+        Mantido porque a alternativa era mexer em toda chamada só para mudar
+        de onde a memória é colada — e quem quer o prompt inteiro num string
+        só continua tendo o comportamento de sempre.
+        """
+        return iter((self.completo, self.procedencia))
+
+
 async def montar(
     pergunta: str,
     *,
     escopo: str | None = None,
     historico: list[dict[str, str]] | None = None,
-) -> tuple[str, dict[str, object]]:
+) -> Montagem:
     """O prompt com só o que tem a ver com esta pergunta.
 
-    Devolve (prompt, procedência). A procedência lista o que foi usado e por
-    quê — é o que responde "por que você lembrou disso?" sem inventar
-    explicação depois do fato.
+    A procedência lista o que foi usado e por quê — é o que responde "por que
+    você lembrou disso?" sem inventar explicação depois do fato.
     """
     from . import embeddings, experiencia, memoria
 
@@ -200,12 +251,15 @@ async def montar(
     if not (config.SEMANTIC_MEMORY and embeddings.disponivel()):
         # Sem como gerar vetor, a montagem seletiva não tem como selecionar.
         # Voltar para a completa é degradação honesta.
-        return build_system_prompt(), {"modo": "completo"}
+        return Montagem(
+            sistema=build_system_prompt(), procedencia={"modo": "completo"}
+        )
 
     if escopo is None:
         escopo = memoria.detectar_projeto(pergunta, historico)
 
-    partes: list[str] = [_base(user)]
+    fixo = _base(user)
+    partes: list[str] = []
     procedencia: dict[str, object] = {"modo": "semantico", "escopo": escopo or "global"}
 
     memorias = await memoria.recuperar(pergunta, escopo=escopo)
@@ -275,7 +329,15 @@ async def montar(
         len(memorias), len(licoes), len(habilidades), len(experiencias),
         escopo or "global",
     )
-    return "".join(partes), procedencia
+
+    volatil = "".join(partes)
+    if not config.PROMPT_ESTAVEL:
+        # Arranjo antigo: tudo num prompt de sistema só. Custa o cache de
+        # prefixo, e existe para dar como comparar os dois com medição.
+        return Montagem(sistema=fixo + volatil, procedencia=procedencia)
+
+    procedencia["prompt_estavel"] = True
+    return Montagem(sistema=fixo, lembranca=volatil, procedencia=procedencia)
 
 
 def stats() -> dict[str, int]:
