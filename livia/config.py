@@ -212,6 +212,15 @@ SKILL_MAX_ITEMS = _int_env("LIVIA_SKILL_MAX_ITEMS", 4)
 LESSON_MAX_ITEMS = _int_env("LIVIA_LESSON_MAX_ITEMS", 4)
 RAG_MAX_CHUNKS = _int_env("LIVIA_RAG_MAX_CHUNKS", 5)
 
+# Busca por palavra exata (BM25, via FTS5 do próprio SQLite). LIGADA por
+# padrão, ao contrário do grafo: não instala nada, não sobe serviço nenhum e
+# custa microssegundos. O vetor erra em código de erro, nome de função e
+# citação literal; esta acha justamente isso.
+LEXICAL_ENABLED = _flag("LIVIA_LEXICAL")
+# Pede mais candidatos que o vetor de propósito: a fusão por posição só
+# consegue promover um resultado se ele estiver na lista para ser promovido.
+LEXICAL_MAX_CHUNKS = _int_env("LIVIA_LEXICAL_MAX_CHUNKS", 10)
+
 # Acima disto, duas memórias falam da mesma coisa e viram uma só.
 MEMORY_DUPLICATE_THRESHOLD = _float_env("LIVIA_MEMORY_DUPLICATE", 0.88)
 # Abaixo disto, a memória não tem nada a ver com a pergunta.

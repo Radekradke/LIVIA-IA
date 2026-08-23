@@ -29,7 +29,7 @@ from starlette.routing import Route
 from . import (
     auth, backup, biblioteca, brain, conhecimento, config, context, db,
     experiencia, ferramentas, knowledge_client, knowledge_ingest,
-    knowledge_router, learner, memoria, persona, router, saude, web,
+    knowledge_router, learner, lexical, memoria, persona, router, saude, web,
 )
 from .store import COLECOES, memory, skills
 
@@ -234,10 +234,15 @@ def _explicar_ultima(conversa: int) -> str:
     conhecimento = dados.get("conhecimento") or {}
     if dados.get("documentos"):
         modo = str(conhecimento.get("modo") or "vector")
+        # No modo "vector" a busca por palavra andou junto, então dizer só
+        # "por semelhança de texto" seria contar metade da verdade.
+        com_palavra = bool(conhecimento.get("lexical_hits"))
         rotulo = {
-            "vector": "por semelhança de texto",
+            "vector": "por semelhança + palavra" if com_palavra
+                      else "por semelhança de texto",
             "graph": "pelo grafo de relações",
-            "hybrid": "por semelhança + grafo",
+            "hybrid": "por semelhança + palavra + grafo" if com_palavra
+                      else "por semelhança + grafo",
         }.get(modo, modo)
         linhas.append(f"\n**Conhecimento ({rotulo}):**")
         for d in dados["documentos"]:
@@ -248,11 +253,24 @@ def _explicar_ultima(conversa: int) -> str:
             for caminho in conhecimento["relacoes"][:6]:
                 linhas.append("- " + " → ".join(caminho))
 
-        if modo == "hybrid":
+        # A contagem por origem sai sempre que houve mais de uma busca, e não
+        # só no modo híbrido: a busca por palavra roda junto do vetor mesmo
+        # quando o grafo está desligado, e ela precisa aparecer aqui — é o que
+        # deixa o André ver se está servindo para alguma coisa.
+        partes = [f"{conhecimento.get('vector_hits', 0)} por semelhança"]
+        if conhecimento.get("lexical_hits"):
+            partes.append(f"{conhecimento['lexical_hits']} por palavra")
+        if conhecimento.get("graph_hits"):
+            partes.append(f"{conhecimento['graph_hits']} pelo grafo")
+        if len(partes) > 1:
             linhas.append(
-                f"\n_Busca híbrida: {conhecimento.get('vector_hits', 0)} por texto, "
-                f"{conhecimento.get('graph_hits', 0)} pelo grafo, "
-                f"{conhecimento.get('duplicados', 0)} repetidos descartados._"
+                f"\n_Candidatos: {', '.join(partes)}; "
+                f"{conhecimento.get('duplicados', 0)} repetidos fundidos._"
+            )
+        if conhecimento.get("so_lexical"):
+            linhas.append(
+                f"_{conhecimento['so_lexical']} trecho(s) só a busca por "
+                "palavra achou — o vetor não teria trazido._"
             )
 
         if conhecimento.get("divergencias"):
@@ -957,6 +975,10 @@ async def diagnostico(request: Request) -> Response:
             "documentos": len(biblioteca.listar()),
             "precisam_reconstruir": biblioteca.incompativeis(),
         },
+        "lexical": {
+            "ligada": config.LEXICAL_ENABLED,
+            **lexical.estatisticas(),
+        },
         "ferramentas": {"ligadas": config.TOOLS_ENABLED},
         "web": {"ligada": config.WEB_ENABLED, "buscador": web.provedor_de_busca()},
         "local": {
@@ -1465,6 +1487,22 @@ async def lifespan(_app: Starlette) -> AsyncIterator[None]:
             memoria.sincronizar(colecao)
         except Exception:
             pass  # índice é derivado; falhar aqui não pode impedir o app de subir
+
+    # O índice de palavras se alinha sozinho com o que está em disco. Ao
+    # contrário dos vetores, refazê-lo não custa chamada de modelo nenhuma —
+    # é ler texto e escrever no SQLite. Por isso não há botão: pedir permissão
+    # para reconstruir o que se reconstrói em segundos seria só atrito, e uma
+    # biblioteca de antes desta funcionalidade ficaria sem busca por palavra
+    # até alguém descobrir onde clicar.
+    try:
+        estado = lexical.sincronizar()
+        if estado["indexados"] or estado["removidos"]:
+            log.info(
+                "[lexical] índice em dia: +%d, -%d",
+                estado["indexados"], estado["removidos"],
+            )
+    except Exception:
+        pass  # índice derivado; falhar aqui não impede o app de subir
 
     # Jobs de grafo interrompidos por um reinício voltam para a fila. NÃO
     # começam a rodar sozinhos: quem manda processar é o André.

@@ -1,10 +1,16 @@
 """Qual busca atende cada pergunta — e o que fazer quando uma delas falha.
 
-Duas formas de procurar, que respondem coisas diferentes:
+Três formas de procurar, que respondem coisas diferentes:
 
     VECTOR   acha TRECHO PARECIDO. "O que o capítulo 4 diz sobre redes
              neurais?" — a resposta está escrita num lugar só, e o problema é
              achar aquele lugar.
+
+    LEXICAL  acha PALAVRA EXATA. "O que é o ERR_CONN_2043?" — um código de
+             erro não tem vizinhança semântica: ele não "se parece" com nada,
+             e o vetor traz o trecho sobre o assunto geral errando o
+             específico. Roda sempre junto do vetor, porque os dois erram em
+             direções opostas e sai barato (BM25 do SQLite, em C).
 
     GRAPH    acha RELAÇÃO. "Que banco aparece ligado ao projeto da Alice?" —
              a resposta não está escrita em lugar nenhum: está em `doc_a`
@@ -12,8 +18,14 @@ Duas formas de procurar, que respondem coisas diferentes:
              dois se parece com a pergunta, então o vetor pode não trazer os
              dois, e ainda que traga não diz que estão ligados.
 
-    HYBRID   os dois, deduplicados. "Compare o que os documentos dizem
-             sobre X."
+    HYBRID   os três, fundidos. "Compare o que os documentos dizem sobre X."
+
+A FUSÃO É POR POSIÇÃO, NUNCA POR NOTA
+-------------------------------------
+Cosseno vai de 0 a 1 e maior é melhor. BM25 é negativo e mais negativo é
+melhor. Somar ou pesar esses números exigiria calibração que muda com o
+modelo e com o corpus, e desafina em silêncio. `knowledge.fundir` usa só a
+colocação de cada resultado em cada lista.
 
 A DECISÃO É LOCAL E DETERMINÍSTICA
 ----------------------------------
@@ -35,8 +47,8 @@ from __future__ import annotations
 import logging
 import re
 
-from . import biblioteca, config, knowledge, knowledge_client
-from .knowledge import GRAPH, HYBRID, VECTOR, KnowledgeHit
+from . import biblioteca, config, knowledge, knowledge_client, lexical
+from .knowledge import GRAPH, HYBRID, LEXICAL, VECTOR, KnowledgeHit
 
 log = logging.getLogger("livia.knowledge")
 
@@ -118,12 +130,15 @@ def classificar(pergunta: str) -> str:
     return VECTOR
 
 
-def _do_vetor(achados: list[dict[str, object]]) -> list[KnowledgeHit]:
+def _da_biblioteca(
+    achados: list[dict[str, object]], tipo: str
+) -> list[KnowledgeHit]:
     """Converte o resultado da biblioteca para o formato comum.
 
-    A biblioteca continua devolvendo o dicionário dela, intacto — quem chama
-    `biblioteca.buscar` direto (testes antigos, outros pontos) não vê
-    diferença. A tradução mora aqui.
+    Serve as duas buscas locais: a vetorial e a lexical devolvem o mesmo
+    dicionário de propósito, e é isso que permite a fusão tratá-las igual.
+    A biblioteca continua devolvendo o formato dela, intacto — quem chama
+    `biblioteca.buscar` direto não vê diferença. A tradução mora aqui.
     """
     hits: list[KnowledgeHit] = []
     for a in achados:
@@ -135,11 +150,27 @@ def _do_vetor(achados: list[dict[str, object]]) -> list[KnowledgeHit]:
                 title=titulo,
                 page=int(a["pagina"]) if a.get("pagina") else None,
                 score=float(a["nota"]) if a.get("nota") is not None else None,
-                retrieval_type=VECTOR,
+                retrieval_type=tipo,
                 document_id=str(a.get("slug") or "") or None,
             )
         )
     return hits
+
+
+def _do_vetor(achados: list[dict[str, object]]) -> list[KnowledgeHit]:
+    return _da_biblioteca(achados, VECTOR)
+
+
+def _do_lexical(pergunta: str) -> list[KnowledgeHit]:
+    """Busca por palavra. Nunca derruba nada: sem ela, responde pelo vetor."""
+    if not config.LEXICAL_ENABLED:
+        return []
+    try:
+        achados = lexical.buscar(pergunta, config.LEXICAL_MAX_CHUNKS)
+    except Exception as exc:
+        log.debug("[knowledge] busca lexical falhou: %s", exc)
+        return []
+    return _da_biblioteca(achados, LEXICAL)
 
 
 async def buscar(
@@ -164,12 +195,14 @@ async def buscar(
     procedencia: dict[str, object] = {
         "modo": escolhido,
         "vector_hits": 0,
+        "lexical_hits": 0,
         "graph_hits": 0,
         "descartados": 0,
         "grafo_disponivel": grafo_ok,
     }
 
     do_vetor: list[KnowledgeHit] = []
+    do_lexical: list[KnowledgeHit] = []
     do_grafo: list[KnowledgeHit] = []
 
     if escolhido in (VECTOR, HYBRID):
@@ -180,6 +213,14 @@ async def buscar(
             log.debug("[knowledge] busca vetorial falhou: %s", exc)
             do_vetor = []
         procedencia["vector_hits"] = len(do_vetor)
+
+        # O lexical anda SEMPRE junto do vetor, e não como um modo separado
+        # que a heurística escolheria. Adivinhar "esta pergunta é de palavra
+        # exata" erraria muito, e não haveria ganho em acertar: a busca custa
+        # microssegundos e não sai da máquina. Deixar os dois correndo e a
+        # fusão decidir é mais barato que decidir antes.
+        do_lexical = _do_lexical(pergunta)
+        procedencia["lexical_hits"] = len(do_lexical)
 
     if escolhido in (GRAPH, HYBRID):
         do_grafo = await knowledge_client.buscar_grafo(pergunta)
@@ -202,12 +243,14 @@ async def buscar(
                     do_vetor = _do_vetor(await biblioteca.buscar(pergunta))
             except Exception:
                 do_vetor = []
+            do_lexical = _do_lexical(pergunta)
             procedencia["vector_hits"] = len(do_vetor)
+            procedencia["lexical_hits"] = len(do_lexical)
             procedencia["modo"] = VECTOR if not do_grafo else escolhido
             log.debug("[knowledge] grafo vazio, complementando com vector")
 
-    antes = len(do_vetor) + len(do_grafo)
-    juntos = knowledge.deduplicar([*do_vetor, *do_grafo])
+    antes = len(do_vetor) + len(do_lexical) + len(do_grafo)
+    juntos = knowledge.fundir([do_vetor, do_lexical, do_grafo])
     procedencia["duplicados"] = antes - len(juntos)
 
     finais = knowledge.orcamento(
@@ -223,10 +266,19 @@ async def buscar(
     if conflitos:
         procedencia["divergencias"] = conflitos
 
+    # Quantos dos resultados finais só o lexical tinha achado. É o número que
+    # responde "a busca por palavra está servindo para alguma coisa?" — sem
+    # ele, ligar ou desligar a funcionalidade seria pura opinião.
+    procedencia["so_lexical"] = sum(
+        1 for h in finais if h.retrieval_type == LEXICAL
+    )
+
     log.debug(
-        "[knowledge] mode=%s vector_hits=%d graph_hits=%d deduplicated=%d final=%d",
-        procedencia["modo"], procedencia["vector_hits"], procedencia["graph_hits"],
-        procedencia["duplicados"], len(finais),
+        "[knowledge] mode=%s vector=%d lexical=%d graph=%d dedup=%d final=%d "
+        "so_lexical=%d",
+        procedencia["modo"], procedencia["vector_hits"],
+        procedencia["lexical_hits"], procedencia["graph_hits"],
+        procedencia["duplicados"], len(finais), procedencia["so_lexical"],
     )
     return finais, procedencia
 

@@ -343,6 +343,16 @@ async def _rodar(args) -> int:
         print("A biblioteca está vazia. Não há onde procurar.")
         return 2
 
+    # A CLI roda fora do servidor, então o alinhamento que o arranque faz não
+    # aconteceu. Medir com o índice de palavras vazio culparia a busca lexical
+    # por um número que é culpa da medição.
+    from . import lexical
+
+    try:
+        lexical.sincronizar()
+    except Exception as exc:
+        print(f"AVISO: índice de palavras não pôde ser alinhado ({exc}).")
+
     pendentes = biblioteca.incompativeis()
     if pendentes:
         print(f"AVISO: {len(pendentes)} documento(s) com vetores de outro "

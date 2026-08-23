@@ -779,6 +779,44 @@ O grafo. Ele é inteiramente reconstruível a partir dos `trechos.jsonl`, que
 
 ---
 
+## Duas buscas, porque uma erra sozinha
+
+A biblioteca procura de dois jeitos ao mesmo tempo, e não é redundância — eles
+erram em direções opostas.
+
+**Por significado** (vetores). "Como reservo memória?" acha o trecho sobre
+`malloc` sem a palavra malloc aparecer na pergunta. É o que faz parecer que
+ela leu o livro.
+
+**Por palavra** (BM25). Existe porque a busca por significado erra justamente
+onde não há significado:
+
+| A pergunta | O que o vetor faz |
+|---|---|
+| `ERR_CONN_2043` | traz o capítulo sobre conexão — assunto certo, resposta errada |
+| `lru_cache` | traz "sobre cache em geral" |
+| `RFC 7231` | um número não tem vizinhança semântica |
+| "a cláusula 4.2.1 diz o quê?" | traz outra cláusula |
+
+Esse é o modo de errar mais traiçoeiro que existe: a resposta vem sobre o tema
+certo, sem a informação pedida, e parece completa.
+
+As duas rodam sempre juntas e o resultado é fundido **por posição**, nunca por
+nota — o cosseno vai de 0 a 1 e o BM25 é negativo, então somar as escalas
+desafinaria sem avisar. Um trecho achado pelas duas sobe; um trecho que só a
+busca por palavra achou continua tendo sua chance, que é exatamente o ponto.
+
+Não instala nada: o BM25 já vem dentro do SQLite (FTS5). O índice se alinha
+sozinho no arranque, inclusive numa biblioteca criada antes desta
+funcionalidade existir — é índice derivado, e refazê-lo não custa chamada de
+modelo nenhuma.
+
+O `/porque` mostra quantos trechos vieram de cada caminho, e quantos **só** a
+busca por palavra achou. Se esse número for sempre zero nas suas perguntas,
+`LIVIA_LEXICAL=0` desliga.
+
+---
+
 ## Medir se a busca está achando
 
 A suíte de testes prova que a busca **não quebra**. Não prova que ela
