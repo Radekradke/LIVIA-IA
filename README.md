@@ -333,9 +333,32 @@ título da página, o cabeçalho, o ícone da aba do navegador e o prompt se
 ajustam sozinhos. O ícone é um monograma gerado na hora com a primeira letra —
 não existe arquivo de imagem para trocar.
 
-**O tema** alterna no rodapé da coluna esquerda: claro ou escuro. O padrão de
-fábrica é claro, e a sua escolha fica guardada no navegador. O modo escuro do
-Windows não sequestra o visual sem você pedir.
+**O tema** alterna no rodapé da coluna esquerda: claro ou escuro. A sua escolha
+fica guardada no navegador, e o modo escuro do Windows não sequestra o visual
+sem você pedir.
+
+### Mnemosyne
+
+A identidade é mármore. Mnemósine é a titânide da memória, e a Livia existe
+para lembrar — a referência grega aparece na composição, não em coluna dórica
+de enfeite.
+
+| | |
+|---|---|
+| **Claro** | mármore quente, texto em grafite |
+| **Escuro** | Nero Marquina — preto mineral, texto em marfim |
+| **Bronze** | só onde há ação ou estado ativo, em quantidade pequena |
+| **Marcellus** | títulos importantes, e só eles |
+| **Geist / Geist Mono** | interface e dados |
+
+O medalhão da barra lateral respira devagar quando ela está disponível, e o
+anel se reorganiza enquanto ela pensa. A regra das animações é uma só: se o
+movimento for percebido antes do conteúdo, está exagerado.
+
+**As fontes são servidas pela própria Livia**, de `/fontes/`. Um `<link>` para
+o Google Fonts contaria a eles toda vez que você abrisse a assistente, e a
+tipografia sumiria quando você estivesse sem rede — as duas coisas que este
+projeto existe para não fazer. São 76 KB, e o service worker guarda offline.
 
 ---
 

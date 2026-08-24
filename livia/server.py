@@ -1063,9 +1063,32 @@ async def status(request: Request) -> Response:
             "local_only": config.LOCAL_ONLY,
             "semantic": config.SEMANTIC_MEMORY and embeddings.disponivel(),
             "candidatas": len(experiencia.candidatas()),
+            # O acervo, para o átrio da tela inicial. Vai junto do status
+            # porque é uma tela só e três chamadas para montá-la seriam três
+            # esperas antes de a primeira palavra aparecer.
+            "acervo": _acervo(),
             **context.stats(),
         }
     )
+
+
+def _acervo() -> dict[str, int]:
+    """O que a Livia tem guardado, contado.
+
+    Só o que EXISTE de verdade. É tentador acrescentar "compromissos" e
+    "tarefas do dia" porque a tela ficaria mais cheia, mas a Livia não tem
+    agenda — um número que não vem de lugar nenhum é decoração que finge ser
+    informação.
+    """
+    try:
+        livros = biblioteca.listar()
+    except Exception:
+        livros = []
+    return {
+        "documentos": sum(1 for l in livros if l.get("tipo") != "projeto"),
+        "projetos": sum(1 for l in livros if l.get("tipo") == "projeto"),
+        "experiencias": experiencia.estatisticas().get("total", 0),
+    }
 
 
 async def index(request: Request) -> Response:
@@ -1107,8 +1130,8 @@ async def manifesto(request: Request) -> Response:
             # A cor da barra é a do tema escuro, que é o padrão de fábrica.
             # A variante clara é tratada por <meta name="theme-color"> com
             # media query, que o manifesto não sabe fazer.
-            "background_color": "#140a0c",
-            "theme_color": "#140a0c",
+            "background_color": "#0f0f0e",
+            "theme_color": "#0f0f0e",
             "categories": ["productivity", "utilities"],
             "icons": [
                 {"src": "/icones/icone-192.png", "sizes": "192x192",
@@ -1173,6 +1196,33 @@ async def icone(request: Request) -> Response:
         caminho,
         media_type=tipo,
         headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+async def fonte(request: Request) -> Response:
+    """As fontes da interface, servidas DAQUI e não do Google.
+
+    A Livia é um aplicativo offline e promete que nada sai da máquina. Um
+    `<link>` para fonts.googleapis.com quebraria as duas promessas de uma
+    vez: contaria ao Google toda vez que o André abrisse a assistente, e
+    deixaria a tipografia sumir quando ele estivesse sem rede.
+
+    Mesma regra de lista fechada dos ícones — o nome vem da URL, então quem
+    confere é o código, nunca o sistema de arquivos.
+    """
+    permitidas = {"geist.woff2", "geistmono.woff2", "marcellus.woff2"}
+    nome = request.path_params["nome"]
+    if nome not in permitidas:
+        return PlainTextResponse("não encontrado", status_code=404)
+
+    caminho = config.WEB_DIR / "fontes" / nome
+    if not caminho.exists():
+        return PlainTextResponse("não encontrado", status_code=404)
+    return FileResponse(
+        caminho,
+        media_type="font/woff2",
+        # Um ano: o nome do arquivo muda quando a fonte mudar.
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
     )
 
 
@@ -1372,7 +1422,10 @@ LIVRES = {"/entrar", "/api/entrar", "/saude", "/manifest.webmanifest", "/sw.js"}
 
 
 def _livre(caminho: str) -> bool:
-    return caminho in LIVRES or caminho.startswith("/icones/")
+    # As fontes acompanham os ícones: a tela de login também precisa
+    # delas, e um arquivo de fonte não revela nada de ninguém.
+    return (caminho in LIVRES or caminho.startswith("/icones/")
+            or caminho.startswith("/fontes/"))
 
 
 _LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
@@ -1477,6 +1530,7 @@ routes = [
     Route("/manifest.webmanifest", manifesto),
     Route("/sw.js", serviceworker),
     Route("/icones/{nome:str}", icone),
+    Route("/fontes/{nome:str}", fonte),
     Route("/entrar", pagina_entrar),
     Route("/api/entrar", fazer_login, methods=["POST"]),
     Route("/sair", sair),
