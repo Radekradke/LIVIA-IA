@@ -499,3 +499,34 @@ def test_o_provedor_recebe_o_mesmo_sistema_nas_duas_mensagens(cliente, vetores, 
     ]
     assert any("Supabase" in u for u in usuarios)
     assert any("Epson" in u for u in usuarios)
+
+
+# ── papel e escopo da regra de invenção ───────────────────────────────────
+
+
+def test_o_papel_dela_e_configuravel(monkeypatch):
+    """A primeira linha do prompt enquadra tudo que vem depois.
+
+    Ficava fixa como "assistente pessoal de projetos". Quem usa a Livia para
+    outra coisa pedia uma coisa a um sistema que se apresentava como outra —
+    e o modelo obedece o enquadramento antes de obedecer a persona.
+    """
+    monkeypatch.setattr(config, "ASSISTANT_ROLE", "uma assistente de escrita")
+
+    primeira = context.build_system_prompt().splitlines()[0]
+
+    assert "uma assistente de escrita" in primeira
+    assert "projetos" not in primeira
+
+
+def test_a_regra_de_nao_inventar_vale_para_fato_nao_para_ficcao():
+    """A regra foi escrita pensando em resposta técnica, onde inventar um nome
+    de biblioteca é o pior erro possível. Sem o recorte, a mesma frase proíbe
+    INVENTAR — que é o trabalho inteiro quando o pedido é ficção.
+    """
+    prompt = context.build_system_prompt()
+
+    assert "AFIRMANDO ALGO COMO FATO" in prompt
+    assert "não vale para ficção" in prompt
+    # E a garantia técnica continua de pé.
+    assert "nomes de bibliotecas" in prompt

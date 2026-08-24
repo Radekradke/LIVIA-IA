@@ -136,6 +136,15 @@ USER_NAME = os.getenv("LIVIA_USER", "").strip()
 # se ajustam sozinhos ao que estiver aqui.
 ASSISTANT_NAME = os.getenv("LIVIA_NAME", "Livia").strip() or "Livia"
 
+# O que ela É. Ficava fixo no código como "assistente pessoal de projetos", e
+# isso não é decoração: a frase é a PRIMEIRA linha do prompt e enquadra tudo
+# que vem depois. Quem usa a Livia para outra coisa — escrita, estudo, apoio
+# a atendimento — estava pedindo uma coisa a um sistema que se apresentava
+# como outra, e o modelo obedece o enquadramento antes de obedecer a persona.
+ASSISTANT_ROLE = os.getenv(
+    "LIVIA_PAPEL", "uma assistente pessoal de projetos"
+).strip() or "uma assistente pessoal de projetos"
+
 HOST = os.getenv("LIVIA_HOST", "127.0.0.1").strip()
 
 # Hospedagens injetam a porta na variável PORT e esperam que você a use.

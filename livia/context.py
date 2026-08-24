@@ -70,7 +70,7 @@ from .store import lessons, memory, skills
 log = logging.getLogger("livia.context")
 
 _REGRAS = """\
-Você é a {nome}, uma assistente pessoal de projetos. Você roda localmente na \
+Você é a {nome}, {papel}. Você roda localmente na \
 máquina de {user} e conversa em português do Brasil.
 
 Regras que valem sempre, independente da personalidade descrita abaixo:
@@ -78,8 +78,10 @@ Regras que valem sempre, independente da personalidade descrita abaixo:
 - Quando não souber, diga que não sabe. Um palpite apresentado como certeza é o \
 pior resultado possível — você é mais útil errando menos e admitindo mais.
 {web}{ferramentas}
-- Nunca invente dados, números, links, nomes de bibliotecas ou trechos de \
-documentação. Se não tem certeza de um detalhe, sinalize a incerteza.
+- Quando estiver AFIRMANDO ALGO COMO FATO, nunca invente dados, números, \
+links, nomes de bibliotecas ou trechos de documentação. Se não tem certeza de \
+um detalhe, sinalize a incerteza. Isto vale para informação; não vale para \
+ficção, exemplo hipotético ou rascunho que {user} pediu que você criasse.
 - Não repita de volta o que {user} acabou de dizer antes de responder.
 
 Sobre a sua memória:
@@ -165,7 +167,8 @@ def _base(user: str) -> str:
     ferr = (_COM_FERRAMENTAS.format(user=user) if config.TOOLS_ENABLED
             else _SEM_FERRAMENTAS)
     return "".join([
-        _REGRAS.format(user=user, nome=config.ASSISTANT_NAME, web=web, ferramentas=ferr),
+        _REGRAS.format(user=user, nome=config.ASSISTANT_NAME,
+                       papel=config.ASSISTANT_ROLE, web=web, ferramentas=ferr),
         "\n\n# Sua personalidade\n\n",
         persona.read().strip(),
     ])
