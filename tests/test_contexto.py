@@ -383,3 +383,150 @@ def test_sem_provedor_de_ferramenta_ela_responde_assim_mesmo(cliente, vetores, m
 
     assert "error" not in tipos, [e for e in eventos if e.get("type") == "error"]
     assert "respondi sem ferramenta" in texto
+
+
+# ── prompt estável e cache de prefixo ─────────────────────────────────────
+#
+# A memória selecionada saiu do prompt do sistema e foi para o turno do
+# usuário. Em inferência local, o cache de KV só reaproveita o PREFIXO comum
+# entre uma chamada e a seguinte: com o prompt de sistema mudando a cada
+# pergunta, o llama.cpp refazia o prefill inteiro toda mensagem.
+#
+# É mudança de posição, não de conteúdo — e é isso que estes testes travam.
+
+
+async def test_o_prompt_do_sistema_nao_muda_entre_perguntas(memorias, vetores):
+    """O prefixo precisa ser IDÊNTICO byte a byte, ou não há cache nenhum."""
+    gravar(memorias, "banco", "O CRM usa Supabase como banco de dados.")
+    gravar(memorias, "impressora", "A impressora Epson trava no WPS.")
+
+    uma = await context.montar("qual banco de dados usamos?")
+    outra = await context.montar("por que a impressora não conecta?")
+
+    assert uma.sistema == outra.sistema
+    # E as lembranças mudaram — senão o teste acima passaria à toa.
+    assert uma.lembranca != outra.lembranca
+
+
+async def test_a_memoria_vai_na_lembranca_e_nao_no_sistema(memorias, vetores):
+    gravar(memorias, "banco", "O CRM usa Supabase como banco de dados.")
+
+    m = await context.montar("qual banco de dados usamos?")
+
+    assert "Supabase" in m.lembranca
+    assert "Supabase" not in m.sistema
+    # As regras continuam onde estavam.
+    assert "Quando não souber, diga que não sabe" in m.sistema
+
+
+async def test_nada_se_perde_no_caminho(memorias, vetores):
+    """Mudança de POSIÇÃO. O modelo recebe exatamente a mesma informação."""
+    gravar(memorias, "banco", "O CRM usa Supabase como banco de dados.")
+
+    m = await context.montar("qual banco de dados usamos?")
+
+    assert "Supabase" in m.completo
+    assert m.completo == m.sistema + m.lembranca
+
+
+async def test_desligar_volta_ao_arranjo_antigo(memorias, vetores, monkeypatch):
+    """Existe para dar como comparar os dois com medição, não com opinião."""
+    monkeypatch.setattr(config, "PROMPT_ESTAVEL", False)
+    gravar(memorias, "banco", "O CRM usa Supabase como banco de dados.")
+
+    m = await context.montar("qual banco de dados usamos?")
+
+    assert "Supabase" in m.sistema
+    assert m.lembranca == ""
+
+
+async def test_sem_vetores_o_sistema_carrega_tudo(memorias, monkeypatch):
+    """Degradação honesta: sem como selecionar, vai tudo — como antes."""
+    from livia import embeddings
+
+    monkeypatch.setattr(embeddings, "disponivel", lambda: False)
+    gravar(memorias, "banco", "O CRM usa Supabase como banco de dados.")
+
+    m = await context.montar("qualquer coisa")
+
+    assert m.procedencia["modo"] == "completo"
+    assert "Supabase" in m.sistema
+
+
+@respx.mock
+def test_o_provedor_recebe_o_mesmo_sistema_nas_duas_mensagens(cliente, vetores, memorias):
+    """A prova de ponta a ponta: é o que chega no provedor que importa.
+
+    Um teste só sobre `montar` não pegaria o servidor recolando a memória no
+    prompt do sistema por engano.
+    """
+    gravar(memorias, "banco", "O CRM usa Supabase como banco de dados.")
+    gravar(memorias, "impressora", "A impressora Epson trava no WPS.")
+
+    enviados = []
+
+    def registrar(request):
+        enviados.append(json.loads(request.content))
+        return httpx.Response(200, text=sse_groq("ok"))
+
+    respx.post(GROQ).mock(side_effect=registrar)
+
+    eventos = conversar(cliente, "qual banco de dados usamos?")
+    conversa = next(e["conversation_id"] for e in eventos if e.get("type") == "done")
+    conversar(cliente, "e a impressora, por que não conecta?", conversa)
+
+    # Só as chamadas de CONVERSA. A mesma mensagem gera outras — a rodada de
+    # ferramentas, o título, a triagem — e cada uma tem prompt de sistema
+    # próprio. Comparar sem filtrar compararia coisas diferentes e passaria
+    # (ou falharia) por motivo errado.
+    conversas = [
+        next(m["content"] for m in c["messages"] if m["role"] == "system")
+        for c in enviados
+        if any(
+            m["role"] == "system" and "assistente pessoal de projetos" in m["content"]
+            for m in c["messages"]
+        )
+    ]
+    assert len(set(conversas)) == 1, (
+        f"o prompt do sistema mudou entre mensagens ({len(set(conversas))} versões)"
+    )
+
+    # E as duas perguntas realmente puxaram memórias diferentes — senão a
+    # asserção acima passaria à toa, comparando dois prompts iguais por acaso.
+    usuarios = [
+        " ".join(m["content"] for m in c["messages"] if m["role"] == "user")
+        for c in enviados
+    ]
+    assert any("Supabase" in u for u in usuarios)
+    assert any("Epson" in u for u in usuarios)
+
+
+# ── papel e escopo da regra de invenção ───────────────────────────────────
+
+
+def test_o_papel_dela_e_configuravel(monkeypatch):
+    """A primeira linha do prompt enquadra tudo que vem depois.
+
+    Ficava fixa como "assistente pessoal de projetos". Quem usa a Livia para
+    outra coisa pedia uma coisa a um sistema que se apresentava como outra —
+    e o modelo obedece o enquadramento antes de obedecer a persona.
+    """
+    monkeypatch.setattr(config, "ASSISTANT_ROLE", "uma assistente de escrita")
+
+    primeira = context.build_system_prompt().splitlines()[0]
+
+    assert "uma assistente de escrita" in primeira
+    assert "projetos" not in primeira
+
+
+def test_a_regra_de_nao_inventar_vale_para_fato_nao_para_ficcao():
+    """A regra foi escrita pensando em resposta técnica, onde inventar um nome
+    de biblioteca é o pior erro possível. Sem o recorte, a mesma frase proíbe
+    INVENTAR — que é o trabalho inteiro quando o pedido é ficção.
+    """
+    prompt = context.build_system_prompt()
+
+    assert "AFIRMANDO ALGO COMO FATO" in prompt
+    assert "não vale para ficção" in prompt
+    # E a garantia técnica continua de pé.
+    assert "nomes de bibliotecas" in prompt

@@ -333,9 +333,32 @@ título da página, o cabeçalho, o ícone da aba do navegador e o prompt se
 ajustam sozinhos. O ícone é um monograma gerado na hora com a primeira letra —
 não existe arquivo de imagem para trocar.
 
-**O tema** alterna no rodapé da coluna esquerda: claro ou escuro. O padrão de
-fábrica é claro, e a sua escolha fica guardada no navegador. O modo escuro do
-Windows não sequestra o visual sem você pedir.
+**O tema** alterna no rodapé da coluna esquerda: claro ou escuro. A sua escolha
+fica guardada no navegador, e o modo escuro do Windows não sequestra o visual
+sem você pedir.
+
+### Mnemosyne
+
+A identidade é mármore. Mnemósine é a titânide da memória, e a Livia existe
+para lembrar — a referência grega aparece na composição, não em coluna dórica
+de enfeite.
+
+| | |
+|---|---|
+| **Claro** | mármore quente, texto em grafite |
+| **Escuro** | Nero Marquina — preto mineral, texto em marfim |
+| **Bronze** | só onde há ação ou estado ativo, em quantidade pequena |
+| **Marcellus** | títulos importantes, e só eles |
+| **Geist / Geist Mono** | interface e dados |
+
+O medalhão da barra lateral respira devagar quando ela está disponível, e o
+anel se reorganiza enquanto ela pensa. A regra das animações é uma só: se o
+movimento for percebido antes do conteúdo, está exagerado.
+
+**As fontes são servidas pela própria Livia**, de `/fontes/`. Um `<link>` para
+o Google Fonts contaria a eles toda vez que você abrisse a assistente, e a
+tipografia sumiria quando você estivesse sem rede — as duas coisas que este
+projeto existe para não fazer. São 76 KB, e o service worker guarda offline.
 
 ---
 
@@ -503,7 +526,10 @@ livia/
   experiencia.py    o que foi tentado, e o que virou lição
   embeddings.py     texto -> vetor (local ou nuvem)
   learner.py        decide o que virou memória depois de cada resposta
-  biblioteca.py     documentos que ela consulta (RAG)
+  biblioteca.py     documentos que ela consulta (RAG por significado)
+  lexical.py        busca por palavra exata (BM25, no FTS5 do SQLite)
+  triagem.py        desata a pergunta antes de buscar; decide a web junto
+  avaliacao.py      mede se a busca acha (acerto@k, MRR, conjunto dourado)
   conhecimento.py   indexar uma pasta de projeto inteira
   ferramentas.py    ler/escrever arquivo, calcular (confinado ao workspace)
   leitura.py        extrair texto de PDF, DOCX, XLSX, CSV, JSON, HTML
@@ -776,6 +802,102 @@ tem senha, e quem o alcançasse leria o conteúdo dos documentos.
 
 O grafo. Ele é inteiramente reconstruível a partir dos `trechos.jsonl`, que
 **vêm** no backup. Depois de restaurar, o painel oferece construir de novo.
+
+---
+
+## Duas buscas, porque uma erra sozinha
+
+A biblioteca procura de dois jeitos ao mesmo tempo, e não é redundância — eles
+erram em direções opostas.
+
+**Por significado** (vetores). "Como reservo memória?" acha o trecho sobre
+`malloc` sem a palavra malloc aparecer na pergunta. É o que faz parecer que
+ela leu o livro.
+
+**Por palavra** (BM25). Existe porque a busca por significado erra justamente
+onde não há significado:
+
+| A pergunta | O que o vetor faz |
+|---|---|
+| `ERR_CONN_2043` | traz o capítulo sobre conexão — assunto certo, resposta errada |
+| `lru_cache` | traz "sobre cache em geral" |
+| `RFC 7231` | um número não tem vizinhança semântica |
+| "a cláusula 4.2.1 diz o quê?" | traz outra cláusula |
+
+Esse é o modo de errar mais traiçoeiro que existe: a resposta vem sobre o tema
+certo, sem a informação pedida, e parece completa.
+
+As duas rodam sempre juntas e o resultado é fundido **por posição**, nunca por
+nota — o cosseno vai de 0 a 1 e o BM25 é negativo, então somar as escalas
+desafinaria sem avisar. Um trecho achado pelas duas sobe; um trecho que só a
+busca por palavra achou continua tendo sua chance, que é exatamente o ponto.
+
+Não instala nada: o BM25 já vem dentro do SQLite (FTS5). O índice se alinha
+sozinho no arranque, inclusive numa biblioteca criada antes desta
+funcionalidade existir — é índice derivado, e refazê-lo não custa chamada de
+modelo nenhuma.
+
+O `/porque` mostra quantos trechos vieram de cada caminho, e quantos **só** a
+busca por palavra achou. Se esse número for sempre zero nas suas perguntas,
+`LIVIA_LEXICAL=0` desliga.
+
+---
+
+## Medir se a busca está achando
+
+A suíte de testes prova que a busca **não quebra**. Não prova que ela
+**acha** — são coisas diferentes, e a segunda é a que decide se a resposta
+presta.
+
+Isso importa porque os números que governam a recuperação foram todos
+escolhidos no olho: o limiar de relevância, o tamanho do trecho, o peso da
+recência na memória. Nenhum é errado; o problema é que não havia como
+descobrir, e portanto nenhum ia melhorar nunca.
+
+```
+python -m livia.avaliacao --criar     # escreve um modelo em data/avaliacao/
+python -m livia.avaliacao             # mede
+```
+
+O conjunto é um arquivo seu, com perguntas suas:
+
+```json
+{
+  "piso": {"acerto": 0.70, "mrr": 0.50},
+  "casos": [
+    {
+      "pergunta": "como o projeto trata documento escaneado?",
+      "documento": "manual-livia",
+      "contem": ["parser avançado"]
+    }
+  ]
+}
+```
+
+Você não precisa escrever a resposta certa — só como reconhecê-la: de qual
+documento ela deveria vir, e/ou um pedaço de texto que o trecho certo contém.
+Trinta a cinquenta perguntas já dão um número em que dá para confiar.
+
+A saída diz duas coisas:
+
+| | |
+|---|---|
+| **acerto@k** | em que fração das perguntas o trecho certo apareceu entre os k primeiros |
+| **MRR** | quão no alto ele apareceu — achar em primeiro vale 1, em quinto vale 0,2 |
+
+`acerto@k` é a que manda. Se o trecho certo não chegou, nenhum modelo salva a
+resposta: não há o que a IA faça com um contexto que não chegou.
+
+Com `--salvar`, a medição vira referência, e a próxima execução mostra o que
+se moveu. É assim que se descobre que uma mudança piorou a busca — no dia em
+que ela foi feita, e não meses depois.
+
+O `piso` no arquivo é o orçamento de regressão: abaixo dele o comando sai com
+código 1, e serve para travar um merge.
+
+> Rodar isto exige o Ollama (ou a chave do Gemini) de pé e documentos na
+> biblioteca. Sem isso o comando avisa e não mede, em vez de imprimir um zero
+> que pareceria resultado.
 
 ---
 

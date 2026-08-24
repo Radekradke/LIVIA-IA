@@ -32,7 +32,7 @@
  * chama respondWith, e o navegador faz o de sempre.
  */
 
-const VERSAO = "livia-v1";
+const VERSAO = "livia-v2-mnemosyne";
 const CASCA = `${VERSAO}-casca`;
 const DADOS = `${VERSAO}-dados`;
 
@@ -43,6 +43,12 @@ const ARQUIVOS_DA_CASCA = [
   "/icones/icone-192.png",
   "/icones/icone-512.png",
   "/manifest.webmanifest",
+  // As fontes entram na casca porque a tipografia é parte da interface, não
+  // enfeite: sem elas, offline, a tela cai para a fonte do sistema e a Livia
+  // deixa de parecer com ela mesma. São 67 KB no total, guardados uma vez.
+  "/fontes/geist.woff2",
+  "/fontes/geistmono.woff2",
+  "/fontes/marcellus.woff2",
 ];
 
 // GETs cujo conteúdo vale guardar para ler sem servidor. São leituras do que

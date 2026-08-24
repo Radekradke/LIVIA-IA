@@ -136,6 +136,15 @@ USER_NAME = os.getenv("LIVIA_USER", "").strip()
 # se ajustam sozinhos ao que estiver aqui.
 ASSISTANT_NAME = os.getenv("LIVIA_NAME", "Livia").strip() or "Livia"
 
+# O que ela É. Ficava fixo no código como "assistente pessoal de projetos", e
+# isso não é decoração: a frase é a PRIMEIRA linha do prompt e enquadra tudo
+# que vem depois. Quem usa a Livia para outra coisa — escrita, estudo, apoio
+# a atendimento — estava pedindo uma coisa a um sistema que se apresentava
+# como outra, e o modelo obedece o enquadramento antes de obedecer a persona.
+ASSISTANT_ROLE = os.getenv(
+    "LIVIA_PAPEL", "uma assistente pessoal de projetos"
+).strip() or "uma assistente pessoal de projetos"
+
 HOST = os.getenv("LIVIA_HOST", "127.0.0.1").strip()
 
 # Hospedagens injetam a porta na variável PORT e esperam que você a use.
@@ -211,6 +220,23 @@ EXPERIENCE_MAX_ITEMS = _int_env("LIVIA_EXPERIENCE_MAX_ITEMS", 5)
 SKILL_MAX_ITEMS = _int_env("LIVIA_SKILL_MAX_ITEMS", 4)
 LESSON_MAX_ITEMS = _int_env("LIVIA_LESSON_MAX_ITEMS", 4)
 RAG_MAX_CHUNKS = _int_env("LIVIA_RAG_MAX_CHUNKS", 5)
+
+# Busca por palavra exata (BM25, via FTS5 do próprio SQLite). LIGADA por
+# padrão, ao contrário do grafo: não instala nada, não sobe serviço nenhum e
+# custa microssegundos. O vetor erra em código de erro, nome de função e
+# citação literal; esta acha justamente isso.
+LEXICAL_ENABLED = _flag("LIVIA_LEXICAL")
+
+# Prompt do sistema idêntico entre mensagens, com a memória selecionada indo
+# no turno do usuário. É o que deixa o cache de prefixo do llama.cpp acertar;
+# com o prompt de sistema mudando a cada pergunta, ele refaz o prefill inteiro
+# toda vez. Mudança de POSIÇÃO, não de conteúdo — mas o efeito na qualidade
+# só se sabe medindo, e `LIVIA_PROMPT_ESTAVEL=0` volta ao arranjo antigo para
+# dar como comparar.
+PROMPT_ESTAVEL = _flag("LIVIA_PROMPT_ESTAVEL")
+# Pede mais candidatos que o vetor de propósito: a fusão por posição só
+# consegue promover um resultado se ele estiver na lista para ser promovido.
+LEXICAL_MAX_CHUNKS = _int_env("LIVIA_LEXICAL_MAX_CHUNKS", 10)
 
 # Acima disto, duas memórias falam da mesma coisa e viram uma só.
 MEMORY_DUPLICATE_THRESHOLD = _float_env("LIVIA_MEMORY_DUPLICATE", 0.88)

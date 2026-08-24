@@ -11,89 +11,115 @@
      sabe fazer sozinho. -->
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icones/apple-touch-icon.png">
-<meta name="theme-color" content="#140a0c" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#fffdfb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2efe8" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Livia">
 <style>
 /* ══════════════════════════════════════════════════════════════════
-   LIVIA — tema rubi
-   Superfícies em três camadas: pedra (fundo), vidro fumê (painéis),
-   gema lapidada (botões e destaques). O brilho vem sempre de dentro
-   para fora, nunca de uma sombra chapada por cima.
+   LIVIA — tema Mnemosyne
+   Mnemósine é a titânide da memória, e a Livia é um programa que existe
+   para lembrar. A referência grega aparece na COMPOSIÇÃO — proporção,
+   linha reta, espaço vazio —, nunca em coluna dórica de enfeite.
+
+   Três superfícies: mármore (fundo), placa (cartões), grafite (texto).
+   O bronze entra só onde há ação ou estado ativo, em quantidade pequena.
+   Nada brilha: no lugar do brilho, uma linha de um pixel bem colocada.
+
+   A regra das animações: se o movimento for percebido antes do conteúdo,
+   está exagerado.
    ══════════════════════════════════════════════════════════════════ */
 
+/* As fontes são SERVIDAS DAQUI, não do Google.
+   A Livia é um aplicativo offline e promete que nada sai da máquina; um
+   <link> para fonts.googleapis.com quebraria as duas coisas de uma vez —
+   contaria ao Google toda vez que o André abre a assistente, e deixaria a
+   tipografia sumir quando ele estivesse sem rede. São 67 KB no total.
+   Marcellus e Geist estão sob a SIL Open Font License. */
+@font-face {
+  font-family: "Geist"; src: url("/fontes/geist.woff2") format("woff2");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono"; src: url("/fontes/geistmono.woff2") format("woff2");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Marcellus"; src: url("/fontes/marcellus.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+
+/* ── Nero Marquina: preto mineral com veio cinza ─────────────────────── */
 :root[data-theme="dark"] {
-  --rubi:        #b3173e;
-  --rubi-fundo:  #8e0f2a;
-  --bordo:       #5a0d1a;
-  --bronze:      #8b5a2b;
-  --cobre:       #a6653a;
-  --dourado:     #c08a4a;
-  --marrom:      #2a140f;
-  --preto:       #120909;
+  --bronze:       #a9895a;
+  --bronze-claro: #c6a678;
+  --bronze-fosco: #7a6342;
+  --azul:         #8194a6;   /* funcional: links, referências, foco */
+  --verde:        #7e9a87;
+  --ambar:        #b8924e;   /* atenção, e só */
 
-  --brilho:      #e95a7a;
-  --creme:       #f1e2d0;
+  --fundo:        #0f0f0e;
+  --marmore:      #171715;
+  --painel:       #1a1a18;
+  --painel-alto:  #212120;
+  --sunk:         #141412;
 
-  --fundo:       #0d0707;
-  --verde:       #74c69d;
-  --painel:      rgba(32, 16, 18, .72);
-  --painel-alto: rgba(46, 22, 25, .82);
-  --sunk:        rgba(18, 9, 11, .68);
+  --linha:        rgba(237,233,223,.10);
+  --linha-forte:  rgba(169,137,90,.40);
+  --veio:         rgba(237,233,223,.022);
 
-  --linha:       rgba(179, 23, 62, .20);
-  --linha-forte: rgba(179, 23, 62, .42);
+  --texto:        #ede9df;   /* marfim */
+  --texto-suave:  #a29d93;
+  --texto-fraco:  #6c6860;
 
-  --texto:       #f1e2d0;
-  --texto-suave: #c9a99a;
-  --texto-fraco: #8f6f66;
-
-  --sombra-baixa: 0 1px 2px rgba(0,0,0,.5);
-  --sombra-alta:  0 18px 48px rgba(0,0,0,.55);
-  --luz-topo:     inset 0 1px 0 rgba(255,190,190,.10);
-  --gema:         linear-gradient(160deg, #d4285a 0%, #b3173e 38%, #8e0f2a 72%, #6d0b20 100%);
+  --sombra-baixa: 0 1px 2px rgba(0,0,0,.40);
+  --sombra-alta:  0 12px 32px rgba(0,0,0,.44);
+  --metal:        linear-gradient(168deg, #8e7248 0%, #7a6342 100%);
+  --metal-txt:    #f4efe4;
 }
 
-/* Variante clara: mesma joia sob luz do dia — marfim quente, rubi
-   mantido como acento. Não é um tema frio; é a mesma identidade. */
+/* ── mármore claro e quente ──────────────────────────────────────────── */
 :root[data-theme="light"] {
-  --rubi:        #a01235;
-  --rubi-fundo:  #8e0f2a;
-  --bordo:       #6d0b20;
-  --bronze:      #8b5a2b;
-  --cobre:       #a6653a;
-  --dourado:     #a4703a;
-  --marrom:      #43231c;
-  --preto:       #2a140f;
+  --bronze:       #9a7b4f;
+  --bronze-claro: #b39468;
+  --bronze-fosco: #7d6440;
+  --azul:         #647586;
+  --verde:        #61796a;
+  --ambar:        #9c7c37;
 
-  --brilho:      #c93a5c;
-  --creme:       #3a1c18;
+  --fundo:        #f2efe8;
+  --marmore:      #e5e0d6;
+  --painel:       #faf8f3;
+  --painel-alto:  #ffffff;
+  --sunk:         #eae5db;
 
-  --fundo:       #f7efe6;
-  --verde:       #2f7d55;
-  --painel:      rgba(255, 252, 249, .86);
-  --painel-alto: #fffdfb;
-  --sunk:        rgba(226, 210, 199, .55);
+  --linha:        rgba(36,35,33,.13);
+  --linha-forte:  rgba(154,123,79,.44);
+  --veio:         rgba(36,35,33,.016);
 
-  --linha:       rgba(142, 15, 42, .16);
-  --linha-forte: rgba(142, 15, 42, .34);
+  --texto:        #242321;   /* grafite */
+  --texto-suave:  #716d65;
+  --texto-fraco:  #9a958b;
 
-  --texto:       #33191a;
-  --texto-suave: #7a5750;
-  --texto-fraco: #a98d84;
-
-  --sombra-baixa: 0 1px 2px rgba(90,13,26,.10);
-  --sombra-alta:  0 16px 40px rgba(90,13,26,.14);
-  --luz-topo:     inset 0 1px 0 rgba(255,255,255,.85);
-  --gema:         linear-gradient(160deg, #c02147 0%, #a01235 42%, #8e0f2a 100%);
+  --sombra-baixa: 0 1px 2px rgba(36,35,33,.06);
+  --sombra-alta:  0 10px 30px rgba(36,35,33,.07);
+  --metal:        linear-gradient(168deg, #a98a5c 0%, #8d7148 100%);
+  --metal-txt:    #fbf8f1;
 }
 
-:root { --raio: 14px; --raio-p: 10px;
-  --sans: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
-  --serif: "Iowan Old Style", Georgia, serif;
-  --mono: ui-monospace, "Cascadia Code", Consolas, monospace; }
+:root {
+  /* Canto quase reto. A placa de pedra não tem raio generoso — o que a
+     torna legível é a proporção e a espessura da borda, não o arredondado. */
+  --louros: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021c-4-1.6-6.2-5-6.2-9.2%200-3.4%201.6-6.6%203.6-8.6%22/%3E%3Cpath%20d%3D%22M12%2021c4-1.6%206.2-5%206.2-9.2%200-3.4-1.6-6.6-3.6-8.6%22/%3E%3Cpath%20d%3D%22M7%208.6c1.5-.4%202.6.1%203.1%201.2M6.2%2012.4c1.5-.3%202.6.3%203%201.5%22/%3E%3Cpath%20d%3D%22M17%208.6c-1.5-.4-2.6.1-3.1%201.2M17.8%2012.4c-1.5-.3-2.6.3-3%201.5%22/%3E%3C/svg%3E");
+  --raio: 3px; --raio-p: 2px;
+  /* O arco: só no topo, e pequeno. É a nascente do arco grego sugerida,
+     não o arco inteiro desenhado. */
+  --arco: 10px 10px 0 0;
+  --sans:  "Geist", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --serif: "Marcellus", "Iowan Old Style", Georgia, serif;
+  --mono:  "Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -109,27 +135,46 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Luz ambiente: três focos de rubi difuso, fixos. Gradiente é barato —
-   o mesmo efeito com partículas animadas travaria máquina modesta. */
+/* Veios do mármore. Precisam ser quase invisíveis: a pedra tem veio, mas
+   ninguém escolhe uma bancada pelo desenho dela. Três faixas diagonais
+   larguíssimas em opacidade mínima, mais um clareado de luz — gradiente é
+   barato e não custa quadro nenhum de animação. */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(1100px 720px at 12% -8%,  rgba(179,23,62,.20), transparent 62%),
-    radial-gradient(900px 640px at 88% 108%, rgba(166,101,58,.14), transparent 60%),
-    radial-gradient(700px 520px at 62% 42%,  rgba(142,15,42,.10), transparent 66%);
+    linear-gradient(101deg, transparent 14%, var(--veio) 21%, transparent 28%),
+    linear-gradient(97deg,  transparent 44%, var(--veio) 50%, transparent 56%),
+    linear-gradient(104deg, transparent 68%, var(--veio) 75%, transparent 82%),
+    radial-gradient(1100px 800px at 24% -12%, var(--veio), transparent 72%);
 }
-:root[data-theme="light"] body::before { opacity: .5; }
 
 button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
-::selection { background: rgba(179,23,62,.35); color: var(--creme); }
+::selection { background: color-mix(in srgb, var(--bronze) 34%, transparent); color: var(--texto); }
 
-::-webkit-scrollbar { width: 10px; }
+:where(a, button, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--azul); outline-offset: 2px; border-radius: var(--raio-p);
+}
+
+::-webkit-scrollbar { width: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(var(--rubi-fundo), var(--bordo));
-  border-radius: 6px; border: 3px solid transparent; background-clip: padding-box;
+  background: var(--linha-forte);
+  border-radius: 0; border: 3px solid transparent; background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover { background: linear-gradient(var(--rubi), var(--rubi-fundo)); background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--bronze); background-clip: padding-box; }
+
+/* O meandro: a única citação grega literal, e ela aparece em dois lugares
+   só — divisor de seção e carregamento. Desenhado como padrão repetido,
+   não como imagem, para acompanhar a cor do tema. */
+.meandro {
+  height: 7px; flex: none;
+  background-image:
+    linear-gradient(90deg, var(--linha-forte) 1px, transparent 1px),
+    linear-gradient(0deg,  var(--linha-forte) 1px, transparent 1px);
+  background-size: 14px 7px, 14px 7px;
+  background-position: 0 0, 0 100%;
+  opacity: .5;
+}
 
 /* ─────────────────────── COLUNA ESQUERDA ─────────────────────── */
 
@@ -138,290 +183,316 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   width: 274px; flex: none;
   display: flex; flex-direction: column;
   padding: 22px 14px 0;
-  background: linear-gradient(178deg, rgba(46,22,25,.55), rgba(18,9,11,.30));
+  background: var(--painel);
   border-right: 1px solid var(--linha);
-  box-shadow: 1px 0 0 rgba(233,90,122,.06), var(--sombra-alta);
-}
-:root[data-theme="light"] #sidebar {
-  background: linear-gradient(178deg, rgba(255,252,249,.9), rgba(247,239,230,.6));
 }
 
-.marca { display: flex; align-items: center; gap: 12px; padding: 4px 8px 6px; }
-.marca svg { width: 42px; height: 42px; flex: none; filter: drop-shadow(0 0 12px rgba(179,23,62,.55)); }
+.marca { display: flex; align-items: center; gap: 13px; padding: 4px 8px 8px; }
+.marca svg { width: 44px; height: 44px; flex: none; }
 .marca-txt { min-width: 0; }
 .brand {
-  /* Caixa alta pelo CSS, não pelo texto: o nome vem do .env e pode ser
-     qualquer coisa — a marca continua imponente independente do que for. */
-  font-size: 25px; font-weight: 600; letter-spacing: .16em; line-height: 1.1;
-  text-transform: uppercase;
-  background: linear-gradient(105deg, var(--creme) 8%, var(--brilho) 46%, var(--dourado) 96%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* Marcellus, caixa alta pelo CSS. O nome vem do .env e pode ser qualquer
+     coisa — a marca precisa se sustentar seja qual for a palavra. */
+  font-family: var(--serif);
+  font-size: 25px; font-weight: 400; letter-spacing: .19em; line-height: 1.15;
+  text-transform: uppercase; color: var(--texto);
 }
 .online {
-  display: flex; align-items: center; gap: 6px; margin-top: 3px;
-  font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--texto-fraco); font-weight: 600;
+  display: flex; align-items: center; gap: 7px; margin-top: 2px;
+  font-size: 9.5px; letter-spacing: .19em; text-transform: uppercase;
+  color: var(--texto-fraco); font-weight: 500; font-family: var(--mono);
 }
 .online i {
-  width: 6px; height: 6px; border-radius: 50%; background: #4ad07f;
-  box-shadow: 0 0 8px #4ad07f; animation: pulso 2.6s ease-in-out infinite;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--verde);
+  animation: pulso 3.4s ease-in-out infinite;
 }
-/* Sem servidor a bolinha para de pulsar e fica âmbar. O pulso é o sinal de
-   "está viva"; mantê-lo com o Python desligado seria a interface mentindo. */
-.online.fora i {
-  background: var(--dourado); box-shadow: 0 0 8px var(--dourado); animation: none;
-}
-.online.fora { color: var(--dourado); }
-@keyframes pulso { 50% { opacity: .35; transform: scale(.8); } }
+/* Sem servidor a marca para de respirar e a bolinha fica âmbar. A
+   respiração é o sinal de "está viva"; mantê-la com o Python desligado
+   seria a interface mentindo. */
+.online.fora i { background: var(--ambar); animation: none; }
+.online.fora { color: var(--ambar); }
+@keyframes pulso { 50% { opacity: .30; } }
 
-/* Faixa de aviso quando o app está aberto e o servidor não responde. Fica
-   sobre o chat porque é ali que a pessoa vai tentar digitar. */
 .faixa-fora {
-  display: none; padding: 10px 16px; text-align: center;
-  font-size: 13px; line-height: 1.5;
-  background: rgba(139,90,43,.18); border-bottom: 1px solid rgba(139,90,43,.4);
+  display: none; padding: 11px 16px; text-align: center;
+  font-size: 13px; line-height: 1.55;
+  background: var(--marmore);
+  border-bottom: 1px solid var(--linha-forte);
   color: var(--texto-suave);
 }
 .faixa-fora code {
-  font-family: var(--mono); font-size: 12px; color: var(--creme);
-  background: rgba(0,0,0,.25); padding: 1px 5px; border-radius: 4px;
+  font-family: var(--mono); font-size: 12px; color: var(--texto);
+  background: var(--sunk); padding: 1px 6px; border-radius: var(--raio-p);
+  border: 1px solid var(--linha);
 }
 body.sem-servidor .faixa-fora { display: block; }
-/* Digitar uma pergunta que não tem como ser respondida é pior que o campo
-   desabilitado: a pessoa escreve, envia e perde o texto. */
 body.sem-servidor #input { opacity: .5; }
 
+/* O botão primário é o único lugar com bronze cheio. Um segundo já seria
+   dois centros de atenção na mesma tela. */
 .btn-new {
-  margin: 18px 0 20px; padding: 12px 16px; border-radius: var(--raio);
-  background: var(--gema); color: #fff;
-  font-size: 14.5px; font-weight: 600; letter-spacing: .02em; text-align: left;
-  border: 1px solid rgba(233,90,122,.35);
-  box-shadow: var(--luz-topo), 0 6px 20px rgba(142,15,42,.42), var(--sombra-baixa);
-  transition: transform .16s, box-shadow .16s, filter .16s;
+  margin: 16px 0 22px; padding: 12px 16px; border-radius: var(--raio);
+  background: transparent; color: var(--texto);
+  font-size: 14px; font-weight: 500; letter-spacing: .02em; text-align: left;
+  border: 1px solid var(--linha-forte);
+  transition: border-color .18s, background .18s;
 }
-.btn-new:hover { transform: translateY(-1px); filter: brightness(1.1);
-  box-shadow: var(--luz-topo), 0 10px 28px rgba(179,23,62,.5); }
-.btn-new:active { transform: translateY(0); }
+.btn-new:hover { border-color: var(--bronze); background: var(--marmore); }
+.btn-new:active { transform: translateY(1px); }
 
 .secao {
-  font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
-  color: var(--texto-fraco); padding: 0 8px 10px; font-weight: 700;
+  font-family: var(--mono);
+  font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--texto-fraco); padding: 0 8px 11px; font-weight: 400;
 }
 
 #convos { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px 14px; }
 .convo {
   position: relative; display: flex; align-items: center; gap: 6px;
-  padding: 9px 12px; margin-bottom: 3px; border-radius: var(--raio-p);
+  padding: 9px 12px 9px 13px; margin-bottom: 2px; border-radius: var(--raio-p);
   font-size: 14px; color: var(--texto-suave); line-height: 1.4;
-  border: 1px solid transparent; transition: background .16s, color .16s, border-color .16s;
+  border: 1px solid transparent;
+  transition: background .18s, color .18s, border-color .18s;
 }
-.convo:hover { background: var(--sunk); color: var(--texto); border-color: var(--linha); }
+.convo:hover { background: var(--sunk); color: var(--texto); }
 .convo.active {
-  background: linear-gradient(100deg, rgba(179,23,62,.22), rgba(142,15,42,.06));
-  color: var(--texto); border-color: var(--linha-forte);
-  box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.16);
+  background: var(--marmore); color: var(--texto); border-color: var(--linha);
 }
+/* Filete de bronze na conversa aberta. Dois pixels bastam para dizer
+   "é esta" sem acender a linha inteira. */
 .convo.active::before {
-  content: ""; position: absolute; left: 0; top: 22%; bottom: 22%; width: 2px;
-  border-radius: 2px; background: linear-gradient(var(--brilho), var(--rubi));
-  box-shadow: 0 0 8px var(--rubi);
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--bronze);
 }
 .convo span.t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-.convo .hora { font-size: 10.5px; color: var(--texto-fraco); flex: none; letter-spacing: .03em; }
+.convo .hora { font-size: 10.5px; color: var(--texto-fraco); flex: none; letter-spacing: .03em; font-family: var(--mono); }
 .convo .x { opacity: 0; font-size: 17px; line-height: 1; padding: 0 2px; color: var(--texto-fraco); }
-.convo:hover .x { opacity: .6; }
-.convo .x:hover { opacity: 1; color: var(--brilho); }
+.convo:hover .x { opacity: .55; }
+.convo .x:hover { opacity: 1; color: var(--bronze); }
 
 .foot {
   padding: 13px 8px 16px; margin-top: auto;
   border-top: 1px solid var(--linha);
-  font-size: 11.5px; color: var(--texto-fraco);
-  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  font-size: 10.5px; color: var(--texto-fraco); font-family: var(--mono);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 9px;
 }
+.foot > span:last-child { display: flex; gap: 4px; margin-left: -9px; }
 .foot button {
-  font-size: 11.5px; color: var(--texto-suave); padding: 4px 9px;
-  border-radius: 7px; border: 1px solid transparent; transition: all .16s;
+  font-family: var(--sans); font-size: 11.5px; color: var(--texto-suave);
+  padding: 4px 10px; border-radius: var(--raio-p);
+  border: 1px solid transparent; transition: all .18s;
 }
-.foot button:hover { color: var(--creme); border-color: var(--linha-forte); background: var(--sunk); }
+.foot button:hover { color: var(--texto); border-color: var(--linha-forte); }
 
 /* ─────────────────────── CENTRO ─────────────────────── */
 
 #main { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
-/* Silhueta de rosto em circuito, atrás da conversa. Fica em opacidade
-   baixa de propósito: é atmosfera, não ilustração para ser lida. */
+/* Geometria de mármore atrás da conversa: arcos concêntricos e uma
+   silhueta incompleta. Atmosfera, não ilustração — se der para descrever
+   o desenho, ele está forte demais. */
 #arte {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
   display: flex; align-items: center; justify-content: center;
-  opacity: .30; overflow: hidden;
+  opacity: .22; overflow: hidden;
 }
-#arte svg { width: min(780px, 82%); height: auto; }
-:root[data-theme="light"] #arte { opacity: .13; }
+#arte svg { width: min(760px, 80%); height: auto; }
+:root[data-theme="light"] #arte { opacity: .28; }
 
-/* Órbita: a lua segue uma elipse e encolhe na metade de cima, que lemos
-   como "mais longe". Dois quadros de animação sincronizados no mesmo
-   tempo — sem isso o movimento fica chapado, como um adesivo girando. */
-.lua {
-  offset-path: path("M 690,310 A 260,92 0 1,1 689.9,310");
-  offset-rotate: 0deg;
-  animation: orbitar 52s linear infinite, distancia 52s ease-in-out infinite;
-}
-@keyframes orbitar  { to { offset-distance: 100%; } }
-@keyframes distancia { 0%,100% { scale: 1.06; opacity: .95; }
-                       50%     { scale: .62;  opacity: .55; } }
+/* Os arcos giram devagar demais para serem vistos girando. É de propósito:
+   percebe-se que mudou de posição, nunca o movimento. */
+@keyframes deriva { to { transform: rotate(360deg); } }
+.arco-lento { transform-origin: 450px 310px; animation: deriva 320s linear infinite; }
+.arco-lento.inverso { animation-duration: 460s; animation-direction: reverse; }
 
-@keyframes cintilar { 0%,100% { opacity: .22; } 50% { opacity: .8; } }
-.estrela { animation: cintilar 6s ease-in-out infinite; }
-.estrela:nth-of-type(2n) { animation-duration: 8.5s; animation-delay: -2.2s; }
-.estrela:nth-of-type(3n) { animation-duration: 11s;  animation-delay: -4.7s; }
+@keyframes respirar { 0%,100% { opacity: .30; } 50% { opacity: .62; } }
+.sinapse { animation: respirar 6s ease-in-out infinite; }
+.sinapse:nth-of-type(2n) { animation-duration: 7.5s; animation-delay: -1.9s; }
+.sinapse:nth-of-type(3n) { animation-duration: 9.5s; animation-delay: -4.2s; }
 
-/* Quem prefere menos movimento na tela não vê nada girando. */
+/* O medalhão respira quando ela está disponível. Um ciclo de 6 segundos —
+   mais rápido que isso vira um pisca-pisca. */
+@keyframes medalhao { 0%,100% { opacity: .82; } 50% { opacity: 1; } }
+.chama { animation: medalhao 6s ease-in-out infinite; transform-origin: center; }
+.anel-medalha { transform-origin: 24px 24px; }
+body.pensando .anel-medalha { animation: deriva 9s linear infinite; }
+body.pensando .chama { animation-duration: 2.4s; }
+
 @media (prefers-reduced-motion: reduce) {
-  .lua, .estrela { animation: none; }
-  .lua { offset-distance: 18%; }
+  .arco-lento, .sinapse, .chama, .anel-medalha, .online i { animation: none; }
 }
-
-/* Sinapses seguem em uso no cérebro do painel de memórias. */
-@keyframes respirar { 0%,100% { opacity: .30; } 50% { opacity: .68; } }
-.sinapse { animation: respirar 5s ease-in-out infinite; }
-.sinapse:nth-of-type(2n) { animation-duration: 6.5s; animation-delay: -1.4s; }
-.sinapse:nth-of-type(3n) { animation-duration: 8s;   animation-delay: -3.1s; }
 
 #thread { position: relative; z-index: 1; flex: 1; overflow-y: auto; padding: 40px 0 8px; }
-.wrap { max-width: 736px; margin: 0 auto; padding: 0 34px; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 0 34px; }
 
-.msg { margin-bottom: 32px; }
+.msg { margin-bottom: 34px; }
 .who {
-  font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
-  margin-bottom: 9px; font-weight: 700; color: var(--texto-fraco);
+  font-family: var(--mono);
+  font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase;
+  margin-bottom: 10px; font-weight: 400; color: var(--texto-fraco);
 }
-.msg.assistant .who {
-  background: linear-gradient(90deg, var(--brilho), var(--dourado));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
+.msg.assistant .who { color: var(--bronze); }
+/* A pergunta fica recuada atrás de um filete, como anotação na margem de
+   uma página. A resposta ocupa a coluna inteira. */
 .msg.user .body {
   color: var(--texto-suave);
-  border-left: 2px solid var(--linha-forte);
-  padding-left: 17px;
+  border-left: 1px solid var(--linha-forte);
+  padding-left: 18px;
 }
 .body > *:first-child { margin-top: 0; }
 .body > *:last-child { margin-bottom: 0; }
 .body p { margin: 0 0 14px; }
-.body ul, .body ol { margin: 0 0 14px; padding-left: 24px; }
+.body ul, .body ol { margin: 0 0 14px; padding-left: 22px; }
 .body li { margin-bottom: 6px; }
-.body li::marker { color: var(--rubi); }
+.body li::marker { color: var(--bronze); }
 .body h3 {
-  font-family: var(--serif); font-size: 18.5px; font-weight: 400;
-  margin: 26px 0 10px; color: var(--creme);
+  font-family: var(--serif); font-size: 19px; font-weight: 400;
+  margin: 28px 0 11px; color: var(--texto); letter-spacing: .01em;
 }
 .body code {
   font-family: var(--mono); font-size: .85em;
-  background: var(--sunk); color: var(--brilho);
-  padding: 2px 7px; border-radius: 6px; border: 1px solid var(--linha);
+  background: var(--sunk); color: var(--texto);
+  padding: 2px 6px; border-radius: var(--raio-p); border: 1px solid var(--linha);
 }
 .body pre {
-  background: linear-gradient(165deg, rgba(42,20,15,.72), rgba(18,9,11,.86));
+  background: var(--sunk);
   border: 1px solid var(--linha); border-radius: var(--raio);
   padding: 15px 18px; overflow-x: auto; margin: 0 0 14px; line-height: 1.6;
-  box-shadow: var(--luz-topo), inset 0 0 40px rgba(142,15,42,.10);
 }
-:root[data-theme="light"] .body pre { background: linear-gradient(165deg, #fffdfb, #f5ebe2); }
-.body pre code { background: none; padding: 0; border: none; color: var(--texto); font-size: 13.5px; }
+.body pre code { background: none; padding: 0; border: none; color: var(--texto); font-size: 13px; }
 .body blockquote {
-  margin: 0 0 14px; padding: 2px 0 2px 17px;
-  border-left: 2px solid var(--cobre); color: var(--texto-suave); font-style: italic;
+  margin: 0 0 14px; padding: 2px 0 2px 18px;
+  border-left: 1px solid var(--bronze); color: var(--texto-suave); font-style: italic;
 }
-.body a { color: var(--brilho); text-underline-offset: 3px; }
-.body a:hover { color: var(--dourado); }
+.body a { color: var(--azul); text-underline-offset: 3px; }
+.body a:hover { color: var(--bronze); }
 
 .status {
-  font-size: 13px; color: var(--texto-suave); margin-bottom: 11px;
-  display: flex; align-items: center; gap: 9px;
+  font-size: 12.5px; color: var(--texto-suave); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 10px; font-family: var(--mono);
 }
 .status::before {
-  content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
-  background: var(--brilho); box-shadow: 0 0 10px var(--brilho);
-  animation: pulso 1.3s ease-in-out infinite;
+  content: ""; width: 6px; height: 6px; flex: none;
+  background: var(--bronze); animation: pulso 1.8s ease-in-out infinite;
 }
 .status.fixo::before { animation: none; opacity: .45; }
 
 .fontes {
   display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
-  margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--linha);
+  margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--linha);
 }
 .fontes-rot {
-  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--texto-fraco); font-weight: 700; margin-right: 3px;
+  font-family: var(--mono);
+  font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--texto-fraco); font-weight: 400; margin-right: 3px;
 }
 .fontes a, .fontes .fonte-txt {
   font-size: 12px; color: var(--texto-suave); text-decoration: none;
   background: var(--sunk); border: 1px solid var(--linha);
-  padding: 4px 12px; border-radius: 999px; white-space: nowrap; transition: all .16s;
+  padding: 4px 11px; border-radius: var(--raio-p); white-space: nowrap;
+  transition: color .18s, border-color .18s;
 }
-.fontes a:hover { color: var(--creme); border-color: var(--linha-forte); box-shadow: 0 0 14px rgba(179,23,62,.24); }
+.fontes a:hover { color: var(--texto); border-color: var(--bronze); }
 
-/* Cada ferramenta usada vira uma linha visível na resposta. Ficam à mostra
-   de propósito: se ela mexeu num arquivo seu, você precisa saber qual. */
-.acoes { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+/* Cada ferramenta usada vira um "registro do arquivo": uma linha
+   monoespaçada, discreta, com um traço de bronze na frente. Ficam à mostra
+   de propósito — se ela mexeu num arquivo seu, você precisa saber qual. */
+.acoes { margin-bottom: 13px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .acao {
-  font-size: 12.5px; color: var(--texto-suave); font-family: var(--mono);
-  padding: 5px 13px; border-radius: 8px;
+  font-size: 12px; color: var(--texto-suave); font-family: var(--mono);
+  padding: 5px 12px 5px 11px; border-radius: var(--raio-p);
   background: var(--sunk); border: 1px solid var(--linha);
-  display: flex; align-items: center; gap: 8px;
+  border-left: 2px solid var(--bronze);
+  display: flex; align-items: center; gap: 9px;
 }
-.acao::before { content: "▸"; color: var(--brilho); }
-.acao.falhou { color: var(--brilho); border-color: var(--linha-forte); }
+.acao::before { content: "—"; color: var(--bronze); }
+.acao.falhou { color: var(--ambar); border-left-color: var(--ambar); }
 .acao.falhou::before { content: ""; }
 
+/* A coroa de louros aparece só aqui: quando algo entrou para a memória.
+   É o único marco de verdade que a interface tem. */
 .learned {
-  display: inline-flex; align-items: center; gap: 8px; margin-top: 15px;
+  display: inline-flex; align-items: center; gap: 9px; margin-top: 16px;
   font-size: 12.5px; color: var(--texto-suave);
-  background: linear-gradient(100deg, rgba(179,23,62,.20), rgba(166,101,58,.10));
-  border: 1px solid var(--linha-forte); border-radius: 999px; padding: 6px 15px;
-  box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.16);
+  background: var(--marmore);
+  border: 1px solid var(--linha-forte); border-radius: var(--raio);
+  padding: 7px 15px 7px 12px;
 }
-.learned b { color: var(--creme); font-weight: 600; }
+.learned b { color: var(--texto); font-weight: 500; }
+.learned::before {
+  content: ""; width: 15px; height: 15px; flex: none;
+  background: currentColor; color: var(--bronze);
+  -webkit-mask: var(--louros) center/contain no-repeat;
+  mask: var(--louros) center/contain no-repeat;
+}
 
 .error {
-  border-left: 2px solid var(--rubi); padding: 12px 17px;
-  background: linear-gradient(100deg, rgba(142,15,42,.18), transparent);
+  border-left: 2px solid var(--ambar); padding: 12px 17px;
+  background: var(--marmore);
   border-radius: 0 var(--raio-p) var(--raio-p) 0;
-  color: var(--brilho); font-size: 14.5px; white-space: pre-wrap;
+  color: var(--texto); font-size: 14px; white-space: pre-wrap;
 }
 .cursor::after {
-  content: "▍"; color: var(--brilho); font-weight: 300;
-  text-shadow: 0 0 10px var(--rubi); animation: piscar 1.1s steps(2) infinite;
+  content: "▏"; color: var(--bronze); font-weight: 300;
+  animation: piscar 1.2s steps(2) infinite;
 }
 @keyframes piscar { 50% { opacity: 0; } }
 
-.empty { padding: 52px 0 24px; }
+/* ── o átrio ─────────────────────────────────────────────────────────
+   A tela inicial não é um painel de indicadores. É a entrada de uma casa:
+   uma saudação, uma frase que diz o que merece atenção, e o acervo listado
+   em ordem de importância. A prioridade aparece pela posição e pela
+   hierarquia, não por uma fileira de crachás coloridos. */
+.empty { padding: 44px 0 24px; }
 .empty h2 {
-  font-family: var(--serif); font-size: 31px; font-weight: 400; margin: 0 0 16px;
-  background: linear-gradient(100deg, var(--creme) 10%, var(--brilho) 62%, var(--dourado));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-family: var(--serif); font-size: 33px; font-weight: 400;
+  margin: 0 0 12px; color: var(--texto); letter-spacing: .005em;
+  text-wrap: balance;
 }
-.empty p { color: var(--texto-suave); margin: 0 0 12px; max-width: 54ch; }
+.empty p { color: var(--texto-suave); margin: 0 0 12px; max-width: 56ch; }
 .empty code {
-  font-family: var(--mono); font-size: .85em; color: var(--brilho);
-  background: var(--sunk); padding: 2px 7px; border-radius: 6px; border: 1px solid var(--linha);
+  font-family: var(--mono); font-size: .85em; color: var(--texto);
+  background: var(--sunk); padding: 2px 6px; border-radius: var(--raio-p);
+  border: 1px solid var(--linha);
 }
-.empty a { color: var(--brilho); }
+.empty a { color: var(--azul); }
+
+.atrio {
+  margin: 28px 0 6px; border-top: 1px solid var(--linha);
+}
+.atrio-linha {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: baseline; gap: 16px;
+  padding: 13px 2px; border-bottom: 1px solid var(--linha);
+}
+.atrio-linha .rot { font-size: 14.5px; color: var(--texto); }
+.atrio-linha .rot small {
+  display: block; font-size: 12.5px; color: var(--texto-fraco); margin-top: 1px;
+}
+.atrio-linha .qtd {
+  font-family: var(--mono); font-size: 19px; font-weight: 500;
+  color: var(--texto-suave); font-variant-numeric: tabular-nums;
+}
+/* O que espera decisão sua é o único item que muda de cor. Se tudo
+   chamasse atenção, nada chamaria. */
+.atrio-linha.decisao .qtd { color: var(--bronze); }
+.atrio-linha.decisao .rot { color: var(--texto); font-weight: 500; }
+.atrio-linha.vazia .qtd { color: var(--texto-fraco); opacity: .5; }
 
 /* ─────────────────────── CAIXA DE ENVIO ─────────────────────── */
 
 #composer { position: relative; z-index: 2; padding: 8px 0 26px; }
+/* O arco pequeno: só nos cantos de cima, sugerindo a nascente de um arco.
+   Embaixo a caixa assenta reta, como uma peça apoiada no chão. */
 .box {
   display: flex; gap: 11px; align-items: flex-end;
-  padding: 12px 12px 12px 19px; border-radius: 18px;
-  background: linear-gradient(165deg, var(--painel-alto), var(--painel));
+  padding: 12px 12px 12px 18px; border-radius: var(--arco);
+  background: var(--painel-alto);
   border: 1px solid var(--linha-forte);
-  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 26px rgba(142,15,42,.12);
-  transition: border-color .2s, box-shadow .2s;
+  box-shadow: var(--sombra-baixa);
+  transition: border-color .2s;
 }
-.box:focus-within {
-  border-color: var(--rubi);
-  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 34px rgba(179,23,62,.30);
-}
+.box:focus-within { border-color: var(--bronze); }
 #input {
   flex: 1; border: none; background: none; color: var(--texto);
   font-family: var(--sans); font-size: 15.5px; line-height: 1.6;
@@ -429,18 +500,16 @@ body.sem-servidor #input { opacity: .5; }
 }
 #input::placeholder { color: var(--texto-fraco); }
 #send {
-  padding: 10px 22px; border-radius: 12px; flex: none;
-  background: var(--gema); color: #fff; font-size: 14.5px; font-weight: 600;
-  letter-spacing: .02em; border: 1px solid rgba(233,90,122,.4);
-  box-shadow: var(--luz-topo), 0 5px 18px rgba(142,15,42,.45);
-  transition: transform .16s, filter .16s, box-shadow .16s;
+  padding: 10px 21px; border-radius: var(--raio); flex: none;
+  background: var(--metal); color: var(--metal-txt); font-size: 14px; font-weight: 500;
+  letter-spacing: .02em; border: 1px solid var(--bronze-fosco);
+  transition: filter .18s, transform .18s;
 }
-#send:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.12);
-  box-shadow: var(--luz-topo), 0 9px 26px rgba(179,23,62,.55); }
-#send:active:not(:disabled) { transform: translateY(0); }
-#send:disabled { opacity: .32; cursor: default; box-shadow: none; }
+#send:hover:not(:disabled) { filter: brightness(1.09); }
+#send:active:not(:disabled) { transform: translateY(1px); }
+#send:disabled { opacity: .3; cursor: default; }
 
-.hint { font-size: 11.5px; color: var(--texto-fraco); margin-top: 11px; padding-left: 6px; }
+.hint { font-size: 11px; color: var(--texto-fraco); margin-top: 12px; padding-left: 4px; font-family: var(--mono); }
 .hint code { font-family: var(--mono); color: var(--texto-suave); }
 
 /* ─────────────────────── PAINEL DIREITO ─────────────────────── */
@@ -448,63 +517,55 @@ body.sem-servidor #input { opacity: .5; }
 #panel {
   position: relative; z-index: 2;
   width: 348px; flex: none; display: flex; flex-direction: column;
-  background: linear-gradient(190deg, rgba(46,22,25,.62), rgba(18,9,11,.42));
+  background: var(--painel);
   border-left: 1px solid var(--linha);
-  box-shadow: -1px 0 0 rgba(233,90,122,.06), var(--sombra-alta);
-}
-:root[data-theme="light"] #panel {
-  background: linear-gradient(190deg, rgba(255,252,249,.92), rgba(247,239,230,.7));
 }
 #panel.hidden { display: none; }
 
 /* Seis abas não cabem na largura do painel. Rolar na horizontal é melhor
    que abreviar os nomes: "Exp." e "Conh." não dizem nada para quem abre a
-   interface pela primeira vez. A barra de rolagem fica escondida — o gesto
-   funciona sem ela, e ela roubaria altura de uma faixa já apertada. */
+   interface pela primeira vez. */
 .tabs {
   display: flex; padding: 0 8px; border-bottom: 1px solid var(--linha);
   overflow-x: auto; scrollbar-width: none;
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
-  position: relative; flex: 0 0 auto; padding: 17px 9px 14px; margin-bottom: -1px;
-  font-size: 12px; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
-  color: var(--texto-fraco); transition: color .16s;
+  position: relative; flex: 0 0 auto; padding: 16px 9px 13px; margin-bottom: -1px;
+  font-size: 12px; font-weight: 400; letter-spacing: .02em; white-space: nowrap;
+  color: var(--texto-fraco); transition: color .18s;
 }
 .tab:hover { color: var(--texto-suave); }
-.tab.active { color: var(--creme); }
+.tab.active { color: var(--texto); font-weight: 500; }
 .tab.active::after {
-  content: ""; position: absolute; left: 14%; right: 14%; bottom: 0; height: 2px;
-  border-radius: 2px; background: linear-gradient(90deg, var(--rubi), var(--brilho), var(--dourado));
-  box-shadow: 0 0 12px var(--rubi);
+  content: ""; position: absolute; left: 9px; right: 9px; bottom: 0; height: 1px;
+  background: var(--bronze);
 }
 
 #docs { flex: 1; overflow-y: auto; padding: 16px; }
 
-.cerebro { display: flex; justify-content: center; padding: 6px 0 14px; }
-.cerebro svg { width: 168px; height: auto; filter: drop-shadow(0 0 18px rgba(179,23,62,.42)); }
+/* Medalhão da memória no topo da aba: um busto reduzido a linhas, dentro
+   do mesmo anel de bronze da marca. É a metáfora do que aquela aba faz. */
+.cerebro { display: flex; justify-content: center; padding: 10px 0 18px; }
+.cerebro svg { width: 150px; height: auto; }
 
+/* Placa de pedra: proporção larga, borda fina, superfície plana. Nada de
+   elevação — ela está encostada na parede, não flutuando. */
 .doc {
-  background: linear-gradient(160deg, var(--painel-alto), var(--painel));
+  background: var(--painel-alto);
   border: 1px solid var(--linha); border-radius: var(--raio-p);
-  padding: 13px 15px; margin-bottom: 10px; font-size: 13.5px;
-  box-shadow: var(--luz-topo), var(--sombra-baixa);
-  transition: border-color .16s, box-shadow .16s, transform .16s;
+  padding: 13px 15px; margin-bottom: 9px; font-size: 13.5px;
+  transition: border-color .18s;
 }
-.doc:hover {
-  border-color: var(--linha-forte); transform: translateY(-1px);
-  box-shadow: var(--luz-topo), 0 8px 22px rgba(142,15,42,.22);
-}
+.doc:hover { border-color: var(--linha-forte); }
 .doc-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.doc-name { font-family: var(--mono); font-size: 11px; color: var(--brilho); letter-spacing: .02em; }
+.doc-name { font-family: var(--mono); font-size: 11px; color: var(--bronze); letter-spacing: .02em; }
 .doc .x { color: var(--texto-fraco); font-size: 16px; line-height: 1; }
-.doc .x:hover { color: var(--brilho); }
+.doc .x:hover { color: var(--bronze); }
 .doc-desc { margin-top: 6px; line-height: 1.5; color: var(--texto); }
 .doc-body { margin-top: 8px; color: var(--texto-suave); white-space: pre-wrap; font-size: 12.5px; line-height: 1.5; }
-/* Corpo já convertido de Markdown: aqui o pre-wrap atrapalharia, porque as
-   quebras viraram parágrafos de verdade. */
 .doc-body.md { white-space: normal; }
-.doc-body.md b { color: var(--creme); font-weight: 600; }
+.doc-body.md b { color: var(--texto); font-weight: 500; }
 .doc-body.md p { margin: 0 0 6px; }
 .doc-body.md p:last-child { margin-bottom: 0; }
 .doc-body.md ul, .doc-body.md ol { margin: 4px 0 6px; padding-left: 18px; }
@@ -514,19 +575,18 @@ body.sem-servidor #input { opacity: .5; }
   padding: 34px 16px; line-height: 1.65;
 }
 
-/* Etiquetas do painel: escopo, estado, veredito de experiência.
-   Uma etiqueta só existe quando diz algo que o padrão não diz — memória
+/* Uma etiqueta só existe quando diz algo que o padrão não diz — memória
    global e ativa não ganha nenhuma, senão tudo vira ruído visual. */
 .tag {
-  display: inline-block; font-family: var(--mono); font-size: 10px;
-  letter-spacing: .04em; text-transform: uppercase;
-  padding: 2px 7px; border-radius: 999px; margin-right: 5px;
+  display: inline-block; font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: var(--raio-p); margin-right: 5px;
   border: 1px solid var(--linha-forte); color: var(--texto-fraco);
 }
-.tag.projeto { color: var(--brilho); border-color: rgba(233,90,122,.4); }
-.tag.arquivada, .tag.superseded { opacity: .75; }
-.tag.ok { color: var(--verde); border-color: color-mix(in srgb, var(--verde) 40%, transparent); }
-.tag.falhou { color: var(--brilho); border-color: rgba(233,90,122,.45); }
+.tag.projeto { color: var(--azul); border-color: color-mix(in srgb, var(--azul) 45%, transparent); }
+.tag.arquivada, .tag.superseded { opacity: .7; }
+.tag.ok { color: var(--verde); border-color: color-mix(in srgb, var(--verde) 45%, transparent); }
+.tag.falhou { color: var(--ambar); border-color: color-mix(in srgb, var(--ambar) 45%, transparent); }
 .doc.inativa { opacity: .55; }
 .doc-meta {
   margin-top: 8px; font-size: 11.5px; color: var(--texto-fraco);
@@ -535,134 +595,125 @@ body.sem-servidor #input { opacity: .5; }
 .doc-acoes { display: flex; gap: 6px; }
 .mini {
   font-family: var(--sans); font-size: 11.5px; padding: 3px 9px;
-  border: 1px solid var(--linha-forte); border-radius: 999px;
+  border: 1px solid var(--linha-forte); border-radius: var(--raio-p);
   background: transparent; color: var(--texto-suave); cursor: pointer;
-  transition: color .15s, border-color .15s;
+  transition: color .18s, border-color .18s;
 }
-.mini:hover { color: var(--creme); border-color: var(--brilho); }
-.mini.destaque { color: var(--brilho); border-color: rgba(233,90,122,.45); }
-/* Estado dos DOIS índices, lado a lado. Discreto de propósito: é
-   informação de manutenção, não o assunto da tela. */
-.indices { display: flex; gap: 12px; margin-top: 7px; font-size: 11px; }
-.indice { display: flex; align-items: center; gap: 4px; color: var(--texto-fraco); }
-.indice i {
-  width: 5px; height: 5px; border-radius: 50%; background: var(--texto-fraco);
-  flex: none;
-}
+.mini:hover { color: var(--texto); border-color: var(--bronze); }
+.mini.destaque { color: var(--bronze); border-color: var(--bronze); }
+
+.indices { display: flex; gap: 14px; margin-top: 8px; font-size: 10.5px; font-family: var(--mono); }
+.indice { display: flex; align-items: center; gap: 5px; color: var(--texto-fraco); }
+.indice i { width: 4px; height: 4px; background: var(--texto-fraco); flex: none; }
 .indice.pronto i { background: var(--verde); }
-.indice.andando i { background: var(--dourado); }
-.indice.falhou i { background: var(--brilho); }
+.indice.andando i { background: var(--bronze); }
+.indice.falhou i { background: var(--ambar); }
 .indice.pronto { color: var(--verde); }
-.indice.andando { color: var(--dourado); }
-.indice.falhou { color: var(--brilho); }
+.indice.andando { color: var(--bronze); }
+.indice.falhou { color: var(--ambar); }
 
 .aviso-painel {
-  margin: 0 0 12px; padding: 11px 13px; font-size: 12.5px; line-height: 1.55;
-  border: 1px solid rgba(233,90,122,.35); border-radius: var(--raio-p);
-  color: var(--texto-suave);
+  margin: 0 0 12px; padding: 12px 13px; font-size: 12.5px; line-height: 1.55;
+  border: 1px solid var(--linha-forte); border-left-width: 2px;
+  border-left-color: var(--bronze);
+  border-radius: 0 var(--raio-p) var(--raio-p) 0;
+  color: var(--texto-suave); background: var(--marmore);
 }
-.aviso-painel b { color: var(--creme); }
+.aviso-painel b { color: var(--texto); }
 .tab .contador {
-  display: inline-block; min-width: 15px; margin-left: 4px; padding: 0 4px;
+  display: inline-block; min-width: 15px; margin-left: 5px; padding: 0 4px;
   font-family: var(--mono); font-size: 9.5px; line-height: 15px;
-  border-radius: 999px; background: var(--brilho); color: #fff;
+  border-radius: var(--raio-p); background: var(--bronze); color: var(--metal-txt);
 }
 
 .add { border-top: 1px solid var(--linha); padding: 15px 16px 17px; }
 .add input, .add textarea {
-  width: 100%; margin-bottom: 9px; padding: 10px 13px;
+  width: 100%; margin-bottom: 9px; padding: 10px 12px;
   font-family: var(--sans); font-size: 13.5px;
   border: 1px solid var(--linha); border-radius: var(--raio-p);
   background: var(--sunk); color: var(--texto); outline: none;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,.28);
-  transition: border-color .16s, box-shadow .16s;
+  transition: border-color .18s;
 }
 .add input::placeholder, .add textarea::placeholder { color: var(--texto-fraco); }
-.add input:focus, .add textarea:focus {
-  border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(179,23,62,.22);
-}
+.add input:focus, .add textarea:focus { border-color: var(--bronze); }
 .add textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
 .add button {
-  width: 100%; padding: 11px; border-radius: var(--raio-p);
-  background: var(--gema); color: #fff; font-size: 13.5px; font-weight: 600;
-  border: 1px solid rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
-  transition: transform .16s, filter .16s;
+  width: 100%; padding: 11px; border-radius: var(--raio);
+  background: var(--metal); color: var(--metal-txt); font-size: 13.5px; font-weight: 500;
+  border: 1px solid var(--bronze-fosco);
+  transition: filter .18s;
 }
-.add button:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.add button:hover { filter: brightness(1.09); }
 
 .persona { display: flex; flex-direction: column; height: 100%; }
 .persona-ajuda {
   font-size: 12.5px; line-height: 1.6; color: var(--texto-suave);
   margin: 0 0 12px; padding: 12px 14px;
-  background: var(--sunk); border: 1px solid var(--linha); border-radius: var(--raio-p);
+  background: var(--marmore); border: 1px solid var(--linha); border-radius: var(--raio-p);
 }
-.persona-ajuda b { color: var(--creme); font-weight: 600; }
+.persona-ajuda b { color: var(--texto); font-weight: 500; }
 #personaTxt {
   flex: 1; min-height: 262px; resize: vertical;
-  font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.7;
   padding: 13px 14px; border: 1px solid var(--linha); border-radius: var(--raio-p);
   background: var(--sunk); color: var(--texto); outline: none;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,.28);
 }
-#personaTxt:focus { border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(179,23,62,.22); }
+#personaTxt:focus { border-color: var(--bronze); }
 .persona-botoes { display: flex; gap: 9px; margin-top: 11px; }
 .persona-botoes button {
-  flex: 1; padding: 10px; border-radius: var(--raio-p); font-size: 13px; font-weight: 600;
-  background: var(--sunk); color: var(--texto-suave); border: 1px solid var(--linha);
-  transition: all .16s;
+  flex: 1; padding: 10px; border-radius: var(--raio); font-size: 13px; font-weight: 500;
+  background: transparent; color: var(--texto-suave); border: 1px solid var(--linha-forte);
+  transition: all .18s;
 }
-.persona-botoes button:hover { color: var(--creme); border-color: var(--linha-forte); }
+.persona-botoes button:hover { color: var(--texto); border-color: var(--bronze); }
 .persona-botoes .primario {
-  background: var(--gema); color: #fff; border-color: rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+  background: var(--metal); color: var(--metal-txt); border-color: var(--bronze-fosco);
 }
-.persona-botoes .primario:hover { color: #fff; filter: brightness(1.1); }
-.persona-aviso { font-size: 12.5px; color: var(--brilho); min-height: 20px; margin-top: 10px; text-align: center; }
+.persona-botoes .primario:hover { color: var(--metal-txt); filter: brightness(1.09); }
+.persona-aviso { font-size: 12.5px; color: var(--bronze); min-height: 20px; margin-top: 10px; text-align: center; }
 .backup { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--linha); }
 
 .btn-livro {
-  width: 100%; padding: 12px; border-radius: var(--raio-p); font-size: 13.5px; font-weight: 600;
-  background: var(--gema); color: #fff; border: 1px solid rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
-  transition: transform .16s, filter .16s;
+  width: 100%; padding: 12px; border-radius: var(--raio); font-size: 13.5px; font-weight: 500;
+  background: var(--metal); color: var(--metal-txt); border: 1px solid var(--bronze-fosco);
+  transition: filter .18s;
 }
-.btn-livro:hover { transform: translateY(-1px); filter: brightness(1.1); }
-.livro-status { font-size: 12.5px; margin-top: 10px; text-align: center; min-height: 20px; color: var(--texto-fraco); }
-.livro-status.ativo { color: var(--brilho); }
-.livro-status.erro { color: var(--brilho); text-align: left; line-height: 1.55; }
+.btn-livro:hover { filter: brightness(1.09); }
+.livro-status { font-size: 12.5px; margin-top: 10px; text-align: center; min-height: 20px; color: var(--texto-fraco); font-family: var(--mono); }
+.livro-status.ativo { color: var(--bronze); }
+.livro-status.erro { color: var(--ambar); text-align: left; line-height: 1.55; }
 
 @media (max-width: 1080px) {
   #sidebar { display: none; }
   #panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 30;
-           box-shadow: -14px 0 48px rgba(0,0,0,.6); }
+           box-shadow: var(--sombra-alta); }
 }
+
 </style>
 </head>
 <body>
 
 <aside id="sidebar">
   <div class="marca">
-    <!-- Gema lapidada: facetas em gradiente, núcleo claro, brilho externo -->
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="gTopo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
-        </linearGradient>
-        <linearGradient id="gBaixo" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
-        </linearGradient>
-        <radialGradient id="gNucleo" cx=".5" cy=".42" r=".5">
-          <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
-          <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#gBaixo)"/>
-      <path d="M14 7h20l8 11H6z" fill="url(#gTopo)"/>
-      <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".30"/>
-      <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
-      <circle cx="24" cy="20" r="10" fill="url(#gNucleo)"/>
-      <path d="M6 18h36" stroke="#ffd9df" stroke-opacity=".45" stroke-width=".8"/>
+    <!-- Medalhão: um anel de bronze com uma chama de mármore dentro.
+         Ela respira devagar quando a Livia está disponível, e o anel se
+         reorganiza em traços girando enquanto ela pensa. O estado do
+         sistema vira movimento, não um spinner colado num canto. -->
+    <svg viewBox="0 0 48 48" aria-hidden="true" fill="none">
+      <g class="anel-medalha">
+        <circle cx="24" cy="24" r="21" stroke="var(--bronze)" stroke-width="1.1"/>
+        <circle cx="24" cy="24" r="17.5" stroke="var(--bronze)" stroke-width=".6"
+                opacity=".55" stroke-dasharray="2.6 5.2"/>
+      </g>
+      <!-- A chama: duas curvas que se fecham, com um vazio no meio. O
+           vazio é o que a faz parecer luz e não uma gota. -->
+      <g class="chama">
+        <path d="M24 11c5.4 5.2 8 9.4 8 13.4 0 4.7-3.6 8.2-8 8.2s-8-3.5-8-8.2
+                 c0-4 2.6-8.2 8-13.4z" fill="var(--texto)" opacity=".9"/>
+        <path d="M24 19.5c2.4 2.9 3.5 5 3.5 6.9 0 2.2-1.6 3.8-3.5 3.8
+                 s-3.5-1.6-3.5-3.8c0-1.9 1.1-4 3.5-6.9z" fill="var(--painel)"/>
+      </g>
+      <path d="M17 37h14" stroke="var(--bronze)" stroke-width="1" opacity=".7"/>
     </svg>
     <div class="marca-txt">
       <div class="brand" id="brand">LIVIA</div>
@@ -684,64 +735,47 @@ body.sem-servidor #input { opacity: .5; }
 </aside>
 
 <main id="main">
-  <!-- Planetas em órbita. Só atmosfera: bem translúcido, movimento lento.
-       A lua percorre a elipse via offset-path e encolhe na metade distante,
-       o que dá a sensação de profundidade sem precisar sumir atrás do disco. -->
+  <!-- Geometria de mármore: arcos concêntricos, uma faixa de meandro e a
+       silhueta incompleta de um busto. Atmosfera, não ilustração — se der
+       para descrever o desenho olhando de relance, ele está forte demais.
+       Os arcos giram devagar demais para o giro ser visto; nota-se que a
+       posição mudou, nunca o movimento. -->
   <div id="arte" aria-hidden="true">
-    <svg viewBox="0 0 900 620" preserveAspectRatio="xMidYMid slice" fill="none">
-      <defs>
-        <radialGradient id="pCorpo" cx=".36" cy=".32" r=".78">
-          <stop offset="0"   stop-color="#ffb9c6"/>
-          <stop offset=".38" stop-color="#e95a7a"/>
-          <stop offset=".72" stop-color="#b3173e"/>
-          <stop offset="1"   stop-color="#4a0a18"/>
-        </radialGradient>
-        <radialGradient id="pHalo" cx=".5" cy=".5" r=".5">
-          <stop offset=".58" stop-color="#e95a7a" stop-opacity=".30"/>
-          <stop offset="1"   stop-color="#e95a7a" stop-opacity="0"/>
-        </radialGradient>
-        <radialGradient id="pLua" cx=".34" cy=".3" r=".8">
-          <stop offset="0"   stop-color="#ffe0cf"/>
-          <stop offset=".5"  stop-color="#c08a4a"/>
-          <stop offset="1"   stop-color="#5e3418"/>
-        </radialGradient>
-        <clipPath id="pCorte"><circle cx="430" cy="310" r="132"/></clipPath>
-      </defs>
+    <svg viewBox="0 0 900 620" preserveAspectRatio="xMidYMid slice" fill="none"
+         stroke="var(--linha-forte)">
 
-      <circle cx="430" cy="310" r="230" fill="url(#pHalo)"/>
-      <circle cx="430" cy="310" r="132" fill="url(#pCorpo)"/>
+      <g class="arco-lento" opacity=".5">
+        <circle cx="450" cy="310" r="248" stroke-width="1"/>
+        <circle cx="450" cy="310" r="248" stroke-width="6" opacity=".28"
+                stroke-dasharray="1 62" stroke-linecap="round"/>
+      </g>
+      <g class="arco-lento inverso" opacity=".42">
+        <circle cx="450" cy="310" r="196" stroke-width=".8" stroke-dasharray="34 22"/>
+      </g>
+      <circle cx="450" cy="310" r="150" stroke-width=".8" opacity=".34"/>
 
-      <!-- faixas atmosféricas, recortadas no disco -->
-      <g clip-path="url(#pCorte)" opacity=".32">
-        <ellipse cx="430" cy="250" rx="150" ry="17" fill="#ffd0d8" opacity=".5"/>
-        <ellipse cx="430" cy="294" rx="150" ry="12" fill="#5a0d1a" opacity=".55"/>
-        <ellipse cx="430" cy="336" rx="150" ry="22" fill="#ffb9c6" opacity=".3"/>
-        <ellipse cx="430" cy="382" rx="150" ry="15" fill="#4a0a18" opacity=".6"/>
-        <circle  cx="374" cy="274" r="27" fill="#8e0f2a" opacity=".4"/>
-        <circle  cx="486" cy="354" r="18" fill="#5a0d1a" opacity=".35"/>
+      <!-- O busto interrompido: linha de perfil que começa e para, como
+           uma peça que nunca foi terminada de talhar. -->
+      <g opacity=".55" stroke-width="1.2" stroke-linecap="round">
+        <path d="M414 424c0-52 8-84 8-116 0-16-12-24-12-46 0-40 24-64 54-64
+                 s52 22 52 58c0 26-8 36-8 52 0 14 10 18 10 30"/>
+        <path d="M400 424h108"/>
+        <path d="M430 262c6-6 16-6 22 0" opacity=".7"/>
       </g>
 
-      <ellipse cx="430" cy="310" rx="260" ry="92"
-               stroke="#e95a7a" stroke-width="1.2" opacity=".2" stroke-dasharray="5 9"/>
-
-      <g class="lua">
-        <circle r="27" fill="url(#pLua)"/>
-        <circle r="27" fill="none" stroke="#ffe0cf" stroke-opacity=".26" stroke-width="1"/>
-        <circle cx="-8" cy="-6" r="6"   fill="#4a2c1c" opacity=".35"/>
-        <circle cx="9"  cy="8"  r="4.5" fill="#4a2c1c" opacity=".28"/>
+      <!-- Faixa de meandro correndo na base. Uma citação grega só, e
+           pequena: é assinatura, não cenário. -->
+      <g opacity=".30" stroke-width="1.1">
+        <path d="M120 512h22v-16h-14v-10h30v34h-22v-16h6"/>
+        <path d="M196 512h22v-16h-14v-10h30v34h-22v-16h6"/>
+        <path d="M272 512h22v-16h-14v-10h30v34h-22v-16h6"/>
+        <path d="M614 512h22v-16h-14v-10h30v34h-22v-16h6"/>
+        <path d="M690 512h22v-16h-14v-10h30v34h-22v-16h6"/>
       </g>
 
-      <g fill="#ffd0d8">
-        <circle class="estrela" cx="132" cy="118" r="1.8"/>
-        <circle class="estrela" cx="246" cy="72"  r="1.3"/>
-        <circle class="estrela" cx="88"  cy="286" r="1.6"/>
-        <circle class="estrela" cx="196" cy="430" r="1.4"/>
-        <circle class="estrela" cx="322" cy="196" r="1.2"/>
-        <circle class="estrela" cx="76"  cy="512" r="1.7"/>
-        <circle class="estrela" cx="404" cy="520" r="1.3"/>
-        <circle class="estrela" cx="842" cy="146" r="1.5"/>
-        <circle class="estrela" cx="806" cy="536" r="1.4"/>
-        <circle class="estrela" cx="288" cy="330" r="1.1"/>
+      <g opacity=".38" stroke-width=".9">
+        <path d="M60 120h150M60 120v-40"/>
+        <path d="M840 500h-150M840 500v40"/>
       </g>
     </svg>
   </div>
@@ -878,18 +912,17 @@ function aplicarIdentidade(nome) {
   $("brand").textContent = nomeAssistente;
 
   // Ícone da aba: um monograma gerado na hora, sem arquivo externo.
-  // Gema lapidada com a inicial dentro — a mesma joia da barra lateral,
-  // reduzida ao que sobrevive a 16 pixels na aba do navegador.
+  // O mesmo medalhão da barra lateral, reduzido ao que sobrevive a 16
+  // pixels: o anel de bronze e a letra. A chama some nesse tamanho, e
+  // insistir nela viraria uma mancha.
   const letra = escapar(nomeAssistente[0].toUpperCase());
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
-    '<stop offset="0" stop-color="#e95a7a"/><stop offset=".55" stop-color="#b3173e"/>' +
-    '<stop offset="1" stop-color="#5a0d1a"/></linearGradient></defs>' +
-    '<path d="M18 8h28l10 15-24 33L8 23z" fill="url(#g)"/>' +
-    '<path d="M18 8h28l10 15H8z" fill="#e95a7a" opacity=".55"/>' +
-    `<text x="32" y="42" text-anchor="middle" fill="#fff2f4"` +
-    ` font-family="Georgia,serif" font-size="26" font-weight="600">${letra}</text></svg>`;
+    '<circle cx="32" cy="32" r="29" fill="#1a1a18" stroke="#a9895a" stroke-width="3"/>' +
+    '<circle cx="32" cy="32" r="23" fill="none" stroke="#a9895a" ' +
+    'stroke-width="1" opacity=".5"/>' +
+    `<text x="32" y="43" text-anchor="middle" fill="#ede9df"` +
+    ` font-family="Georgia,serif" font-size="28">${letra}</text></svg>`;
   document.querySelector("link[rel=icon]").href =
     "data:image/svg+xml," + encodeURIComponent(svg);
 }
@@ -962,16 +995,76 @@ function mostrarFontes(bolha, rotulo, urls, texto) {
   descer();
 }
 
+// O átrio: a entrada da casa, não um painel de indicadores.
+//
+// Uma saudação, uma frase dizendo o que merece atenção, e o acervo listado
+// em ordem de importância. A prioridade aparece pela POSIÇÃO e pela
+// hierarquia — o que espera decisão vem primeiro e é a única linha que muda
+// de cor. Se tudo chamasse atenção, nada chamaria.
+//
+// Nada aqui é inventado para encher a tela. A Livia não tem agenda, então
+// não há "compromissos": um número que não vem de lugar nenhum é decoração
+// fingindo ser informação.
+let acervo = null;
+
+function saudacao() {
+  const h = new Date().getHours();
+  if (h < 5)  return "Boa noite";
+  if (h < 12) return "Bom dia";
+  if (h < 19) return "Boa tarde";
+  return "Boa noite";
+}
+
+function linhaAtrio(rot, nota, qtd, classe = "") {
+  const vazia = !qtd ? " vazia" : "";
+  return `
+    <div class="atrio-linha${vazia} ${classe}">
+      <span class="rot">${rot}<small>${nota}</small></span>
+      <span class="qtd">${qtd}</span>
+    </div>`;
+}
+
 function vazio() {
+  const nome = (acervo && acervo.user) ? escapar(acervo.user) : "";
+  const a = acervo || {};
+  const decisoes = a.candidatas || 0;
+
+  // A frase de abertura conta o que EXISTE agora. Sem nada guardado ela diz
+  // isso, em vez de fingir um acervo que ninguém montou ainda.
+  let chamada;
+  if (decisoes) {
+    chamada = `<b>${decisoes} skill(s)</b> esperando a sua decisão. `
+            + "Elas estão na aba Skills do painel.";
+  } else if (a.memories) {
+    chamada = `Guardo ${a.memories} memória(s) sobre você. `
+            + "Nada esperando decisão sua.";
+  } else {
+    chamada = "Ainda não sei nada sobre você — é assim que começa. "
+            + "Converse um pouco e eu vou guardando.";
+  }
+
+  const linhas = acervo ? `
+    <div class="atrio">
+      ${decisoes ? linhaAtrio("Aguardando sua decisão",
+          "skills que eu propus e você ainda não aprovou", decisoes, "decisao") : ""}
+      ${linhaAtrio("Memórias", "o que sei sobre você e seus projetos", a.memories || 0)}
+      ${linhaAtrio("Biblioteca", "documentos que eu consulto ao responder",
+          (a.acervo && a.acervo.documentos) || 0)}
+      ${linhaAtrio("Projetos", "pastas de código indexadas",
+          (a.acervo && a.acervo.projetos) || 0)}
+      ${linhaAtrio("Skills", "procedimentos que você me ensinou", a.skills || 0)}
+      ${linhaAtrio("Lições", "o que concluí sozinha das minhas tentativas", a.lessons || 0)}
+      ${linhaAtrio("Executado por mim", "ações que rodei nas conversas",
+          (a.acervo && a.acervo.experiencias) || 0)}
+    </div>` : "";
+
   $("messages").innerHTML = `
     <div class="empty">
-      <h2>Sobre o que vamos trabalhar?</h2>
-      <p>Eu lembro do que você me contar — preferências, decisões de projeto,
-         correções que você fizer em mim. Isso vai virando memória sozinho,
-         conversa após conversa.</p>
-      <p>Pode colar um link, mandar um livro em PDF, ou só começar a falar.
-         <code>/ajuda</code> lista os comandos; o painel à direita mostra tudo
-         que eu já sei.</p>
+      <h2>${saudacao()}${nome ? ", " + nome : ""}.</h2>
+      <p>${chamada}</p>
+      ${linhas}
+      <p style="margin-top:22px">Pode colar um link, mandar um PDF, ou só
+         começar a falar. <code>/ajuda</code> lista os comandos.</p>
     </div>`;
 }
 
@@ -1210,7 +1303,7 @@ async function carregarLivros() {
           ${indices(l)}
           ${l.precisa_reconstruir ? `
             <div class="doc-meta">
-              <span>os vetores deste foram feitos por outro modelo</span>
+              <span>os vetores deste não batem com o gerador de agora</span>
               <button class="mini destaque"
                       onclick="reconstruir('${escapar(l.slug)}')">reindexar vetores</button>
             </div>` : ""}
@@ -1223,6 +1316,20 @@ async function carregarLivros() {
             </div>` : ""}
         </div>`).join("")
     : `<div class="none">Nenhum documento ainda.<br>Envie um arquivo ou importe uma pasta de projeto.</div>`;
+
+  // Quando o gerador de vetores muda, TODO documento cai de uma vez. Oferecer
+  // só o botão por documento faria o André clicar quinze vezes sem saber por
+  // quê — e um documento não reindexado some da busca em silêncio.
+  const desatualizados = livros.filter((l) => l.precisa_reconstruir);
+  const refazer = desatualizados.length > 1
+    ? `<p class="aviso-painel">
+         <b>${desatualizados.length} documento(s) com vetores de outro gerador.</b>
+         Eles ficam de fora da busca até serem reindexados — trocar o modelo de
+         embedding torna os vetores antigos incomparáveis com os novos.
+         <br><br>
+         <button class="mini destaque" onclick="reindexarTudo()">reindexar todos</button>
+         <span id="reindexStatus" class="livro-status"></span>
+       </p>` : "";
 
   // Nada pesado começa sozinho: a interface OFERECE, o André decide.
   const faltando = conhecimento.ligado && conhecimento.sem_grafo
@@ -1248,6 +1355,7 @@ async function carregarLivros() {
       que respondem e lê <b>aqueles</b> antes de responder — citando de onde
       veio. Aceita PDF, TXT, Markdown, DOCX, XLSX, CSV, JSON e HTML.
     </p>
+    ${refazer}
     ${faltando}
     ${lista}
     <div style="margin-top:12px">
@@ -1315,6 +1423,30 @@ async function construirConhecimento() {
       ? ` ${dados.error}`
       : ` ${dados.feitos} pronto(s), ${dados.falhos} falhou(aram), ${dados.restantes} na fila.`;
   }
+  carregarLivros();
+}
+
+async function reindexarTudo() {
+  // Um de cada vez, de propósito: com modelo local, paralelizar isto só
+  // enfileira no Ollama e tira do André a noção de progresso.
+  const status = $("reindexStatus");
+  const livros = await (await fetch("/api/biblioteca")).json();
+  const pendentes = (livros.livros || []).filter((l) => l.precisa_reconstruir);
+
+  for (let i = 0; i < pendentes.length; i++) {
+    if (status) status.textContent = ` ${i + 1} de ${pendentes.length}: ${pendentes[i].titulo}…`;
+    try {
+      const r = await fetch(
+        `/api/biblioteca/${encodeURIComponent(pendentes[i].slug)}/reindexar`,
+        { method: "POST" },
+      );
+      await consumirProgresso(r, null);
+    } catch {
+      // Um documento que falha não pode parar a fila: o próximo pode dar certo,
+      // e o que sobrar continua marcado na lista.
+    }
+  }
+  if (status) status.textContent = " pronto.";
   carregarLivros();
 }
 
@@ -1511,39 +1643,34 @@ async function enviarBackup(input) {
 
 /* ---------- memórias e skills ---------- */
 
-// Cérebro em circuito com núcleo de rubi, no topo da aba de memórias.
-// É a metáfora do que aquela aba faz: o que entra ali vira parte dela.
+// Medalhão da memória, no topo da aba. Um busto reduzido a linhas dentro
+// do mesmo anel de bronze da marca: o que entra ali vira parte dela. Os
+// pontos respiram fora de fase — é o único movimento do painel.
 const CEREBRO = `
 <div class="cerebro">
-  <svg viewBox="0 0 200 160" fill="none" aria-hidden="true">
-    <defs>
-      <radialGradient id="cNucleo" cx=".5" cy=".5" r=".5">
-        <stop offset="0" stop-color="#ffd9df"/>
-        <stop offset=".45" stop-color="#e95a7a"/>
-        <stop offset="1" stop-color="#8e0f2a" stop-opacity="0"/>
-      </radialGradient>
-      <linearGradient id="cTraco" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#a6653a"/>
-      </linearGradient>
-    </defs>
-    <path d="M100 26c-24-14-56-6-64 18-22 6-30 34-14 50-10 20 6 44 28 44 10 14 34 16 50 4
-             16 12 40 10 50-4 22 0 38-24 28-44 16-16 8-44-14-50-8-24-40-32-64-18z"
-          stroke="url(#cTraco)" stroke-width="1.5" opacity=".75"/>
-    <g stroke="url(#cTraco)" stroke-width="1" opacity=".55">
-      <path d="M100 26v36M100 96v42M64 52h30v22M136 52h-30v22M52 92h34v20M148 92h-34v20"/>
-      <path d="M74 118h20v-16M126 118h-20v-16"/>
+  <svg viewBox="0 0 200 170" fill="none" aria-hidden="true"
+       stroke="var(--bronze)" stroke-linecap="round">
+    <circle cx="100" cy="85" r="72" stroke-width="1.1" opacity=".85"/>
+    <circle cx="100" cy="85" r="63" stroke-width=".6" opacity=".4"
+            stroke-dasharray="3 7"/>
+
+    <!-- perfil interrompido, como a arte de fundo -->
+    <g stroke-width="1.3" opacity=".8">
+      <path d="M78 132c0-32 5-52 5-72 0-10-7-15-7-28 0-25 15-40 34-40
+               s32 14 32 36c0 16-5 22-5 32 0 9 6 11 6 19"/>
+      <path d="M70 132h64"/>
     </g>
-    <circle cx="100" cy="80" r="26" fill="url(#cNucleo)"/>
-    <circle cx="100" cy="80" r="7" fill="#ffd9df" opacity=".9"/>
-    <g fill="#e95a7a">
-      <circle class="sinapse" cx="100" cy="26" r="3"/>
-      <circle class="sinapse" cx="64"  cy="52" r="2.6"/>
-      <circle class="sinapse" cx="136" cy="52" r="2.6"/>
-      <circle class="sinapse" cx="52"  cy="92" r="2.8"/>
-      <circle class="sinapse" cx="148" cy="92" r="2.8"/>
-      <circle class="sinapse" cx="74"  cy="118" r="2.4"/>
-      <circle class="sinapse" cx="126" cy="118" r="2.4"/>
-      <circle class="sinapse" cx="100" cy="138" r="3"/>
+
+    <!-- as ligações: o que a memória faz, desenhado -->
+    <g stroke-width=".8" opacity=".45">
+      <path d="M100 45v-18M62 74H44M138 74h18M72 112l-16 14M128 112l16 14"/>
+    </g>
+    <g fill="var(--bronze)" stroke="none">
+      <circle class="sinapse" cx="100" cy="27" r="2.6"/>
+      <circle class="sinapse" cx="44"  cy="74" r="2.4"/>
+      <circle class="sinapse" cx="156" cy="74" r="2.4"/>
+      <circle class="sinapse" cx="56"  cy="126" r="2.2"/>
+      <circle class="sinapse" cx="144" cy="126" r="2.2"/>
     </g>
   </svg>
 </div>`;
@@ -1897,7 +2024,7 @@ $("input").addEventListener("input", (e) => {
     if (!document.hidden) conferirServidor();
   });
 
-  // Padrão de fábrica: escuro. O rubi é uma joia — ela só brilha contra o
+  // Padrão de fábrica: escuro. O Nero Marquina é o mármore que sustenta o
   // escuro. A variante clara existe e é a mesma identidade sob luz do dia.
   aplicarTema(localStorage.getItem("livia-tema") || "dark");
   vazio();
@@ -1908,6 +2035,11 @@ $("input").addEventListener("input", (e) => {
     const s = await resposta.json();
     veioDoCache(resposta);
     aplicarIdentidade(s.name);
+    // Com os números na mão, o átrio se redesenha. Antes disso ele já
+    // apareceu com a saudação — texto na tela vale mais que tela em branco
+    // esperando uma chamada que pode nem voltar.
+    acervo = s;
+    if (!conversaAtual) vazio();
     mostrarStats(s);
     atualizarBadges();
     if (!s.has_key) {

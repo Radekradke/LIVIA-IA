@@ -29,7 +29,8 @@ from starlette.routing import Route
 from . import (
     auth, backup, biblioteca, brain, conhecimento, config, context, db,
     experiencia, ferramentas, knowledge_client, knowledge_ingest,
-    knowledge_router, learner, memoria, persona, router, saude, web,
+    knowledge_router, learner, lexical, memoria, persona, router, saude,
+    triagem, web,
 )
 from .store import COLECOES, memory, skills
 
@@ -234,10 +235,15 @@ def _explicar_ultima(conversa: int) -> str:
     conhecimento = dados.get("conhecimento") or {}
     if dados.get("documentos"):
         modo = str(conhecimento.get("modo") or "vector")
+        # No modo "vector" a busca por palavra andou junto, então dizer só
+        # "por semelhança de texto" seria contar metade da verdade.
+        com_palavra = bool(conhecimento.get("lexical_hits"))
         rotulo = {
-            "vector": "por semelhança de texto",
+            "vector": "por semelhança + palavra" if com_palavra
+                      else "por semelhança de texto",
             "graph": "pelo grafo de relações",
-            "hybrid": "por semelhança + grafo",
+            "hybrid": "por semelhança + palavra + grafo" if com_palavra
+                      else "por semelhança + grafo",
         }.get(modo, modo)
         linhas.append(f"\n**Conhecimento ({rotulo}):**")
         for d in dados["documentos"]:
@@ -248,11 +254,24 @@ def _explicar_ultima(conversa: int) -> str:
             for caminho in conhecimento["relacoes"][:6]:
                 linhas.append("- " + " → ".join(caminho))
 
-        if modo == "hybrid":
+        # A contagem por origem sai sempre que houve mais de uma busca, e não
+        # só no modo híbrido: a busca por palavra roda junto do vetor mesmo
+        # quando o grafo está desligado, e ela precisa aparecer aqui — é o que
+        # deixa o André ver se está servindo para alguma coisa.
+        partes = [f"{conhecimento.get('vector_hits', 0)} por semelhança"]
+        if conhecimento.get("lexical_hits"):
+            partes.append(f"{conhecimento['lexical_hits']} por palavra")
+        if conhecimento.get("graph_hits"):
+            partes.append(f"{conhecimento['graph_hits']} pelo grafo")
+        if len(partes) > 1:
             linhas.append(
-                f"\n_Busca híbrida: {conhecimento.get('vector_hits', 0)} por texto, "
-                f"{conhecimento.get('graph_hits', 0)} pelo grafo, "
-                f"{conhecimento.get('duplicados', 0)} repetidos descartados._"
+                f"\n_Candidatos: {', '.join(partes)}; "
+                f"{conhecimento.get('duplicados', 0)} repetidos fundidos._"
+            )
+        if conhecimento.get("so_lexical"):
+            linhas.append(
+                f"_{conhecimento['so_lexical']} trecho(s) só a busca por "
+                "palavra achou — o vetor não teria trazido._"
             )
 
         if conhecimento.get("divergencias"):
@@ -260,6 +279,15 @@ def _explicar_ultima(conversa: int) -> str:
 
     if dados.get("busca"):
         linhas.append(f"\n**Busca na web:** \"{dados['busca']}\"")
+
+    # A pergunta reescrita precisa aparecer: se a busca trouxe algo estranho,
+    # a explicação costuma estar aqui, e sem mostrar isto o André veria a
+    # Livia procurando por algo que ele não pediu, sem jeito de descobrir.
+    if dados.get("pergunta_busca"):
+        linhas.append(
+            f"\n_Para buscar, li a pergunta como: \"{dados['pergunta_busca']}\" — "
+            "ela dependia do que veio antes. A resposta usou a sua, original._"
+        )
 
     if not linhas:
         return (
@@ -356,11 +384,14 @@ async def chat(request: Request) -> Response:
         # falhar por qualquer motivo, cai na montagem completa de antes —
         # ficar sem memória seria pior que ficar com memória demais.
         try:
-            system_prompt, procedencia = await context.montar(
-                message, historico=history[:-1]
-            )
+            montagem = await context.montar(message, historico=history[:-1])
         except Exception:
-            system_prompt, procedencia = context.build_system_prompt(), {"modo": "completo"}
+            montagem = context.Montagem(
+                sistema=context.build_system_prompt(),
+                procedencia={"modo": "completo"},
+            )
+        system_prompt = montagem.sistema
+        procedencia = montagem.procedencia
         _ULTIMA_PROCEDENCIA[conversation_id] = procedencia
 
         # Contexto extra que será colado antes da pergunta. É uma LISTA de
@@ -368,6 +399,36 @@ async def chat(request: Request) -> Response:
         # sobrescrever uma com a outra descartaria material relevante em
         # silêncio — que foi exatamente o bug da primeira versão disto.
         blocos: list[str] = []
+
+        # A memória selecionada entra AQUI, e não no prompt do sistema. Ela
+        # muda a cada pergunta, e o cache de prefixo da inferência local só
+        # reaproveita o que não muda — com ela lá em cima, o llama.cpp refazia
+        # o prompt inteiro toda mensagem. É a mesma razão pela qual biblioteca,
+        # grafo e web sempre foram para cá.
+        if montagem.lembranca:
+            blocos.append(montagem.lembranca.strip())
+
+        # --- triagem ---------------------------------------------------------
+        # Uma chamada ao modelo rápido responde duas coisas sobre a mensagem:
+        # se ela precisa de web, e se ela se entende sozinha. A segunda é o
+        # que conserta "e o próximo?": vetorizar essa frase crua devolve ruído,
+        # porque o assunto está na mensagem ANTERIOR.
+        #
+        # A reescrita alimenta só a BUSCA. O modelo continua lendo a pergunta
+        # original — trocar o que o André escreveu pelo que a máquina achou
+        # que ele quis dizer responderia outra coisa com confiança total.
+        tem_link = config.WEB_ENABLED and bool(web.urls_em(message))
+        forcada = message.strip().lower().startswith("/buscar")
+
+        try:
+            triado = await triagem.avaliar(
+                message, history[:-1], tem_link=tem_link or forcada
+            )
+        except Exception:
+            triado = triagem.Triagem(pergunta_busca=message)
+
+        if triado.reescrita:
+            procedencia["pergunta_busca"] = triado.pergunta_busca
 
         # --- conhecimento (biblioteca + grafo) -------------------------------
         # O roteador decide entre vetor, grafo e híbrido por heurística local,
@@ -379,7 +440,10 @@ async def chat(request: Request) -> Response:
             # manual para quando o André sabe que a pergunta é relacional e a
             # regex não percebeu.
             forcar_grafo = message.strip().lower().startswith("/grafo")
-            pergunta_busca = message.strip()[6:].strip() if forcar_grafo else message
+            pergunta_busca = (
+                message.strip()[6:].strip() if forcar_grafo
+                else triado.pergunta_busca
+            )
             try:
                 hits, proc_conhecimento = await knowledge_router.buscar(
                     pergunta_busca,
@@ -412,17 +476,10 @@ async def chat(request: Request) -> Response:
 
         # --- web -----------------------------------------------------------
         # Link colado na mensagem: o modelo lê direto, sem busca nenhuma.
-        tem_link = config.WEB_ENABLED and bool(web.urls_em(message))
-        consulta = None
-        forcada = message.strip().lower().startswith("/buscar")
-
-        if forcada:
-            consulta = message.strip()[7:].strip() or None
-        elif config.WEB_ENABLED and not tem_link:
-            try:
-                consulta = await web.precisa_buscar(message)
-            except Exception:
-                consulta = None
+        # A decisão de buscar já saiu da triagem lá em cima, na mesma chamada
+        # que desatou a pergunta — duas perguntas sobre a mesma frase não
+        # justificam duas idas ao modelo.
+        consulta = message.strip()[7:].strip() or None if forcada else triado.consulta_web
 
         if consulta:
             yield _sse({"type": "status", "text": f"buscando: {consulta}"})
@@ -957,6 +1014,10 @@ async def diagnostico(request: Request) -> Response:
             "documentos": len(biblioteca.listar()),
             "precisam_reconstruir": biblioteca.incompativeis(),
         },
+        "lexical": {
+            "ligada": config.LEXICAL_ENABLED,
+            **lexical.estatisticas(),
+        },
         "ferramentas": {"ligadas": config.TOOLS_ENABLED},
         "web": {"ligada": config.WEB_ENABLED, "buscador": web.provedor_de_busca()},
         "local": {
@@ -1002,9 +1063,32 @@ async def status(request: Request) -> Response:
             "local_only": config.LOCAL_ONLY,
             "semantic": config.SEMANTIC_MEMORY and embeddings.disponivel(),
             "candidatas": len(experiencia.candidatas()),
+            # O acervo, para o átrio da tela inicial. Vai junto do status
+            # porque é uma tela só e três chamadas para montá-la seriam três
+            # esperas antes de a primeira palavra aparecer.
+            "acervo": _acervo(),
             **context.stats(),
         }
     )
+
+
+def _acervo() -> dict[str, int]:
+    """O que a Livia tem guardado, contado.
+
+    Só o que EXISTE de verdade. É tentador acrescentar "compromissos" e
+    "tarefas do dia" porque a tela ficaria mais cheia, mas a Livia não tem
+    agenda — um número que não vem de lugar nenhum é decoração que finge ser
+    informação.
+    """
+    try:
+        livros = biblioteca.listar()
+    except Exception:
+        livros = []
+    return {
+        "documentos": sum(1 for l in livros if l.get("tipo") != "projeto"),
+        "projetos": sum(1 for l in livros if l.get("tipo") == "projeto"),
+        "experiencias": experiencia.estatisticas().get("total", 0),
+    }
 
 
 async def index(request: Request) -> Response:
@@ -1046,8 +1130,8 @@ async def manifesto(request: Request) -> Response:
             # A cor da barra é a do tema escuro, que é o padrão de fábrica.
             # A variante clara é tratada por <meta name="theme-color"> com
             # media query, que o manifesto não sabe fazer.
-            "background_color": "#140a0c",
-            "theme_color": "#140a0c",
+            "background_color": "#0f0f0e",
+            "theme_color": "#0f0f0e",
             "categories": ["productivity", "utilities"],
             "icons": [
                 {"src": "/icones/icone-192.png", "sizes": "192x192",
@@ -1112,6 +1196,33 @@ async def icone(request: Request) -> Response:
         caminho,
         media_type=tipo,
         headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+async def fonte(request: Request) -> Response:
+    """As fontes da interface, servidas DAQUI e não do Google.
+
+    A Livia é um aplicativo offline e promete que nada sai da máquina. Um
+    `<link>` para fonts.googleapis.com quebraria as duas promessas de uma
+    vez: contaria ao Google toda vez que o André abrisse a assistente, e
+    deixaria a tipografia sumir quando ele estivesse sem rede.
+
+    Mesma regra de lista fechada dos ícones — o nome vem da URL, então quem
+    confere é o código, nunca o sistema de arquivos.
+    """
+    permitidas = {"geist.woff2", "geistmono.woff2", "marcellus.woff2"}
+    nome = request.path_params["nome"]
+    if nome not in permitidas:
+        return PlainTextResponse("não encontrado", status_code=404)
+
+    caminho = config.WEB_DIR / "fontes" / nome
+    if not caminho.exists():
+        return PlainTextResponse("não encontrado", status_code=404)
+    return FileResponse(
+        caminho,
+        media_type="font/woff2",
+        # Um ano: o nome do arquivo muda quando a fonte mudar.
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
     )
 
 
@@ -1311,7 +1422,10 @@ LIVRES = {"/entrar", "/api/entrar", "/saude", "/manifest.webmanifest", "/sw.js"}
 
 
 def _livre(caminho: str) -> bool:
-    return caminho in LIVRES or caminho.startswith("/icones/")
+    # As fontes acompanham os ícones: a tela de login também precisa
+    # delas, e um arquivo de fonte não revela nada de ninguém.
+    return (caminho in LIVRES or caminho.startswith("/icones/")
+            or caminho.startswith("/fontes/"))
 
 
 _LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
@@ -1416,6 +1530,7 @@ routes = [
     Route("/manifest.webmanifest", manifesto),
     Route("/sw.js", serviceworker),
     Route("/icones/{nome:str}", icone),
+    Route("/fontes/{nome:str}", fonte),
     Route("/entrar", pagina_entrar),
     Route("/api/entrar", fazer_login, methods=["POST"]),
     Route("/sair", sair),
@@ -1465,6 +1580,22 @@ async def lifespan(_app: Starlette) -> AsyncIterator[None]:
             memoria.sincronizar(colecao)
         except Exception:
             pass  # índice é derivado; falhar aqui não pode impedir o app de subir
+
+    # O índice de palavras se alinha sozinho com o que está em disco. Ao
+    # contrário dos vetores, refazê-lo não custa chamada de modelo nenhuma —
+    # é ler texto e escrever no SQLite. Por isso não há botão: pedir permissão
+    # para reconstruir o que se reconstrói em segundos seria só atrito, e uma
+    # biblioteca de antes desta funcionalidade ficaria sem busca por palavra
+    # até alguém descobrir onde clicar.
+    try:
+        estado = lexical.sincronizar()
+        if estado["indexados"] or estado["removidos"]:
+            log.info(
+                "[lexical] índice em dia: +%d, -%d",
+                estado["indexados"], estado["removidos"],
+            )
+    except Exception:
+        pass  # índice derivado; falhar aqui não impede o app de subir
 
     # Jobs de grafo interrompidos por um reinício voltam para a fila. NÃO
     # começam a rodar sozinhos: quem manda processar é o André.

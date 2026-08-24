@@ -93,6 +93,19 @@ def _modelo(provedor: str) -> str:
     )
 
 
+def _identidade(provedor: str) -> str:
+    """O modelo mais a marca do esquema de prefixo, para efeito de índice.
+
+    A marca entra aqui, e não num campo novo, porque `compativel` corta a
+    assinatura pela ÚLTIMA vírgula para comparar sem a dimensão. Um quarto
+    campo quebraria essa conta; grudar no nome do modelo não quebra nada e
+    tem o efeito que interessa: índice gerado sem prefixo e índice gerado com
+    prefixo passam a ter assinaturas diferentes, e o antigo é detectado como
+    incompatível sozinho.
+    """
+    return f"{_modelo(provedor)}{_marca_prefixo(provedor)}"
+
+
 def assinatura(provedor: str | None = None, dimensoes: int | None = None) -> str:
     """Identidade do índice: quem gerou, com qual modelo, em quantas dimensões.
 
@@ -101,7 +114,7 @@ def assinatura(provedor: str | None = None, dimensoes: int | None = None) -> str
     """
     nome = provedor or (provedores()[0] if provedores() else "nenhum")
     dim = dimensoes if dimensoes is not None else _dimensoes_esperadas(nome)
-    return f"{nome}:{_modelo(nome)}:{dim}"
+    return f"{nome}:{_identidade(nome)}:{dim}"
 
 
 def _dimensoes_esperadas(provedor: str) -> int | str:
@@ -111,11 +124,78 @@ def _dimensoes_esperadas(provedor: str) -> int | str:
 
 
 # --------------------------------------------------------------------------
+# Prefixo de tarefa
+# --------------------------------------------------------------------------
+#
+# Vários modelos de embedding são treinados com uma instrução colada na frente
+# do texto, e ela NÃO é opcional. O nomic-embed-text — o padrão local daqui —
+# aprendeu "search_query: " na pergunta e "search_document: " no trecho, e a
+# própria Nomic diz que pular os prefixos degrada a recuperação. O Ollama não
+# acrescenta nada por conta própria: quem manda o texto é quem tem que pôr.
+#
+# Sem isto, a pergunta e o documento eram vetorizados como se fossem a mesma
+# coisa, e o modo 100% local — que é a bandeira do projeto — era justamente o
+# que rodava com o embedding errado. O Gemini nunca teve o problema: ele
+# recebe a tarefa como campo (`taskType`), não como texto.
+#
+# A tabela é conservadora de propósito. Modelo que eu não conheço não ganha
+# prefixo nenhum: colar uma instrução que o modelo não aprendeu é tão ruim
+# quanto omitir a que ele espera, e o silêncio pelo menos não é uma regressão.
+
+_ESQUEMAS: list[tuple[tuple[str, ...], tuple[str, str]]] = [
+    # (pedaços que identificam a família, (prefixo da pergunta, prefixo do documento))
+    (("nomic-embed",), ("search_query: ", "search_document: ")),
+    (("e5-", "multilingual-e5"), ("query: ", "passage: ")),
+    (
+        ("mxbai-embed", "snowflake-arctic-embed", "bge-large-en", "bge-base-en",
+         "bge-small-en"),
+        ("Represent this sentence for searching relevant passages: ", ""),
+    ),
+]
+
+
+def esquema(modelo: str) -> tuple[str, str] | None:
+    """(prefixo da pergunta, prefixo do documento) do modelo, ou None."""
+    # A tag do Ollama (`:latest`, `:q4_0`, `:v1.5`) não faz parte da família.
+    nome = (modelo or "").strip().lower().split(":", 1)[0]
+    for pedacos, prefixos in _ESQUEMAS:
+        if any(p in nome for p in pedacos):
+            return prefixos
+    return None
+
+
+def _marca_prefixo(provedor: str) -> str:
+    """Sufixo de assinatura que denuncia "estes vetores levaram prefixo".
+
+    Só o Ollama, porque só ele recebe o prefixo no texto. Modelo sem esquema
+    não ganha marca — a assinatura dele continua exatamente a de antes, e
+    quem usa `all-minilm` não é obrigado a reconstruir nada à toa.
+    """
+    if provedor != "ollama":
+        return ""
+    return "+p1" if esquema(_modelo(provedor)) else ""
+
+
+def _prefixar(textos: list[str], tarefa: str) -> list[str]:
+    """Cola o prefixo da tarefa, DEPOIS do corte por tamanho.
+
+    A ordem importa: prefixar antes de cortar deixaria o prefixo dentro do
+    orçamento de caracteres e, num texto no limite, ele seria a primeira coisa
+    a sobrar de fora.
+    """
+    prefixos = esquema(config.OLLAMA_EMBED_MODEL)
+    if not prefixos:
+        return [t[:LIMITE_TEXTO] for t in textos]
+    marca = prefixos[0] if tarefa == PERGUNTA else prefixos[1]
+    return [f"{marca}{t[:LIMITE_TEXTO]}" for t in textos]
+
+
+# --------------------------------------------------------------------------
 # Implementações
 # --------------------------------------------------------------------------
 
 
-async def _ollama(textos: list[str], _tarefa: str) -> list[list[float]]:
+async def _ollama(textos: list[str], tarefa: str) -> list[list[float]]:
     """Embeddings locais via /api/embed.
 
     O endpoint antigo (`/api/embeddings`, singular, um texto por vez) ainda
@@ -125,7 +205,7 @@ async def _ollama(textos: list[str], _tarefa: str) -> list[list[float]]:
     url = f"{config.OLLAMA_BASE_URL}/api/embed"
     corpo = {
         "model": config.OLLAMA_EMBED_MODEL,
-        "input": [t[:LIMITE_TEXTO] for t in textos],
+        "input": _prefixar(textos, tarefa),
     }
 
     try:
@@ -136,7 +216,7 @@ async def _ollama(textos: list[str], _tarefa: str) -> list[list[float]]:
                 # versão" ou "o modelo não está baixado". Só a primeira merece
                 # tentar a rota antiga; a segunda precisa da mensagem que
                 # ensina o `ollama pull`.
-                return await _ollama_antigo(textos, c)
+                return await _ollama_antigo(textos, c, tarefa)
             if resposta.status_code >= 400:
                 raise EmbeddingError(_ollama_recado(resposta.text))
             dados = resposta.json()
@@ -154,12 +234,14 @@ async def _ollama(textos: list[str], _tarefa: str) -> list[list[float]]:
     return vetores
 
 
-async def _ollama_antigo(textos: list[str], cliente: httpx.AsyncClient) -> list[list[float]]:
+async def _ollama_antigo(
+    textos: list[str], cliente: httpx.AsyncClient, tarefa: str = ""
+) -> list[list[float]]:
     url = f"{config.OLLAMA_BASE_URL}/api/embeddings"
     saida: list[list[float]] = []
-    for texto in textos:
+    for texto in _prefixar(textos, tarefa):
         resposta = await cliente.post(
-            url, json={"model": config.OLLAMA_EMBED_MODEL, "prompt": texto[:LIMITE_TEXTO]}
+            url, json={"model": config.OLLAMA_EMBED_MODEL, "prompt": texto}
         )
         if resposta.status_code >= 400:
             raise EmbeddingError(_ollama_recado(resposta.text))
@@ -230,9 +312,10 @@ async def _gemini(textos: list[str], tarefa: str) -> list[list[float]]:
 
 _IMPLEMENTACOES = {"ollama": _ollama, "gemini": _gemini}
 
-# O Gemini melhora a busca sabendo se o texto é pergunta ou documento. O
-# Ollama ignora — mas o parâmetro atravessa igual, para quem chama não
-# precisar saber quem vai atender.
+# Saber se o texto é pergunta ou documento muda o vetor nos dois provedores,
+# por caminhos diferentes: o Gemini recebe isto como campo (`taskType`), o
+# Ollama recebe como prefixo colado no texto (ver `_prefixar`). Quem chama não
+# precisa saber de nada disso — só dizer o que o texto é.
 DOCUMENTO = "RETRIEVAL_DOCUMENT"
 PERGUNTA = "RETRIEVAL_QUERY"
 
@@ -326,7 +409,7 @@ def hash_conteudo(texto: str) -> str:
 # --------------------------------------------------------------------------
 
 
-def chave_cache(provedor: str) -> str:
+def chave_cache(provedor: str, tarefa: str = DOCUMENTO) -> str:
     """Identidade do gerador para fins de CACHE — sem a dimensão.
 
     A assinatura de índice inclui a dimensão porque ela é a checagem final
@@ -334,8 +417,20 @@ def chave_cache(provedor: str) -> str:
     do Ollama só se descobre gerando o primeiro vetor, então todo processo
     recém-iniciado erraria a chave e recalcularia tudo uma vez. Modelo e
     provedor já determinam a dimensão; a redundância só custava.
+
+    A TAREFA, por outro lado, precisa entrar quando há prefixo: o vetor de
+    "search_document: x" não é o vetor de "search_query: x", e servir um pelo
+    outro seria devolver vetor errado do cache — sem erro, sem log, com a
+    busca simplesmente piorando. Hoje só a indexação usa cache, então isso
+    nunca aconteceria; a chave não depende de esse detalhe continuar verdade.
+
+    Quando o modelo não tem esquema de prefixo, a tarefa não muda o texto e
+    portanto não entra: quem usa `all-minilm` não perde o cache que já tem.
     """
-    return f"{provedor}:{_modelo(provedor)}"
+    if esquema(_modelo(provedor)) and provedor == "ollama":
+        sufixo = "q" if tarefa == PERGUNTA else "d"
+        return f"{provedor}:{_identidade(provedor)}:{sufixo}"
+    return f"{provedor}:{_identidade(provedor)}"
 
 
 async def com_cache(itens: dict[str, str], tarefa: str = DOCUMENTO) -> dict[str, np.ndarray]:
@@ -361,7 +456,7 @@ async def com_cache(itens: dict[str, str], tarefa: str = DOCUMENTO) -> dict[str,
     for chave, texto in itens.items():
         digest = hash_conteudo(texto)
         for provedor in fila:
-            guardado = db.embedding_em_cache(digest, chave_cache(provedor))
+            guardado = db.embedding_em_cache(digest, chave_cache(provedor, tarefa))
             if guardado is not None:
                 saida[chave] = guardado
                 break
@@ -379,6 +474,8 @@ async def com_cache(itens: dict[str, str], tarefa: str = DOCUMENTO) -> dict[str,
 
     for chave, vetor in zip(chaves, matriz):
         saida[chave] = vetor
-        db.guardar_embedding(hash_conteudo(faltando[chave]), chave_cache(quem), vetor)
+        db.guardar_embedding(
+            hash_conteudo(faltando[chave]), chave_cache(quem, tarefa), vetor
+        )
 
     return saida

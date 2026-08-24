@@ -39,6 +39,7 @@ regras", obedecer seria dar a qualquer arquivo o poder de reprogramar a Livia.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import AsyncIterator
 from datetime import date
@@ -48,6 +49,8 @@ import numpy as np
 
 from . import config, embeddings
 from .docs import slugify
+
+log = logging.getLogger("livia.biblioteca")
 
 PASTA = config.DATA_DIR / "biblioteca"
 
@@ -370,6 +373,17 @@ async def _indexar(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
+    # O índice de palavras anda junto do de vetores, e é barato: nem chamada
+    # de modelo, nem rede. Falhar aqui não pode custar o documento — o que já
+    # foi escrito em disco está válido, e `lexical.sincronizar` recupera o
+    # atraso depois.
+    try:
+        from . import lexical
+
+        lexical.indexar(slug, trechos)
+    except Exception as exc:
+        log.warning("[biblioteca] índice de palavras falhou em %s: %s", slug, exc)
+
     yield {"etapa": "pronto", "livro": meta}
 
 
@@ -455,6 +469,15 @@ def remover(slug: str) -> bool:
     for arquivo in destino.iterdir():
         arquivo.unlink()
     destino.rmdir()
+
+    # Sem isto, o documento sumiria da busca por vetor e continuaria aparecendo
+    # na busca por palavra — citando um arquivo que não existe mais.
+    try:
+        from . import lexical
+
+        lexical.remover(slugify(slug))
+    except Exception as exc:
+        log.warning("[biblioteca] índice de palavras não limpou %s: %s", slug, exc)
     return True
 
 

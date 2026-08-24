@@ -4,91 +4,136 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Livia</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="/icones/livia.svg">
+<meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2efe8" media="(prefers-color-scheme: light)">
 <style>
+  /* Mesma identidade da aplicação — Mnemosyne. Uma tela de login com outro
+     visual é a primeira coisa que a pessoa vê, e daria a impressão de que ela
+     entrou no lugar errado. Os tokens são os mesmos do index.html, só a parte
+     que esta tela usa. */
+  @font-face {
+    font-family: "Geist"; src: url("/fontes/geist.woff2") format("woff2");
+    font-weight: 100 900; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Geist Mono"; src: url("/fontes/geistmono.woff2") format("woff2");
+    font-weight: 100 900; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Marcellus"; src: url("/fontes/marcellus.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+
   :root[data-theme="dark"] {
-    --fundo: #0d0707; --painel: rgba(46,22,25,.72); --sunk: rgba(18,9,11,.7);
-    --linha: rgba(179,23,62,.22); --linha-forte: rgba(179,23,62,.45);
-    --texto: #f1e2d0; --suave: #c9a99a; --fraco: #8f6f66;
-    --rubi: #b3173e; --brilho: #e95a7a; --dourado: #c08a4a; --creme: #f1e2d0;
-    --luz-topo: inset 0 1px 0 rgba(255,190,190,.10);
+    --fundo: #0f0f0e; --painel: #1a1a18; --sunk: #141412; --marmore: #171715;
+    --linha: rgba(237,233,223,.10); --linha-forte: rgba(169,137,90,.40);
+    --veio: rgba(237,233,223,.022);
+    --texto: #ede9df; --suave: #a29d93; --fraco: #6c6860;
+    --bronze: #a9895a; --bronze-fosco: #7a6342; --ambar: #b8924e;
+    --metal: linear-gradient(168deg, #8e7248 0%, #7a6342 100%);
+    --metal-txt: #f4efe4;
   }
   :root[data-theme="light"] {
-    --fundo: #f7efe6; --painel: rgba(255,252,249,.9); --sunk: rgba(226,210,199,.5);
-    --linha: rgba(142,15,42,.18); --linha-forte: rgba(142,15,42,.36);
-    --texto: #33191a; --suave: #7a5750; --fraco: #a98d84;
-    --rubi: #a01235; --brilho: #c93a5c; --dourado: #a4703a; --creme: #3a1c18;
-    --luz-topo: inset 0 1px 0 rgba(255,255,255,.85);
+    --fundo: #f2efe8; --painel: #faf8f3; --sunk: #eae5db; --marmore: #e5e0d6;
+    --linha: rgba(36,35,33,.13); --linha-forte: rgba(154,123,79,.44);
+    --veio: rgba(36,35,33,.016);
+    --texto: #242321; --suave: #716d65; --fraco: #9a958b;
+    --bronze: #9a7b4f; --bronze-fosco: #7d6440; --ambar: #9c7c37;
+    --metal: linear-gradient(168deg, #a98a5c 0%, #8d7148 100%);
+    --metal-txt: #fbf8f1;
   }
+
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; display: flex;
     align-items: center; justify-content: center; padding: 24px;
-    font: 15.5px/1.7 "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
-    background: var(--fundo); color: var(--texto); position: relative; overflow: hidden;
+    font: 15.5px/1.7 "Geist", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    background: var(--fundo); color: var(--texto);
+    position: relative; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
   }
+  /* Os mesmos veios de mármore da aplicação, quase invisíveis. */
   body::before {
     content: ""; position: fixed; inset: 0; pointer-events: none;
     background:
-      radial-gradient(900px 640px at 20% -10%, rgba(179,23,62,.22), transparent 62%),
-      radial-gradient(760px 560px at 82% 110%, rgba(166,101,58,.16), transparent 60%);
+      linear-gradient(101deg, transparent 14%, var(--veio) 21%, transparent 28%),
+      linear-gradient(97deg,  transparent 46%, var(--veio) 52%, transparent 58%),
+      radial-gradient(1000px 760px at 22% -12%, var(--veio), transparent 72%);
   }
+
+  /* Placa de pedra: borda fina, canto quase reto, superfície plana. */
   .cartao {
-    position: relative; width: 100%; max-width: 392px;
-    background: linear-gradient(165deg, var(--painel), rgba(18,9,11,.5));
-    border: 1px solid var(--linha-forte); border-radius: 20px; padding: 38px 34px 32px;
-    box-shadow: var(--luz-topo), 0 24px 64px rgba(0,0,0,.5), 0 0 44px rgba(142,15,42,.16);
-    text-align: center;
+    position: relative; width: 100%; max-width: 380px;
+    background: var(--painel);
+    border: 1px solid var(--linha-forte); border-radius: 3px;
+    padding: 40px 34px 30px; text-align: center;
   }
-  .gema { width: 62px; height: 62px; margin: 0 auto 16px; display: block;
-          filter: drop-shadow(0 0 18px rgba(179,23,62,.6)); }
+  /* O pequeno arco: um filete de bronze na nascente da placa. */
+  .cartao::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: var(--bronze);
+  }
+
+  .medalha { width: 60px; height: 60px; margin: 0 auto 18px; display: block; }
+  /* Respira devagar. Um ciclo de 6 segundos — mais rápido vira pisca-pisca. */
+  @keyframes medalhao { 0%,100% { opacity: .82; } 50% { opacity: 1; } }
+  .chama { animation: medalhao 6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .chama { animation: none; } }
+
   h1 {
-    font-size: 27px; font-weight: 600; letter-spacing: .2em; margin: 0 0 4px;
-    background: linear-gradient(100deg, var(--creme) 8%, var(--brilho) 50%, var(--dourado));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
+    font-family: "Marcellus", Georgia, serif;
+    font-size: 27px; font-weight: 400; letter-spacing: .19em;
+    margin: 0 0 6px; color: var(--texto); text-transform: uppercase;
   }
-  p.sub { color: var(--fraco); font-size: 13px; margin: 0 0 26px;
-          letter-spacing: .09em; text-transform: uppercase; }
+  p.sub {
+    color: var(--fraco); font-size: 10px; margin: 0 0 28px;
+    letter-spacing: .22em; text-transform: uppercase;
+    font-family: "Geist Mono", ui-monospace, monospace;
+  }
+
   input {
-    width: 100%; padding: 13px 16px; font: inherit; font-size: 15px; text-align: center;
-    letter-spacing: .04em; border: 1px solid var(--linha); border-radius: 12px;
+    width: 100%; padding: 12px 16px; font: inherit; font-size: 15px;
+    text-align: center; letter-spacing: .06em;
+    border: 1px solid var(--linha); border-radius: 2px;
     background: var(--sunk); color: var(--texto); outline: none;
-    box-shadow: inset 0 1px 4px rgba(0,0,0,.3); transition: border-color .18s, box-shadow .18s;
+    transition: border-color .18s;
   }
   input::placeholder { color: var(--fraco); letter-spacing: .02em; }
-  input:focus { border-color: var(--rubi); box-shadow: inset 0 1px 4px rgba(0,0,0,.3), 0 0 20px rgba(179,23,62,.28); }
+  input:focus { border-color: var(--bronze); }
+
   button {
-    width: 100%; margin-top: 11px; padding: 13px; border: 1px solid rgba(233,90,122,.4);
-    border-radius: 12px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
-    color: #fff; background: linear-gradient(160deg, #d4285a, #b3173e 40%, #8e0f2a);
-    box-shadow: var(--luz-topo), 0 6px 22px rgba(142,15,42,.45);
-    transition: transform .16s, filter .16s;
+    width: 100%; margin-top: 10px; padding: 12px;
+    border: 1px solid var(--bronze-fosco); border-radius: 3px;
+    font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+    color: var(--metal-txt); background: var(--metal);
+    transition: filter .18s, transform .18s;
   }
-  button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.12); }
-  button:disabled { opacity: .4; cursor: default; }
-  .erro { color: var(--brilho); font-size: 13.5px; min-height: 22px; margin-top: 14px; }
+  button:hover:not(:disabled) { filter: brightness(1.09); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .35; cursor: default; }
+  :where(input, button):focus-visible { outline: 2px solid var(--bronze); outline-offset: 2px; }
+
+  .erro {
+    color: var(--ambar); font-size: 13px; min-height: 22px; margin-top: 14px;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
   <div class="cartao">
-    <svg class="gema" viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
-        </linearGradient>
-        <linearGradient id="b" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
-        </linearGradient>
-        <radialGradient id="c" cx=".5" cy=".42" r=".5">
-          <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
-          <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#b)"/>
-      <path d="M14 7h20l8 11H6z" fill="url(#a)"/>
-      <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".3"/>
-      <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
-      <circle cx="24" cy="20" r="10" fill="url(#c)"/>
+    <!-- O mesmo medalhão da barra lateral: anel de bronze, chama de mármore. -->
+    <svg class="medalha" viewBox="0 0 48 48" aria-hidden="true" fill="none">
+      <circle cx="24" cy="24" r="21" stroke="var(--bronze)" stroke-width="1.1"/>
+      <circle cx="24" cy="24" r="17.5" stroke="var(--bronze)" stroke-width=".6"
+              opacity=".55" stroke-dasharray="2.6 5.2"/>
+      <g class="chama">
+        <path d="M24 11c5.4 5.2 8 9.4 8 13.4 0 4.7-3.6 8.2-8 8.2s-8-3.5-8-8.2
+                 c0-4 2.6-8.2 8-13.4z" fill="var(--texto)" opacity=".9"/>
+        <path d="M24 19.5c2.4 2.9 3.5 5 3.5 6.9 0 2.2-1.6 3.8-3.5 3.8
+                 s-3.5-1.6-3.5-3.8c0-1.9 1.1-4 3.5-6.9z" fill="var(--painel)"/>
+      </g>
+      <path d="M17 37h14" stroke="var(--bronze)" stroke-width="1" opacity=".7"/>
     </svg>
     <h1 id="titulo">LIVIA</h1>
     <p class="sub">acesso restrito</p>

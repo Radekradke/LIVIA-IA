@@ -46,9 +46,10 @@ log = logging.getLogger("livia.knowledge")
 
 # Como o resultado foi encontrado.
 VECTOR = "vector"
+LEXICAL = "lexical"
 GRAPH = "graph"
 HYBRID = "hybrid"
-MODOS = (VECTOR, GRAPH, HYBRID)
+MODOS = (VECTOR, LEXICAL, GRAPH, HYBRID)
 
 # De onde a afirmação vem. A distinção governa a hierarquia de confiança.
 FONTE = "source"        # está escrito no documento
@@ -77,6 +78,11 @@ class KnowledgeHit:
     title: str = ""
     page: int | None = None
     score: float | None = None
+    # A nota de fusão, quando o resultado veio de mais de uma busca. Separada
+    # de `score` porque as duas medem coisas incomparáveis: `score` é o número
+    # cru de quem achou (cosseno de 0 a 1 no vetor, BM25 negativo no lexical),
+    # e misturar as escalas é exatamente o erro que a fusão por posição evita.
+    fusao: float | None = None
     retrieval_type: str = VECTOR
     relation_path: list[str] | None = None   # ["Alice", "trabalha em", "Orion"]
     document_id: str | None = None
@@ -260,6 +266,71 @@ def deduplicar(hits: list[KnowledgeHit]) -> list[KnowledgeHit]:
     return [melhor[c] for c in ordem]
 
 
+# A constante do RRF. 60 é o valor do artigo original e virou padrão de
+# indústria. O que ela faz: amortece a diferença entre as primeiras posições,
+# para que estar em 1º numa lista não esmague estar em 2º e 3º nas outras.
+# Baixar isto premia o primeiro lugar; subir aproxima tudo da média.
+RRF_K = 60
+
+
+def fundir(listas: list[list[KnowledgeHit]], k: int = RRF_K) -> list[KnowledgeHit]:
+    """Junta buscas diferentes por POSIÇÃO, nunca por nota.
+
+    O problema que isto resolve não é óbvio até você tentar do jeito errado:
+    o cosseno do vetor vai de 0 a 1 e maior é melhor; o BM25 do lexical é
+    negativo, sem teto, e mais negativo é melhor. Somar, normalizar ou pesar
+    esses números exige calibração que muda com o modelo, com o corpus e com
+    o tamanho do documento — e quando desafina, desafina em silêncio.
+
+    O RRF (Reciprocal Rank Fusion) ignora as notas e olha só a colocação:
+
+        nota_fundida(item) = Σ  1 / (k + posição do item naquela lista)
+
+    Um trecho que aparece em duas listas soma duas parcelas e sobe. Um trecho
+    que só o lexical achou continua tendo sua chance — que é o ponto, porque
+    é justamente o código de erro que o vetor não acharia nunca.
+
+    Efeito colateral desejado: quem foi achado por mais de um caminho fica
+    marcado como HYBRID, e isso vira procedência visível no `/porque`.
+    """
+    pontos: dict[tuple, float] = {}
+    melhor: dict[tuple, KnowledgeHit] = {}
+    origens: dict[tuple, set[str]] = {}
+    ordem: list[tuple] = []
+
+    for lista in listas:
+        for posicao, hit in enumerate(lista, 1):
+            chave = hit.chave_dedup()
+            pontos[chave] = pontos.get(chave, 0.0) + 1.0 / (k + posicao)
+            origens.setdefault(chave, set()).add(hit.retrieval_type)
+
+            atual = melhor.get(chave)
+            if atual is None:
+                melhor[chave] = hit
+                ordem.append(chave)
+            elif _riqueza(hit) > _riqueza(atual):
+                # Empatou como "mesmo trecho": fica a versão que diz mais. Um
+                # resultado de grafo carrega o caminho da relação, e essa é a
+                # informação que nenhuma das outras buscas tem.
+                melhor[chave] = hit
+
+    saida: list[KnowledgeHit] = []
+    for chave in ordem:
+        hit = melhor[chave]
+        hit.fusao = pontos[chave]
+        if len(origens[chave]) > 1:
+            hit.retrieval_type = HYBRID
+        saida.append(hit)
+
+    saida.sort(key=lambda h: h.fusao or 0.0, reverse=True)
+    return saida
+
+
+def _riqueza(hit: KnowledgeHit) -> tuple:
+    """Entre duas versões do mesmo trecho, qual diz mais."""
+    return (bool(hit.relation_path), len(hit.text))
+
+
 def orcamento(
     hits: list[KnowledgeHit], max_itens: int, max_chars: int
 ) -> list[KnowledgeHit]:
@@ -280,7 +351,14 @@ def orcamento(
     def cabe(h: KnowledgeHit) -> bool:
         return len(escolhidos) < max_itens and gasto + len(h.text) <= max_chars
 
-    ordenados = sorted(hits, key=lambda h: (h.score or 0.0), reverse=True)
+    # A nota de fusão manda quando existe. Ordenar por `score` depois de uma
+    # busca híbrida compararia cosseno com BM25 — escalas incomparáveis, e o
+    # BM25, sendo negativo, iria para o fim da fila sempre.
+    ordenados = sorted(
+        hits,
+        key=lambda h: h.fusao if h.fusao is not None else (h.score or 0.0),
+        reverse=True,
+    )
 
     for rodada in (1, 2):
         for hit in ordenados:
