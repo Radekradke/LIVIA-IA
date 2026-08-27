@@ -1,0 +1,161 @@
+/* ============================================================
+   TOKENS — A Distância Entre Dois Encontros
+   Tese: "17h54". O site é a noite depois do expediente;
+   a história é papel. A linha de cota mede a distância.
+
+   Hierarquia:
+     1. Foundations  — valores crus, sem significado de produto
+     2. Semânticos   — o que os componentes têm permissão de usar
+     3. Componentes  — variações locais derivadas dos semânticos
+   ============================================================ */
+
+@layer tokens {
+  :root {
+    /* ---------- 1. FOUNDATIONS ---------- */
+
+    /* Paleta: tinta azul da noite + âmbar da lâmpada acesa depois do horário */
+    --c-ink-900: #080b0f;
+    --c-ink-800: #0d1219;
+    --c-ink-700: #131a23;
+    --c-ink-600: #1c2530;
+    --c-ink-500: #2a3542;
+    --c-ink-300: #7d8a97;
+    --c-ink-200: #97a2ad;
+    --c-ink-100: #c8cfd6;
+    --c-ink-050: #e9ecef;
+
+    --c-paper-050: #fbf8f2;
+    --c-paper-100: #f4efe4;
+    --c-paper-200: #e8e0d0;
+    --c-paper-300: #d3c8b3;
+
+    --c-lamp-600: #93591a;
+    --c-lamp-500: #d9902f;
+    --c-lamp-400: #e8ac53;
+    --c-lamp-300: #f0c483;
+
+    --c-signal-400: #7fb2a8;
+
+    /* Tipografia */
+    --f-display: "Bodoni Moda Variable", "Bodoni Moda", Georgia, serif;
+    --f-read: "Literata Variable", "Literata", Georgia, "Times New Roman", serif;
+    --f-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+
+    --fs-100: 0.6875rem;
+    --fs-200: 0.78125rem;
+    --fs-300: 0.9375rem;
+    --fs-400: 1.0625rem;
+    --fs-500: clamp(1.08rem, 0.98rem + 0.4vw, 1.22rem);
+    --fs-600: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
+    --fs-700: clamp(2rem, 1.3rem + 3vw, 3.5rem);
+    --fs-800: clamp(2.6rem, 1.4rem + 5.2vw, 6rem);
+    --fs-900: clamp(3rem, 1rem + 8.4vw, 9.5rem);
+
+    /* Espaço — escala única, sem valores avulsos */
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+    --sp-8: 4rem;
+    --sp-9: 6rem;
+    --sp-10: 8rem;
+    --sp-section: clamp(4rem, 10vw, 8.5rem);
+    --sp-gutter: clamp(1.25rem, 5vw, 4.5rem);
+
+    /* Traço e forma */
+    --radius-0: 0;
+    --radius-1: 2px;
+    --stroke-hair: 1px;
+    --stroke-bold: 2px;
+
+    /* Movimento — vocabulário fechado */
+    --dur-fast: 140ms;
+    --dur-mid: 320ms;
+    --dur-slow: 720ms;
+    --ease-out: cubic-bezier(0.22, 0.68, 0.24, 1);
+    --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+
+    /* Eixo óptico do display.
+       O corte de display do Bodoni Moda (opsz >= 24) desenha o "f" sem a
+       travessa esquerda: em português, "fechar" passa a ler "ſechar". Como os
+       títulos recebem texto arbitrário, todo o display fica no corte de texto,
+       compensando presença com peso em vez de contraste. */
+    --opsz-display: 8;
+
+    /* Medida de leitura */
+    --measure-read: 42rem;
+    --measure-copy: 46ch;
+    --width-page: 1180px;
+    --rail: clamp(2.75rem, 7vw, 6rem);
+
+    /* ---------- 2. SEMÂNTICOS (tema noite, padrão do site) ---------- */
+    --bg: var(--c-ink-900);
+    --bg-raised: var(--c-ink-800);
+    --bg-sunken: #05070a;
+    --bg-inverse: var(--c-paper-100);
+
+    --text: var(--c-ink-050);
+    --text-muted: var(--c-ink-200);
+    --text-faint: var(--c-ink-300);
+    --text-inverse: var(--c-ink-900);
+
+    --line: rgba(200, 207, 214, 0.14);
+    --line-strong: rgba(200, 207, 214, 0.32);
+    --line-rail: rgba(200, 207, 214, 0.09);
+
+    --accent: var(--c-lamp-400);
+    --accent-strong: var(--c-lamp-300);
+    --accent-quiet: rgba(232, 172, 83, 0.14);
+    --accent-text: var(--c-lamp-400);
+    /* texto legível POR CIMA do acento — independe de qual tema está claro */
+    --on-accent: var(--c-ink-900);
+
+    --focus: var(--c-lamp-300);
+    --texture-opacity: 0.05;
+  }
+
+  /* Tema papel — usado no leitor e por quem prefere ler claro */
+  [data-surface="paper"] {
+    --bg: var(--c-paper-100);
+    --bg-raised: var(--c-paper-050);
+    --bg-sunken: var(--c-paper-200);
+    --bg-inverse: var(--c-ink-900);
+
+    --text: #191510;
+    --text-muted: #5c5346;
+    --text-faint: #6e6355;
+    --text-inverse: var(--c-paper-050);
+
+    --line: rgba(25, 21, 16, 0.16);
+    --line-strong: rgba(25, 21, 16, 0.38);
+    --line-rail: rgba(25, 21, 16, 0.1);
+
+    --accent: var(--c-lamp-600);
+    --accent-strong: #7d4a14;
+    --accent-quiet: rgba(184, 117, 42, 0.1);
+    --accent-text: var(--c-lamp-600);
+    --on-accent: var(--c-paper-050);
+
+    --focus: var(--c-lamp-600);
+    --texture-opacity: 0.32;
+  }
+
+  /* ---------- 3. TOKENS DE COMPONENTE ---------- */
+  :root {
+    --btn-height: 3.25rem;
+    --btn-height-sm: 2.75rem;
+    --btn-pad-x: var(--sp-5);
+    --btn-font: var(--fs-100);
+    --btn-tracking: 0.16em;
+
+    --label-tracking: 0.22em;
+    --label-size: var(--fs-100);
+
+    --node-rail-width: 1px;
+    --node-dot: 9px;
+    --tap-min: 44px;
+  }
+}

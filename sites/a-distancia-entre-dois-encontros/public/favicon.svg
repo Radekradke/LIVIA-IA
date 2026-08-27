@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>A Distância Entre Dois Encontros</title>
+  <rect width="32" height="32" fill="#080b0f"/>
+  <!-- a marca é a própria cota: dois encontros e a distância entre eles -->
+  <line x1="7" y1="16" x2="25" y2="16" stroke="#e8ac53" stroke-width="1.5"/>
+  <circle cx="7" cy="16" r="4" fill="#e8ac53"/>
+  <circle cx="25" cy="16" r="4" fill="#e8ac53"/>
+</svg>
