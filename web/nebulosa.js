@@ -70,7 +70,7 @@
     criar: "nasceu", editar: "editada", abrir: "aberta", mencao: "falada no chat",
     ligar: "ligada", gate: "respondeu um gate", promover: "subiu", reviver: "revivida",
     estagio: "mudou de estágio", adotar: "adotada", rebaixar: "desceu",
-    nota: "ganhou uma nota", sistema: "mudou de sistema",
+    nota: "ganhou uma nota", sistema: "mudou de sistema", relatorio: "relatório de trabalho",
   };
 
   function relativo(iso) {
@@ -422,11 +422,12 @@
     if (i.proposta) chips.push(`<span class="chip livia">a Livia propõe</span>`);
     if (i.faltando && i.faltando.length && i.proximo)
       chips.push(`<span class="chip falta">faltam ${i.faltando.length}</span>`);
-    if (i.n_notas) chips.push(`<span class="chip lua" title="${i.n_notas} nota(s)">☾ ${i.n_notas}</span>`);
+    if (i.n_notas) chips.push(`<span class="chip lua" title="${i.n_notas} nota(s), ${i.n_relatorios || 0} relatório(s)">☾ ${i.n_notas}</span>`);
     // As notas são luas: pontinhos girando em volta do núcleo, cada uma no
-    // seu raio e no seu passo. Até seis; daí pra cima o chip conta.
-    const luas = Array.from({ length: Math.min(6, i.n_notas || 0) }, (_, k) =>
-      `<b style="--r:${15 + k * 6}px; --f:${(k * 137.5 + i.id * 40) % 360}deg; --v:${(7 + k * 3.1).toFixed(1)}s"></b>`).join("");
+    // seu raio e no seu passo. Até seis; daí pra cima o chip conta. Lua de
+    // relatório leva a cor da IA que ajudou.
+    const luas = (i.luas || []).map((ia, k) =>
+      `<b class="${ia ? `ia-${ia}` : ""}" style="--r:${15 + k * 6}px; --f:${(k * 137.5 + i.id * 40) % 360}deg; --v:${(7 + k * 3.1).toFixed(1)}s"></b>`).join("");
     return `
       <div class="estrela-topo">
         <i class="nucleo">${luas ? `<span class="luas">${luas}</span>` : ""}</i><span class="num">#${i.id}</span>
@@ -1285,7 +1286,8 @@
         (i.dias_sem_mexer != null
           ? (i.dias_sem_mexer < 1 ? " · mexida hoje" : ` · ${Math.floor(i.dias_sem_mexer)}d sem mexer`) : "") +
         (i.dias_ate_apagar && i.faixa !== "apagada" ? ` · apaga em ~${Math.ceil(i.dias_ate_apagar)}d` : "") +
-        (i.sistema_nome ? ` · ☉ ${esc(i.sistema_nome)}` : "") + (i.n_notas ? ` · ☾ ${i.n_notas}` : "");
+        (i.sistema_nome ? ` · ☉ ${esc(i.sistema_nome)}` : "") + (i.n_notas ? ` · ☾ ${i.n_notas}` : "") +
+        (i.n_relatorios ? ` · ⧉ ${i.n_relatorios} relatório${i.n_relatorios > 1 ? "s" : ""}` : "");
     return `<div class="linha-ideia f-${i.faixa}" data-id="${i.id}">
       <div class="chama">${Math.round(i.calor)}°</div>
       <div class="meio"><div class="t">#${i.id} ${esc(i.titulo)}</div><div class="s">${sub}</div></div>
@@ -1540,17 +1542,33 @@
 
         <div class="trilha">${trilha}</div>
 
-        <div class="rot"><span>Notas · as luas</span><span>${(i.notas || []).length || ""}</span></div>
+        <div class="rot"><span>Notas e relatórios · as luas</span><span>${(i.notas || []).length || ""}</span></div>
         <div class="notas-lista">
-          ${(i.notas || []).map((n) => `<div class="nota" data-nota="${n.id}">
+          ${(i.notas || []).map((n) => `<div class="nota ${n.tipo === "relatorio" ? `relatorio ia-${n.ia}` : ""}" data-nota="${n.id}">
+              ${n.tipo === "relatorio" ? `<div class="rel-topo"><span class="selo-ia">⧉ ${esc(n.ia_nome)}</span>
+                ${n.link ? `<a href="${esc(n.link)}" target="_blank" rel="noopener">abrir conversa ↗</a>` : ""}</div>` : ""}
               <p tabindex="0" title="clique para editar">${esc(n.texto)}</p>
               <small>${relativo(n.criado_em)}${n.origem && n.origem !== "manual" ? ` · ${esc(n.origem.startsWith("livia") ? "da conversa" : n.origem.startsWith("juntada") ? "veio de uma junção" : n.origem)}` : ""}</small>
-              <button class="x" data-apagar-nota="${n.id}" title="apagar nota">×</button>
+              <button class="x" data-apagar-nota="${n.id}" title="apagar">×</button>
             </div>`).join("")}
+        </div>
+        <div class="nova-nota-tipo" role="tablist">
+          <button class="ativa" data-tipo-nota="nota">☾ Nota</button>
+          <button data-tipo-nota="relatorio" title="Registrar trabalho feito com outra IA">⧉ Relatório</button>
+        </div>
+        <div class="rel-campos" hidden>
+          <div class="ias">
+            ${[["claude", "Claude"], ["gemini", "Gemini"], ["gpt", "ChatGPT"], ["outra", "Outra"]].map(([k, nome]) =>
+              `<button type="button" class="ia-${k}" data-ia="${k}">${nome}</button>`).join("")}
+          </div>
+          <input class="campo" id="gvRelLink" placeholder="link da conversa (opcional)">
         </div>
         <div class="nova-nota">
           <textarea id="gvNovaNota" rows="2" placeholder="Um pensamento sobre esta ideia… (Ctrl+Enter)"></textarea>
-          <button class="neb-btn" id="gvAddNota">☾ Nova lua</button>
+          <div class="nova-nota-botoes">
+            <button class="neb-btn" id="gvResumir" hidden title="A Livia condensa a conversa colada no que foi feito, decidido e o próximo passo">✦ Livia resume</button>
+            <button class="neb-btn" id="gvAddNota">☾ Nova lua</button>
+          </div>
         </div>
 
         ${gs.length ? `
@@ -1639,11 +1657,45 @@
 
     g("#gvSistema").onchange = (e) => moverParaSistema(i.id, e.target.value ? +e.target.value : null);
     if (g("#gvVerSistema")) g("#gvVerSistema").onclick = (e) => { e.preventDefault(); abrirSistema(i.sistema_id); };
+    // Nota ou relatório: o mesmo campo de texto, com IA e link a mais.
+    let tipoNota = "nota", iaNota = "";
+    const pintarTipo = () => {
+      gaveta.querySelectorAll("[data-tipo-nota]").forEach((b) => b.classList.toggle("ativa", b.dataset.tipoNota === tipoNota));
+      const rel = tipoNota === "relatorio";
+      g(".rel-campos").hidden = !rel;
+      g("#gvResumir").hidden = !rel;
+      g("#gvNovaNota").rows = rel ? 5 : 2;
+      g("#gvNovaNota").placeholder = rel
+        ? "O que foi feito com a IA — ou cole a conversa inteira e peça pra Livia resumir"
+        : "Um pensamento sobre esta ideia… (Ctrl+Enter)";
+      g("#gvAddNota").textContent = rel ? "⧉ Salvar relatório" : "☾ Nova lua";
+      gaveta.querySelectorAll("[data-ia]").forEach((b) => b.classList.toggle("sel", b.dataset.ia === iaNota));
+    };
+    gaveta.querySelectorAll("[data-tipo-nota]").forEach((b) => { b.onclick = () => { tipoNota = b.dataset.tipoNota; pintarTipo(); }; });
+    gaveta.querySelectorAll("[data-ia]").forEach((b) => { b.onclick = () => { iaNota = b.dataset.ia; pintarTipo(); }; });
+    g("#gvResumir").onclick = async () => {
+      const texto = g("#gvNovaNota").value.trim();
+      if (!texto) { aviso("Cole a conversa no campo primeiro."); return; }
+      const botao = g("#gvResumir");
+      botao.disabled = true; botao.textContent = "✦ resumindo…";
+      try {
+        const r = await api("/api/nebulosa/relatorios/resumir", { method: "POST", body: { texto, titulo: i.titulo } });
+        g("#gvNovaNota").value = r.texto;
+        if (r.ia && !iaNota) iaNota = r.ia;
+        pintarTipo();
+        aviso(r.resumido ? "Resumi. Revise antes de salvar." : "Não consegui resumir agora — o texto ficou como estava.");
+      } catch (err) { falha(err); }
+      finally { botao.disabled = false; botao.textContent = "✦ Livia resume"; }
+    };
     const addNota = async () => {
       const texto = g("#gvNovaNota").value.trim();
       if (!texto) return;
+      if (tipoNota === "relatorio" && !iaNota) { aviso("Escolha com qual IA foi o trabalho."); return; }
+      const corpo = tipoNota === "relatorio"
+        ? { texto, tipo: "relatorio", ia: iaNota, link: g("#gvRelLink").value.trim() }
+        : { texto };
       try {
-        await api(`/api/nebulosa/ideias/${i.id}/notas`, { method: "POST", body: { texto } });
+        await api(`/api/nebulosa/ideias/${i.id}/notas`, { method: "POST", body: corpo });
         await recarregar();
         await abrirGaveta(i.id, { silencioso: true });
         pulsar([i.id]);
@@ -1687,6 +1739,7 @@
       if (e.tipo === "gate" && d.gate) extra = `: ${d.gate}${d.origem === "livia:conversa" ? " (na conversa)" : ""}`;
       if (e.tipo === "criar" && d.origem && d.origem !== "manual") extra = ` (${d.origem.replace("livia:", "livia · ")})`;
       if (e.tipo === "sistema") extra = d.nome ? ` → ☉ ${d.nome}` : " → solta no céu";
+      if (e.tipo === "relatorio" && d.ia) extra = ` (${{ claude: "Claude", gemini: "Gemini", gpt: "ChatGPT" }[d.ia] || "outra IA"})`;
     } catch { /* detalhe livre */ }
     return (EVENTO_NOME[e.tipo] || e.tipo) + extra;
   }

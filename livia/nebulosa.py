@@ -109,6 +109,7 @@ PESOS = {
     "abrir": 1.5,
     "adotar": 12.0,
     "nota": 5.0,
+    "relatorio": 9.0,   # trabalho de verdade numa ideia esquenta mais que um lembrete
     "sistema": 3.0,
 }
 CALOR_MAX = 100.0
@@ -381,6 +382,8 @@ def publico(
         "sistema_nome": extra["sistemas"].get(linha.get("sistema_id")) if linha.get("sistema_id") else None,
         "orbita_fase": linha.get("orbita_fase"),
         "n_notas": extra["notas"].get(id_, 0),
+        "n_relatorios": extra["relatorios"].get(id_, 0),
+        "luas": extra["luas"].get(id_, []),
         "criado_em": linha.get("criado_em") or "",
         "atualizado_em": linha.get("atualizado_em") or "",
     }
@@ -391,15 +394,26 @@ def _extras(ids: list[int] | None = None) -> dict[str, object]:
         nomes = {int(r["id"]): r["nome"] for r in conn.execute("SELECT id, nome FROM sistemas")}
         if ids is None:
             linhas = conn.execute(
-                "SELECT ideia_id, COUNT(*) AS n FROM ideia_notas GROUP BY ideia_id"
+                "SELECT ideia_id, tipo, ia FROM ideia_notas ORDER BY id"
             ).fetchall()
         else:
             marcas = ",".join("?" * len(ids)) or "NULL"
             linhas = conn.execute(
-                f"SELECT ideia_id, COUNT(*) AS n FROM ideia_notas WHERE ideia_id IN ({marcas}) "
-                "GROUP BY ideia_id", ids,
+                f"SELECT ideia_id, tipo, ia FROM ideia_notas WHERE ideia_id IN ({marcas}) "
+                "ORDER BY id", ids,
             ).fetchall()
-    return {"sistemas": nomes, "notas": {int(r["ideia_id"]): int(r["n"]) for r in linhas}}
+    contagem: dict[int, int] = {}
+    luas: dict[int, list[str]] = {}
+    relatorios: dict[int, int] = {}
+    for r in linhas:
+        k = int(r["ideia_id"])
+        contagem[k] = contagem.get(k, 0) + 1
+        # Cada lua leva a "cor" de quem ajudou: a IA do relatório, ou nada.
+        luas.setdefault(k, []).append(r["ia"] if r["tipo"] == "relatorio" else "")
+        if r["tipo"] == "relatorio":
+            relatorios[k] = relatorios.get(k, 0) + 1
+    return {"sistemas": nomes, "notas": contagem,
+            "luas": {k: v[-6:] for k, v in luas.items()}, "relatorios": relatorios}
 
 
 def listar(*, incluir_arquivadas: bool = True) -> list[dict[str, object]]:
@@ -588,30 +602,97 @@ def anotar(id_: object, texto: str, *, conversa: int | None = None, origem: str 
 # --------------------------------------------------------------------------
 
 
+# As IAs que o André usa fora da Livia. "outra" cobre o resto; o nome livre
+# dela vai no texto. A chave curta é o que aparece no padrão e na cor da lua.
+IAS = {"claude": "Claude", "gemini": "Gemini", "gpt": "ChatGPT", "outra": "outra IA"}
+
+
+def _ia(valor: object) -> str:
+    v = str(valor or "").strip().lower()
+    apelidos = {"chatgpt": "gpt", "openai": "gpt", "gpt-4": "gpt", "gpt4": "gpt", "anthropic": "claude",
+                "bard": "gemini", "google": "gemini", "geminiani": "gemini"}
+    v = apelidos.get(v, v)
+    return v if v in IAS else ("outra" if v else "")
+
+
 def notas(id_: int) -> list[dict[str, object]]:
     with db._connect() as conn:
         linhas = conn.execute(
-            "SELECT id, texto, origem, criado_em, atualizado_em FROM ideia_notas "
+            "SELECT id, texto, origem, tipo, ia, link, criado_em, atualizado_em FROM ideia_notas "
             "WHERE ideia_id = ? ORDER BY id", (int(id_),),
         ).fetchall()
-    return [dict(l) for l in linhas]
+    saida = []
+    for l in linhas:
+        d = dict(l)
+        d["ia_nome"] = IAS.get(d["ia"], "") if d["tipo"] == "relatorio" else ""
+        saida.append(d)
+    return saida
 
 
-def adicionar_nota(id_: object, texto: str, *, origem: str = "manual", conversa: int | None = None) -> dict[str, object]:
+def adicionar_nota(
+    id_: object, texto: str, *, origem: str = "manual", conversa: int | None = None,
+    tipo: str = "nota", ia: str = "", link: str = "",
+) -> dict[str, object]:
+    """Uma lua nova. tipo="relatorio" é o registro de uma sessão de trabalho
+    com outra IA: qual foi (ia), onde ficou a conversa (link) e o que saiu."""
     linha = _exigir(id_)
     texto = (texto or "").strip()
     if not texto:
         raise NebulosaError("Nota vazia.")
+    tipo = "relatorio" if tipo == "relatorio" else "nota"
+    ia = _ia(ia) if tipo == "relatorio" else ""
+    if tipo == "relatorio" and not ia:
+        raise NebulosaError("Relatório precisa dizer qual IA: claude, gemini, gpt ou outra.")
+    link = (link or "").strip()[:500] if tipo == "relatorio" else ""
+    if link and not link.startswith(("http://", "https://")):
+        raise NebulosaError("O link precisa começar com http:// ou https://.")
     agora = _iso()
     with db._connect() as conn:
         cur = conn.execute(
-            "INSERT INTO ideia_notas (ideia_id, texto, origem, criado_em, atualizado_em) "
-            "VALUES (?, ?, ?, ?, ?)", (linha["id"], texto[:8000], origem, agora, agora),
+            "INSERT INTO ideia_notas (ideia_id, texto, origem, tipo, ia, link, criado_em, atualizado_em) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (linha["id"], texto[:8000], origem, tipo, ia, link, agora, agora),
         )
         nota = int(cur.lastrowid)
-        _evento(conn, int(linha["id"]), "nota", {"nota": nota, "origem": origem}, conversa)
+        _evento(conn, int(linha["id"]), tipo,
+                {"nota": nota, "origem": origem, **({"ia": ia} if ia else {})}, conversa)
     return {"id": nota, "ideia_id": int(linha["id"]), "texto": texto[:8000], "origem": origem,
+            "tipo": tipo, "ia": ia, "ia_nome": IAS.get(ia, ""), "link": link,
             "criado_em": agora, "atualizado_em": agora}
+
+
+async def resumir_relatorio(texto: str, *, titulo: str = "") -> dict[str, object]:
+    """Condensa uma conversa colada (com Claude, Gemini, GPT…) num relatório curto.
+
+    Não grava nada: devolve o rascunho para o André revisar antes de salvar.
+    Se nenhum modelo responder, devolve o próprio texto cortado — o botão
+    não pode simplesmente sumir com o que ele colou.
+    """
+    from . import brain
+
+    texto = (texto or "").strip()
+    if not texto:
+        raise NebulosaError("Cole a conversa ou escreva o que foi feito.")
+    esquema = {"type": "object", "properties": {
+        "feito": {"type": "string"}, "decisoes": {"type": "array", "items": {"type": "string"}},
+        "proximos": {"type": "array", "items": {"type": "string"}},
+        "ia": {"type": "string", "description": "claude, gemini, gpt, outra ou vazio se não der pra saber"},
+    }, "required": ["feito"]}
+    sistema = (
+        "Você resume sessões de trabalho que o André teve com outra IA sobre uma ideia dele. "
+        "Em português, direto, sem floreio. 'feito': 1 a 3 frases do que foi produzido de concreto. "
+        "'decisoes': o que ficou decidido. 'proximos': próximos passos que apareceram. "
+        "Não invente nada que não esteja no texto."
+    )
+    r = await brain.structured(sistema, f"IDEIA: {titulo}\n\nCONVERSA:\n{texto[:24000]}", esquema)
+    if not isinstance(r, dict) or not str(r.get("feito") or "").strip():
+        return {"texto": texto[:4000], "ia": "", "resumido": False}
+    partes = [str(r["feito"]).strip()]
+    if r.get("decisoes"):
+        partes.append("Decidido:\n" + "\n".join(f"- {d}" for d in r["decisoes"][:8]))
+    if r.get("proximos"):
+        partes.append("Próximos passos:\n" + "\n".join(f"- {d}" for d in r["proximos"][:8]))
+    return {"texto": "\n\n".join(partes), "ia": _ia(r.get("ia")), "resumido": True}
 
 
 def editar_nota(nota_id: int, texto: str) -> dict[str, object]:
@@ -1805,7 +1886,30 @@ def padroes() -> list[dict[str, object]]:
             len(tempos), 0.6,
         )
 
-    # 5) Por que as ideias vão para o arquivo.
+    # 5) Com qual IA as ideias andam. Compara quem chegou a Validada entre
+    #    as ideias trabalhadas com cada IA e as que nunca tiveram relatório.
+    with db._connect() as conn:
+        rel = conn.execute(
+            "SELECT DISTINCT ideia_id, ia FROM ideia_notas WHERE tipo = 'relatorio'").fetchall()
+    por_ia: dict[str, set[int]] = {}
+    for r in rel:
+        por_ia.setdefault(r["ia"], set()).add(int(r["ideia_id"]))
+    com_rel = set().union(*por_ia.values()) if por_ia else set()
+    sem_rel = [h for i, h in hist.items() if i not in com_rel]
+    base_sem = sum(_chegou(h, "validada") for h in sem_rel) / len(sem_rel) if len(sem_rel) >= minimo else None
+    for ia, ids in sorted(por_ia.items(), key=lambda kv: -len(kv[1])):
+        hs = [hist[i] for i in ids if i in hist]
+        if len(hs) < minimo:
+            continue
+        taxa = sum(_chegou(h, "validada") for h in hs) / len(hs)
+        comparado = (f", contra {round(base_sem * 100)}% das que você não levou pra IA nenhuma"
+                     if base_sem is not None else "")
+        add(f"ia-{ia}", f"Trabalhando com {IAS.get(ia, ia)}",
+            f"Das {len(hs)} ideias que você trabalhou com {IAS.get(ia, ia)}, "
+            f"{round(taxa * 100)}% chegaram a Validada{comparado}.",
+            len(hs), abs(taxa - (base_sem if base_sem is not None else 0.5)))
+
+    # 6) Por que as ideias vão para o arquivo.
     motivos: dict[str, int] = {}
     for h in hist.values():
         if h["atual"] == "arquivada" and h["motivo"] and not h["motivo"].startswith("juntada"):
@@ -1889,7 +1993,8 @@ Se ela estiver esfriando, pode lembrar disso em uma frase — sem sermão.
 "Lifting"…); as ideias orbitam o sol do sistema e as notas de cada ideia são \
 as luas. Crie sistema ou mova ideia entre sistemas só quando ele pedir. \
 Pensamentos novos sobre uma ideia que já existe viram NOTA (anotar_ideia), \
-não ideia nova.
+não ideia nova. Se ele contar que trabalhou na ideia com outra IA (Claude, \
+Gemini, ChatGPT), registre um RELATÓRIO (registrar_relatorio).
 """
 
 
@@ -1953,7 +2058,9 @@ async def contexto(pergunta: str, user: str) -> tuple[str, list[dict[str, object
     for linha, _nota in achadas:
         i = publico(linha)
         gates_txt = "".join(f"\n  {g}: {v}" for g, v in i["gates"].items())
-        notas_txt = "".join(f"\n  · {n['texto'][:240]}" for n in notas(i["id"])[-5:])
+        notas_txt = "".join(
+            f"\n  · {'[relatório · ' + n['ia_nome'] + '] ' if n['tipo'] == 'relatorio' else ''}{n['texto'][:240]}"
+            for n in notas(i["id"])[-5:])
         blocos.append(
             f"- {_linha_prompt(i)}\n  {(i['conteudo'] or '(sem texto)')[:700]}"
             + (f"\n  respostas dos gates:{gates_txt}" if gates_txt else "")
@@ -1978,7 +2085,8 @@ def _fmt(i: dict[str, object]) -> str:
     if i["conteudo"]:
         linhas.append(str(i["conteudo"])[:1500])
     for n in notas(int(i["id"]))[-8:]:
-        linhas.append(f"nota #{n['id']}: {n['texto'][:400]}")
+        rotulo = f"relatório ({n['ia_nome']})" if n["tipo"] == "relatorio" else "nota"
+        linhas.append(f"{rotulo} #{n['id']}: {n['texto'][:400]}" + (f" — {n['link']}" if n["link"] else ""))
     if i["gates"]:
         linhas.append("Respostas: " + "; ".join(f"{g}={v}" for g, v in i["gates"].items()))
     if i["proposta"]:
@@ -2007,6 +2115,12 @@ def _t_ver(a: dict[str, object], conversa: int | None = None) -> str:
 def _t_anotar(a: dict[str, object], conversa: int | None = None) -> str:
     i = anotar(a.get("id"), str(a.get("texto") or ""), conversa=conversa, origem="livia:conversa")
     return f"Nota nova na #{i['id']} (agora são {i['n_notas']}). Ela está {rotulo_faixa(i['faixa'])}."
+
+
+def _t_relatorio(a: dict[str, object], conversa: int | None = None) -> str:
+    n = adicionar_nota(a.get("id"), str(a.get("texto") or ""), origem="livia:conversa", conversa=conversa,
+                       tipo="relatorio", ia=str(a.get("ia") or ""), link=str(a.get("link") or ""))
+    return f"Relatório ({n['ia_nome']}) registrado na #{n['ideia_id']}."
 
 
 def _t_criar_sistema(a: dict[str, object], conversa: int | None = None) -> str:
@@ -2131,6 +2245,20 @@ CATALOGO: list[dict[str, object]] = [
         }, "required": ["tipo", "id", "motivo"]},
     },
     {
+        "name": "registrar_relatorio",
+        "description": (
+            "Registra numa ideia um RELATÓRIO de trabalho feito com outra IA (Claude, Gemini, "
+            "ChatGPT…): o que foi feito, qual IA e, se ele deu, o link da conversa. Use quando "
+            "o André contar que trabalhou numa ideia em outro lugar."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "id": _ID,
+            "ia": {"type": "string", "enum": ["claude", "gemini", "gpt", "outra"]},
+            "texto": {"type": "string", "description": "O que foi feito, decidido e o próximo passo."},
+            "link": {"type": "string"},
+        }, "required": ["id", "ia", "texto"]},
+    },
+    {
         "name": "criar_sistema",
         "description": (
             "Cria um sistema solar (uma categoria) e põe ideias em órbita. SÓ quando o "
@@ -2171,6 +2299,7 @@ EXECUTORES = {
     "resumo_nebulosa": _t_resumo,
     "criar_sistema": _t_criar_sistema,
     "colocar_no_sistema": _t_colocar,
+    "registrar_relatorio": _t_relatorio,
 }
 
 
@@ -2193,6 +2322,7 @@ def resumir(nome: str, argumentos: dict[str, object]) -> str | None:
         "sugerir_na_nebulosa": lambda a: f"sugerindo {a.get('tipo')} para a #{a.get('id')}",
         "resumo_nebulosa": lambda a: "olhando a Nebulosa",
         "criar_sistema": lambda a: f"criando o sistema «{a.get('nome')}»",
+        "registrar_relatorio": lambda a: f"registrando relatório ({a.get('ia')}) na #{a.get('id')}",
         "colocar_no_sistema": lambda a: f"movendo a ideia #{a.get('id')} para {a.get('sistema')}",
     }
     f = rotulos.get(nome)

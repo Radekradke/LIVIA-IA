@@ -323,10 +323,23 @@ async def colocar(request: Request) -> Response:
 async def criar_nota(request: Request) -> Response:
     dados = await _corpo(request)
     try:
-        nota = nebulosa.adicionar_nota(request.path_params["id"], str(dados.get("texto") or ""))
+        nota = nebulosa.adicionar_nota(
+            request.path_params["id"], str(dados.get("texto") or ""),
+            tipo=str(dados.get("tipo") or "nota"), ia=str(dados.get("ia") or ""),
+            link=str(dados.get("link") or ""),
+        )
     except nebulosa.NebulosaError as exc:
         return _erro(exc)
     return JSONResponse({"nota": nota})
+
+
+async def resumir_relatorio(request: Request) -> Response:
+    dados = await _corpo(request)
+    try:
+        return JSONResponse(await nebulosa.resumir_relatorio(
+            str(dados.get("texto") or ""), titulo=str(dados.get("titulo") or "")))
+    except nebulosa.NebulosaError as exc:
+        return _erro(exc)
 
 
 async def alterar_nota(request: Request) -> Response:
@@ -350,6 +363,7 @@ routes = [
     Route("/api/nebulosa/ideias/{id:int}/sistema", colocar, methods=["POST"]),
     Route("/api/nebulosa/ideias/{id:int}/notas", criar_nota, methods=["POST"]),
     Route("/api/nebulosa/notas/{id:int}", alterar_nota, methods=["PATCH"]),
+    Route("/api/nebulosa/relatorios/resumir", resumir_relatorio, methods=["POST"]),
     Route("/api/nebulosa/notas/{id:int}", apagar_nota, methods=["DELETE"]),
     Route("/api/nebulosa", estado),
     Route("/api/nebulosa/ideias", criar, methods=["POST"]),

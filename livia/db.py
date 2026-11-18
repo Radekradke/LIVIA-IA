@@ -285,6 +285,10 @@ _COLUNAS = [
     ("ideias", "sistema_id", "INTEGER REFERENCES sistemas(id) ON DELETE SET NULL"),
     ("ideias", "orbita_fase", "REAL"),
     ("ideia_sugestoes", "dados", "TEXT NOT NULL DEFAULT ''"),
+    # relatórios: a nota que registra trabalho feito com outra IA
+    ("ideia_notas", "tipo", "TEXT NOT NULL DEFAULT 'nota'"),
+    ("ideia_notas", "ia", "TEXT NOT NULL DEFAULT ''"),
+    ("ideia_notas", "link", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 

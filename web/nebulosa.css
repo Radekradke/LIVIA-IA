@@ -757,3 +757,34 @@ body:not(.modo-lado) .divisor { display: none; }
 .cartao-meta .sist { color: var(--brilho); }
 .gaveta .nova-nota textarea { min-height: 52px; }
 .gaveta #gsDesc { min-height: 64px; }
+
+/* ─────────────── relatórios (trabalho com outra IA) ───────────────
+   Cada IA tem uma cor discreta, puxada da paleta do céu: a lua do
+   relatório gira com ela, e o selo na gaveta repete. */
+.ia-claude { --ia: #d9a27e; }
+.ia-gemini { --ia: #8fb4f0; }
+.ia-gpt    { --ia: #8fd3bd; }
+.ia-outra  { --ia: #c3b6e8; }
+.nucleo .luas b[class^="ia-"] {
+  background: radial-gradient(circle at 35% 35%, #fff, var(--ia) 55%, color-mix(in srgb, var(--ia) 60%, #000));
+  box-shadow: 0 0 6px var(--ia), 0 0 14px color-mix(in srgb, var(--ia) 55%, transparent);
+  width: 6px; height: 6px; left: -3px; top: -3px;
+}
+.nota.relatorio { border-left-color: var(--ia); background: color-mix(in srgb, var(--ia) 6%, transparent); }
+.rel-topo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; font-size: 11px; font-family: var(--mono); }
+.selo-ia { color: var(--ia); letter-spacing: .06em; }
+.rel-topo a { color: var(--texto-fraco); text-decoration: none; }
+.rel-topo a:hover { color: var(--brilho); }
+.nova-nota-tipo { display: flex; gap: 4px; margin-top: 10px; }
+.nova-nota-tipo button, .rel-campos .ias button {
+  background: none; border: 1px solid var(--linha); color: var(--texto-fraco);
+  border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer;
+}
+.nova-nota-tipo button.ativa { color: var(--creme); border-color: var(--brilho); background: rgba(140,146,217,.12); }
+.rel-campos { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.rel-campos[hidden] { display: none; }
+.rel-campos .ias { display: flex; gap: 6px; flex-wrap: wrap; }
+.rel-campos .ias button { color: var(--ia); border-color: color-mix(in srgb, var(--ia) 35%, transparent); }
+.rel-campos .ias button.sel { background: color-mix(in srgb, var(--ia) 18%, transparent); border-color: var(--ia); color: var(--creme); }
+.nova-nota-botoes { display: flex; flex-direction: column; gap: 6px; }
+.nova-nota-botoes [hidden] { display: none; }

@@ -531,3 +531,62 @@ def test_nomic_ganha_prefixo_de_tarefa_e_muda_a_assinatura(monkeypatch):
     assert embeddings.chave_cache("ollama").endswith("+prefixo")
     monkeypatch.setattr(config, "OLLAMA_EMBED_MODEL", "mxbai-embed-large")
     assert embeddings._preparar_ollama("oi", embeddings.PERGUNTA) == "oi"
+
+
+# ── relatórios: trabalho feito com outra IA ───────────────────────────────
+
+
+def test_relatorio_guarda_ia_e_link_e_aquece_mais_que_nota():
+    a = nebulosa.criar("ideia a"); b = nebulosa.criar("ideia b")
+    _envelhecer(a["id"], 72); _envelhecer(b["id"], 72)
+    nebulosa.adicionar_nota(a["id"], "lembrete")
+    r = nebulosa.adicionar_nota(b["id"], "montei o MVP com ele", tipo="relatorio",
+                                ia="ChatGPT", link="https://chatgpt.com/share/abc")
+    assert (r["ia"], r["ia_nome"]) == ("gpt", "ChatGPT")      # apelido normalizado
+    assert nebulosa.notas(b["id"])[0]["link"] == "https://chatgpt.com/share/abc"
+    pb = nebulosa.publico(nebulosa.obter(b["id"]))
+    assert pb["calor"] > nebulosa.publico(nebulosa.obter(a["id"]))["calor"]
+    assert pb["n_relatorios"] == 1 and pb["luas"] == ["gpt"]
+
+
+def test_relatorio_sem_ia_ou_com_link_estranho_recusa():
+    i = nebulosa.criar("ideia")
+    with pytest.raises(nebulosa.NebulosaError):
+        nebulosa.adicionar_nota(i["id"], "x", tipo="relatorio")
+    with pytest.raises(nebulosa.NebulosaError):
+        nebulosa.adicionar_nota(i["id"], "x", tipo="relatorio", ia="claude", link="javascript:alert(1)")
+
+
+async def test_resumir_relatorio_cai_no_texto_quando_modelo_nao_responde(monkeypatch):
+    from livia import brain
+
+    async def nada(*a, **k):
+        return None
+    monkeypatch.setattr(brain, "structured", nada)
+    r = await nebulosa.resumir_relatorio("conversa longa colada aqui")
+    assert r == {"texto": "conversa longa colada aqui", "ia": "", "resumido": False}
+
+    async def resumo(*a, **k):
+        return {"feito": "Fiz o loop de combate.", "proximos": ["testar inimigos"], "ia": "claude"}
+    monkeypatch.setattr(brain, "structured", resumo)
+    r = await nebulosa.resumir_relatorio("...")
+    assert r["resumido"] and r["ia"] == "claude" and "- testar inimigos" in r["texto"]
+
+
+async def test_livia_registra_relatorio_pela_conversa():
+    from livia import ferramentas
+
+    i = nebulosa.criar("jogo de combos")
+    texto, ok = await ferramentas.executar_async(
+        "registrar_relatorio", {"id": i["id"], "ia": "gemini", "texto": "fechei as 30 cartas"})
+    assert ok and "Gemini" in texto
+    assert "relatório (Gemini)" in nebulosa._fmt(nebulosa.publico(nebulosa.obter(i["id"])))
+
+
+def test_rota_de_relatorio(logado):
+    i = logado.post("/api/nebulosa/ideias", json={"conteudo": "ideia"}).json()["ideia"]
+    r = logado.post(f"/api/nebulosa/ideias/{i['id']}/notas",
+                    json={"texto": "feito", "tipo": "relatorio", "ia": "claude"})
+    assert r.status_code == 200 and r.json()["nota"]["ia"] == "claude"
+    assert logado.post(f"/api/nebulosa/ideias/{i['id']}/notas",
+                       json={"texto": "feito", "tipo": "relatorio"}).status_code == 400
