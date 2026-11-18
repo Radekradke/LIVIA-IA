@@ -32,7 +32,7 @@
  * chama respondWith, e o navegador faz o de sempre.
  */
 
-const VERSAO = "livia-v2";
+const VERSAO = "livia-v3";
 const CASCA = `${VERSAO}-casca`;
 const DADOS = `${VERSAO}-dados`;
 
@@ -44,6 +44,8 @@ const ARQUIVOS_DA_CASCA = [
   "/icones/icone-512.png",
   "/manifest.webmanifest",
   "/assets/nebulosa.js",
+  "/assets/galaxia.js",
+  "/assets/cosmologia.css",
   "/assets/nebulosa.css",
 ];
 

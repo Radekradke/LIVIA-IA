@@ -1059,6 +1059,8 @@ async def index(request: Request) -> Response:
 # Arquivos da interface além do index. Lista fechada, como os ícones: o nome
 # vem da URL, então quem decide o que pode ser servido é o código.
 _ASSETS = {
+    "cosmologia.css": "text/css",
+    "galaxia.js": "application/javascript",
     "nebulosa.js": "application/javascript",
     "nebulosa.css": "text/css",
 }
@@ -1477,6 +1479,8 @@ async def sair(request: Request) -> Response:
 
 routes = [
     Route("/", index),
+    Route("/chat", index),
+    Route("/ceu", index),
     Route("/manifest.webmanifest", manifesto),
     Route("/sw.js", serviceworker),
     Route("/icones/{nome:str}", icone),

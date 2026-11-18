@@ -44,6 +44,17 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  const canal = "BroadcastChannel" in window ? new BroadcastChannel("livia-nebulosa-sync") : null;
+  let sincronizar;
+  if (canal) canal.onmessage = () => {
+    clearTimeout(sincronizar);
+    sincronizar = setTimeout(recarregar, 100);
+  };
+  function atualizarJanelas() {
+    canal?.postMessage("recarregar");
+    return recarregar();
+  }
+
   async function api(url, opcoes = {}) {
     const init = { method: opcoes.method || "GET", headers: {} };
     if (opcoes.body !== undefined) {
@@ -59,6 +70,7 @@
       erro.dados = dados;
       throw erro;
     }
+    if (init.method !== "GET" || url.endsWith("?abrir=1")) canal?.postMessage("recarregar");
     return dados;
   }
 
@@ -102,6 +114,7 @@
     <div class="neb-corpo">
       <div class="neb-vista ativa" data-vista="ceu">
         <div class="ceu" id="ceu" tabindex="0" aria-label="Céu de ideias">
+          <canvas class="galaxia" aria-hidden="true"></canvas>
           <div class="mundo" id="mundo">
             <div class="borda-escura" id="borda"></div>
             <div class="borda-rotulo" id="bordaRotulo">borda escura</div>
@@ -133,6 +146,7 @@
     </div>`;
 
   const ceu = $n("#ceu");
+  const atualizarGalaxia = instalarGalaxia($n(".galaxia"), N.cam);
   const mundo = $n("#mundo");
   const fios = $n("#fios");
   const camadaEstrelas = $n("#estrelas");
@@ -274,6 +288,7 @@
   // ───────────────────────── céu: câmera ─────────────────────────
 
   function aplicarCamera() {
+    atualizarGalaxia?.();
     mundo.style.transform = `translate(${N.cam.x}px, ${N.cam.y}px) scale(${N.cam.s})`;
     ceu.classList.toggle("lod-longe", N.cam.s < 0.42);
     ceu.classList.toggle("lod-medio", N.cam.s >= 0.42 && N.cam.s < 0.8);
@@ -397,6 +412,11 @@
       if (!el) {
         el = document.createElement("div");
         el.dataset.id = i.id;
+        el.tabIndex = 0;
+        el.setAttribute("role", "button");
+        el.onkeydown = e => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirGaveta(i.id); }
+        };
         camadaEstrelas.appendChild(el);
         elementos.set(i.id, el);
       }
@@ -406,6 +426,10 @@
       if (el.classList.contains("aquecendo")) classes.push("aquecendo");
       el.className = classes.join(" ");
       el.style.setProperty("--g", (Math.min(100, i.calor) / 100).toFixed(2));
+      const calor = i.calor;
+      const espectro = calor >= 90 ? "#fffbeb" : calor >= 70 ? "#f59e0b" : calor >= 40 ? "#e879f9" : calor >= 20 ? "#38bdf8" : "#758499";
+      el.style.setProperty("--c", espectro);
+      el.setAttribute("aria-label", i.titulo + ", " + Math.round(calor) + " graus");
       el.title = `${i.titulo} — ${i.estagio_nome}, ${FAIXA_NOME[i.faixa]} (${Math.round(i.calor)}°)`;
       const html = htmlEstrela(i);
       if (el._html !== html) { el.innerHTML = html; el._html = html; }
@@ -432,22 +456,34 @@
 
   function desenharFios() {
     const linhas = [];
+    function filamento(a, b, classe, inicio, fim) {
+      const cx = (a.x + b.x) / 2 - (b.y - a.y) * .08;
+      const cy = (a.y + b.y) / 2 + (b.x - a.x) * .08;
+      return `<path class="${classe}" data-a="${inicio}" data-b="${fim}" d="M${a.x},${a.y} Q${cx},${cy} ${b.x},${b.y}"/>`;
+    }
     const ligadas = new Set();
     for (const l of N.estado?.ligacoes || []) {
       const a = N.pos.get(l.a), b = N.pos.get(l.b);
       if (!a || !b || !elementos.has(l.a) || !elementos.has(l.b)) continue;
       ligadas.add(`${l.a}-${l.b}`);
       const classe = l.origem === "ponte" ? "fio-ponte" : "fio-manual";
-      linhas.push(`<line class="${classe}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`);
+      linhas.push(filamento(a,b,classe,l.a,l.b));
     }
     for (const e of N.grav?.arestas || []) {
       if (ligadas.has(`${e.a}-${e.b}`)) continue;
       const a = N.pos.get(e.a), b = N.pos.get(e.b);
       if (!a || !b || !elementos.has(e.a) || !elementos.has(e.b)) continue;
-      linhas.push(`<line class="fio-semantico" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`);
+      linhas.push(filamento(a,b,"fio-semantico",e.a,e.b));
     }
     fios.innerHTML = linhas.join("");
   }
+
+  function destacarFios(e) {
+    const id = e.target.closest(".astro")?.dataset.id;
+    for (const fio of fios.children) fio.classList.toggle("aceso", !!id && (fio.dataset.a === id || fio.dataset.b === id));
+  }
+  ceu.addEventListener("pointerover", destacarFios);
+  ceu.addEventListener("focusin", destacarFios);
 
   function centroide(membros) {
     let x = 0, y = 0, n = 0, topo = Infinity, raio = 0;
@@ -739,15 +775,12 @@
       let maior = 0;
       nos.forEach((n, k) => {
         const r = Math.hypot(n.p.x, n.p.y) || 1;
-        if (n.i.faixa === "apagada") {
-          // A borda escura: apagada perde o centro e vai para o anel.
-          const alvo = R * 0.9;
-          F[k].x += 0.02 * (alvo - r) * n.p.x / r; F[k].y += 0.02 * (alvo - r) * n.p.y / r;
-        } else {
-          const puxa = n.i.faixa === "esfriando" ? 0.001 : 0.0032;
-          F[k].x -= puxa * n.p.x; F[k].y -= puxa * n.p.y;
-          if (r > R * 0.8) { F[k].x -= 0.05 * (r - R * 0.8) * n.p.x / r; F[k].y -= 0.05 * (r - R * 0.8) * n.p.y / r; }
-        }
+        const calor = Math.max(0, Math.min(100, n.i.calor)) / 100;
+        const raioTermico = R * (.07 + .83 * (1 - calor));
+        const angulo = r > 1 ? Math.atan2(n.p.y, n.p.x) : n.i.id * 2.4;
+        const radial = .012 * (raioTermico - r);
+        F[k].x += radial * Math.cos(angulo);
+        F[k].y += radial * Math.sin(angulo);
         if (n.m === Infinity) return;
         n.p.vx = (n.p.vx + F[k].x / n.m) * 0.84;
         n.p.vy = (n.p.vy + F[k].y / n.m) * 0.84;
@@ -1377,7 +1410,7 @@
     if (window.innerWidth < 1080 && m === "lado") m = "conversa";
     document.body.classList.remove("modo-conversa", "modo-lado", "modo-nebulosa");
     document.body.classList.add(`modo-${m}`);
-    localStorage.setItem("livia-modo", m);
+    if (location.pathname === "/") localStorage.setItem("livia-modo", m);
     document.querySelectorAll(".modos [data-modo]").forEach((b) => b.classList.toggle("ativo", b.dataset.modo === m));
     if (m !== "conversa") requestAnimationFrame(() => {
       if (!N.cameraPronta) { enquadrar(); N.cameraPronta = true; }
@@ -1437,9 +1470,10 @@
 
   // ───────────────────────── início ─────────────────────────
 
-  window.Nebulosa = { evento, recarregar, abrir: mostrar, modo, gravidade };
+  window.Nebulosa = { evento, recarregar, atualizarJanelas, abrir: mostrar, modo, gravidade };
 
-  const inicial = localStorage.getItem("livia-modo") || (window.innerWidth >= 1280 ? "lado" : "conversa");
+  document.body.classList.toggle("janela-ceu", location.pathname === "/ceu");
+  const inicial = location.pathname === "/ceu" ? "nebulosa" : location.pathname === "/chat" ? "conversa" : localStorage.getItem("livia-modo") || (window.innerWidth >= 1280 ? "lado" : "conversa");
   centrar();
   modo(inicial);
   recarregar().then(() => {
