@@ -29,8 +29,9 @@ from starlette.routing import Route
 from . import (
     auth, backup, biblioteca, brain, conhecimento, config, context, db,
     experiencia, ferramentas, knowledge_client, knowledge_ingest,
-    knowledge_router, learner, memoria, persona, router, saude, web,
+    knowledge_router, learner, memoria, nebulosa, persona, router, saude, web,
 )
+from . import nebulosa_rotas
 from .store import COLECOES, memory, skills
 
 log = logging.getLogger("livia.server")
@@ -49,6 +50,8 @@ AJUDA = """\
 - `/porque` — por que ela lembrou do que lembrou na última resposta.
 - `/manutencao-memoria` — faxina: duplicatas, conflitos, memória esquecida.
 - `/ajuda` — mostra isto.
+
+{nebulosa}
 
 Fora os comandos, é só conversar.
 
@@ -102,7 +105,11 @@ async def _handle_command(text: str, conversa: int = 0) -> str | None:
         return None
 
     if command == "/ajuda":
-        return AJUDA
+        return AJUDA.replace("{nebulosa}", nebulosa.AJUDA if config.NEBULOSA_ENABLED else "")
+
+    resposta_nebulosa = await nebulosa.comando(command, argument, conversa)
+    if resposta_nebulosa is not None:
+        return resposta_nebulosa
 
     if command == "/lembrar":
         if not argument:
@@ -260,6 +267,15 @@ def _explicar_ultima(conversa: int) -> str:
 
     if dados.get("busca"):
         linhas.append(f"\n**Busca na web:** \"{dados['busca']}\"")
+
+    ideias = dados.get("ideias") or []
+    if ideias:
+        linhas.append("\n**Ideias da Nebulosa que entraram:**")
+        linhas += [f"- #{i['id']} {i['titulo']} (semelhança {i['nota']})" for i in ideias]
+    aquecidas = dados.get("aquecidas") or []
+    if aquecidas:
+        linhas.append("\n**Aqueceram por você ter falado delas:** "
+                      + ", ".join(f"#{i['id']} {i['titulo']}" for i in aquecidas))
 
     if not linhas:
         return (
@@ -456,6 +472,7 @@ async def chat(request: Request) -> Response:
         # que conta como sucesso é isto aqui — ferramenta que rodou —, não a
         # impressão de que a resposta ficou boa.
         acoes_feitas: list[dict[str, object]] = []
+        mexeu_na_nebulosa = False
 
         # A capacidade é conferida ANTES do laço. Sem isto, uma configuração
         # perfeitamente válida — modo local com um modelo que não chama função
@@ -483,7 +500,11 @@ async def chat(request: Request) -> Response:
                         "type": "acao",
                         "texto": ferramentas.resumir(chamada["nome"], chamada["args"]),
                     })
-                    resultado, ok = ferramentas.executar(chamada["nome"], chamada["args"])
+                    resultado, ok = await ferramentas.executar_async(
+                        chamada["nome"], chamada["args"], conversation_id
+                    )
+                    if chamada["nome"] in nebulosa.EXECUTORES and ok:
+                        mexeu_na_nebulosa = True
                     acoes_feitas.append({
                         "nome": chamada["nome"],
                         "ok": ok,
@@ -562,6 +583,30 @@ async def chat(request: Request) -> Response:
                 "text": f"{quebrado} está mal configurado e foi desativado — confira a chave no .env",
                 "fixo": True,
             })
+
+        # --- nebulosa ------------------------------------------------------
+        # Falar de uma ideia aquece a ideia; contar uma ideia nova vira
+        # proposta de faísca. As duas coisas acontecem DEPOIS da resposta,
+        # para nunca atrasar o texto, e falhar aqui não derruba nada.
+        if config.NEBULOSA_ENABLED:
+            aquecidas: list[dict[str, object]] = []
+            pescada = None
+            try:
+                aquecidas = await nebulosa.aquecer_por_mencao(message, conversa=conversation_id)
+            except Exception as exc:
+                log.debug("[nebulosa] menção falhou: %s", exc)
+            try:
+                pescada = await nebulosa.pescar(message, conversa=conversation_id)
+            except Exception as exc:
+                log.debug("[nebulosa] pescar falhou: %s", exc)
+            if aquecidas or pescada or mexeu_na_nebulosa:
+                procedencia["aquecidas"] = aquecidas
+                yield _sse({
+                    "type": "nebulosa",
+                    "aquecidas": aquecidas,
+                    "pescada": pescada,
+                    "mexeu": mexeu_na_nebulosa,
+                })
 
         # Só agora, com a resposta já na tela, decidimos o que memorizar.
         escopo = str(procedencia.get("escopo") or "global")
@@ -1011,6 +1056,25 @@ async def index(request: Request) -> Response:
     return FileResponse(config.WEB_DIR / "index.html")
 
 
+# Arquivos da interface além do index. Lista fechada, como os ícones: o nome
+# vem da URL, então quem decide o que pode ser servido é o código.
+_ASSETS = {
+    "nebulosa.js": "application/javascript",
+    "nebulosa.css": "text/css",
+}
+
+
+async def asset(request: Request) -> Response:
+    nome = request.path_params["nome"]
+    tipo = _ASSETS.get(nome)
+    caminho = config.WEB_DIR / nome
+    if tipo is None or not caminho.exists():
+        return PlainTextResponse("não encontrado", status_code=404)
+    # no-cache, não no-store: o navegador revalida a cada abertura (barato,
+    # 304) e uma correção chega na hora, sem depender de versão no nome.
+    return FileResponse(caminho, media_type=tipo, headers={"Cache-Control": "no-cache"})
+
+
 # --------------------------------------------------------------------------
 # Aplicativo instalável (PWA)
 # --------------------------------------------------------------------------
@@ -1416,6 +1480,7 @@ routes = [
     Route("/manifest.webmanifest", manifesto),
     Route("/sw.js", serviceworker),
     Route("/icones/{nome:str}", icone),
+    Route("/assets/{nome:str}", asset),
     Route("/entrar", pagina_entrar),
     Route("/api/entrar", fazer_login, methods=["POST"]),
     Route("/sair", sair),
@@ -1450,6 +1515,7 @@ routes = [
     Route("/api/conhecimento/processar", knowledge_processar, methods=["POST"]),
     Route("/api/conhecimento/{slug:str}/reconstruir", knowledge_reconstruir,
           methods=["POST"]),
+    *nebulosa_rotas.routes,
 ]
 
 @asynccontextmanager

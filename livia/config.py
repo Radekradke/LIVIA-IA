@@ -302,5 +302,28 @@ PARSER_AVANCADO = _flag("LIVIA_PARSER_AVANCADO", "0")
 # figura. Desligado por padrão; e em LOCAL_ONLY só vale com modelo local.
 PARSER_DESCREVE_IMAGENS = _flag("LIVIA_PARSER_IMAGENS", "0")
 
+# ========================================================================
+# NEBULOSA (as ideias do André) — ligada por padrão
+# ========================================================================
+# A sexta gaveta. Cada ideia tem TEMPERATURA (esfria se ninguém mexe), um
+# ESTÁGIO no funil (Faísca → Rascunho → Validada → Em execução) e uma
+# POSIÇÃO num céu onde as parecidas se atraem. A Livia cuida junto: aquece o
+# que é falado no chat, sugere promover ou arquivar, entrevista para os
+# gates — mas quem decide é o André. Ver o cabeçalho de livia/nebulosa.py.
+NEBULOSA_ENABLED = _flag("LIVIA_NEBULOSA", "1")
+
+# Semelhança mínima entre a mensagem e uma ideia para a conversa contar como
+# "falou dela" e aquecer. Alta de propósito: aquecer a ideia errada a cada
+# mensagem transformaria a temperatura em ruído.
+NEBULOSA_MENCAO = _float_env("LIVIA_NEBULOSA_MENCAO", 0.72)
+
+# Quantas ideias, no mínimo, sustentam um padrão do funil. Menos que isso é
+# anedota — igual às lições das experiências.
+NEBULOSA_MIN_PADRAO = _int_env("LIVIA_NEBULOSA_MIN_PADRAO", 5)
+
+# Pescar ideias da conversa ("tive uma ideia: ..."). Viram PROPOSTA, que só
+# entra de verdade quando o André adota.
+NEBULOSA_PESCAR = _flag("LIVIA_NEBULOSA_PESCAR", "1")
+
 for _d in (DATA_DIR, MEMORY_DIR, SKILLS_DIR, LESSONS_DIR):
     _d.mkdir(parents=True, exist_ok=True)

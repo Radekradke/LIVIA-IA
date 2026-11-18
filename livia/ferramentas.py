@@ -315,9 +315,17 @@ def _objetos():
     return objetos
 
 
+def _nebulosa():
+    """Import tardio, pelo mesmo motivo de _objetos()."""
+    from . import nebulosa
+
+    return nebulosa
+
+
 def catalogo() -> list[dict[str, object]]:
     """Todas as ferramentas que o modelo enxerga, numa lista só."""
-    return CATALOGO + _objetos().CATALOGO
+    extra = _nebulosa().CATALOGO if config.NEBULOSA_ENABLED else []
+    return CATALOGO + _objetos().CATALOGO + extra
 
 
 _EXECUTORES = {
@@ -346,6 +354,26 @@ def executar(nome: str, argumentos: dict[str, object]) -> tuple[str, bool]:
         return f"Falha inesperada em {nome}: {exc}", False
 
 
+async def executar_async(
+    nome: str, argumentos: dict[str, object], conversa: int | None = None
+) -> tuple[str, bool]:
+    """Como `executar`, mas também roda as ferramentas assíncronas.
+
+    As da Nebulosa precisam: buscar ideia parecida gera vetor, e vetor é
+    rede (Ollama ou Gemini). O servidor usa esta; `executar` continua
+    existindo para quem só mexe em arquivo.
+    """
+    neb = _nebulosa()
+    if config.NEBULOSA_ENABLED and nome in neb.EXECUTORES:
+        try:
+            return await neb.executar(nome, argumentos, conversa), True
+        except neb.NebulosaError as exc:
+            return str(exc), False
+        except Exception as exc:
+            return f"Falha inesperada em {nome}: {exc}", False
+    return executar(nome, argumentos)
+
+
 def resumir(nome: str, argumentos: dict[str, object]) -> str:
     """Frase curta para a interface mostrar o que está acontecendo."""
     if nome == "listar_arquivos":
@@ -356,4 +384,7 @@ def resumir(nome: str, argumentos: dict[str, object]) -> str:
         return f"escrevendo {argumentos.get('caminho')}"
     if nome == "calcular":
         return f"calculando {argumentos.get('expressao')}"
+    rotulo = _nebulosa().resumir(nome, argumentos)
+    if rotulo:
+        return rotulo
     return _objetos().resumir(nome, argumentos)
