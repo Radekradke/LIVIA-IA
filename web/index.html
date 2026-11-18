@@ -639,6 +639,7 @@ body.sem-servidor #input { opacity: .5; }
            box-shadow: -14px 0 48px rgba(0,0,0,.6); }
 }
 </style>
+<link rel="stylesheet" href="/assets/cosmologia.css">
 </head>
 <body>
 
@@ -679,6 +680,7 @@ body.sem-servidor #input { opacity: .5; }
     <button data-modo="lado">Lado a lado</button>
     <button data-modo="nebulosa">Nebulosa</button>
   </div>
+  <a class="abrir-ceu" href="/ceu" target="_blank" rel="noopener">Abrir Céu em nova janela ↗</a>
   <div class="secao">Conversas</div>
   <div id="convos"></div>
 
@@ -1094,7 +1096,7 @@ async function enviar() {
           if (evt.stats) mostrarStats(evt.stats);
           carregarConversas();
           // Comandos como /ideia e /promover mexem no céu sem evento próprio.
-          if (window.Nebulosa) Nebulosa.recarregar();
+          if (window.Nebulosa) Nebulosa.atualizarJanelas();
         } else if (evt.type === "error") {
           corpo.innerHTML = `<div class="error">${escapar(evt.message)}</div>`;
         }
@@ -1974,6 +1976,7 @@ $("input").addEventListener("input", (e) => {
   $("input").focus();
 })();
 </script>
+<script src="/assets/galaxia.js"></script>
 <script src="/assets/nebulosa.js"></script>
 </body>
 </html>
