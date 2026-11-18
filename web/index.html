@@ -11,84 +11,88 @@
      sabe fazer sozinho. -->
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icones/apple-touch-icon.png">
-<meta name="theme-color" content="#140a0c" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#fffdfb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#07080f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fbfbfe" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Livia">
-<link rel="stylesheet" href="/assets/nebulosa.css">
+<link rel="stylesheet" href="/assets/nebulosa.css?v=8">
 <style>
 /* ══════════════════════════════════════════════════════════════════
-   LIVIA — tema rubi
-   Superfícies em três camadas: pedra (fundo), vidro fumê (painéis),
-   gema lapidada (botões e destaques). O brilho vem sempre de dentro
-   para fora, nunca de uma sombra chapada por cima.
+   LIVIA — tema crepúsculo
+   Um céu de madrugada visto de longe: tinta quase preta, lavanda fria,
+   uma luz de lua cor de pergaminho. Pensativo, não festivo — a cor
+   aparece pouco e sempre de dentro para fora, como luz de estrela.
+
+   As variáveis ainda se chamam --rubi, --bordo, --cobre: são PAPÉIS
+   (cor principal, cor funda, cor de apoio), não pigmentos. Renomear
+   tudo mexeria em centenas de linhas para o mesmo resultado na tela.
    ══════════════════════════════════════════════════════════════════ */
 
 :root[data-theme="dark"] {
-  --rubi:        #b3173e;
-  --rubi-fundo:  #8e0f2a;
-  --bordo:       #5a0d1a;
-  --bronze:      #8b5a2b;
-  --cobre:       #a6653a;
-  --dourado:     #c08a4a;
-  --marrom:      #2a140f;
-  --preto:       #120909;
+  --rubi:        #8c92d9;
+  --rubi-fundo:  #565cb0;
+  --bordo:       #2b2d5e;
+  --bronze:      #6f6a8a;
+  --cobre:       #8f7fa6;
+  --dourado:     #cdbb93;
+  --marrom:      #141626;
+  --preto:       #0a0b14;
 
-  --brilho:      #e95a7a;
-  --creme:       #f1e2d0;
+  --brilho:      #b9bdf7;
+  --creme:       #e6e8f5;
 
-  --fundo:       #0d0707;
-  --verde:       #74c69d;
-  --painel:      rgba(32, 16, 18, .72);
-  --painel-alto: rgba(46, 22, 25, .82);
-  --sunk:        rgba(18, 9, 11, .68);
+  --fundo:       #07080f;
+  --verde:       #7cc4b0;
+  --painel:      rgba(16,17,32, .72);
+  --painel-alto: rgba(22,24,44, .82);
+  --sunk:        rgba(8,9,18, .68);
 
-  --linha:       rgba(179, 23, 62, .20);
-  --linha-forte: rgba(179, 23, 62, .42);
+  --linha:       rgba(140,146,217, .20);
+  --linha-forte: rgba(140,146,217, .42);
 
-  --texto:       #f1e2d0;
-  --texto-suave: #c9a99a;
-  --texto-fraco: #8f6f66;
+  --texto:       #e6e8f5;
+  --texto-suave: #a7abc6;
+  --texto-fraco: #6d7192;
 
   --sombra-baixa: 0 1px 2px rgba(0,0,0,.5);
   --sombra-alta:  0 18px 48px rgba(0,0,0,.55);
-  --luz-topo:     inset 0 1px 0 rgba(255,190,190,.10);
-  --gema:         linear-gradient(160deg, #d4285a 0%, #b3173e 38%, #8e0f2a 72%, #6d0b20 100%);
+  --luz-topo:     inset 0 1px 0 rgba(200,205,255,.10);
+  --gema:         linear-gradient(160deg, #7a80d4 0%, #5d63b8 40%, #444a9c 74%, #2e3270 100%);
 }
 
 /* Variante clara: mesma joia sob luz do dia — marfim quente, rubi
    mantido como acento. Não é um tema frio; é a mesma identidade. */
 :root[data-theme="light"] {
-  --rubi:        #a01235;
-  --rubi-fundo:  #8e0f2a;
-  --bordo:       #6d0b20;
-  --bronze:      #8b5a2b;
-  --cobre:       #a6653a;
-  --dourado:     #a4703a;
-  --marrom:      #43231c;
-  --preto:       #2a140f;
+  --rubi:        #4f55a8;
+  --rubi-fundo:  #565cb0;
+  --bordo:       #2e2f66;
+  --bronze:      #6f6a8a;
+  --cobre:       #8f7fa6;
+  --dourado:     #8f7a4e;
+  --marrom:      #2a2c48;
+  --preto:       #141626;
 
-  --brilho:      #c93a5c;
-  --creme:       #3a1c18;
+  --brilho:      #6a70c4;
+  --creme:       #1d1f3a;
 
-  --fundo:       #f7efe6;
-  --verde:       #2f7d55;
-  --painel:      rgba(255, 252, 249, .86);
-  --painel-alto: #fffdfb;
-  --sunk:        rgba(226, 210, 199, .55);
+  --fundo:       #eef0f6;
+  --verde:       #2f7d6d;
+  --painel:      rgba(251,251,254, .86);
+  --painel-alto: #fbfbfe;
+  --sunk:        rgba(214,217,232, .55);
 
-  --linha:       rgba(142, 15, 42, .16);
-  --linha-forte: rgba(142, 15, 42, .34);
+  --linha:       rgba(86,92,176, .16);
+  --linha-forte: rgba(86,92,176, .34);
 
-  --texto:       #33191a;
-  --texto-suave: #7a5750;
-  --texto-fraco: #a98d84;
+  --texto:       #1e2036;
+  --texto-suave: #5a5e7d;
+  --texto-fraco: #9094ad;
 
-  --sombra-baixa: 0 1px 2px rgba(90,13,26,.10);
-  --sombra-alta:  0 16px 40px rgba(90,13,26,.14);
+  --sombra-baixa: 0 1px 2px rgba(43,45,94,.10);
+  --sombra-alta:  0 16px 40px rgba(43,45,94,.14);
   --luz-topo:     inset 0 1px 0 rgba(255,255,255,.85);
-  --gema:         linear-gradient(160deg, #c02147 0%, #a01235 42%, #8e0f2a 100%);
+  --gema:         linear-gradient(160deg, #5d63b8 0%, #4f55a8 42%, #565cb0 100%);
 }
 
 :root { --raio: 14px; --raio-p: 10px;
@@ -110,19 +114,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Luz ambiente: três focos de rubi difuso, fixos. Gradiente é barato —
-   o mesmo efeito com partículas animadas travaria máquina modesta. */
+/* Luz ambiente: uma névoa fria no alto, um resto de crepúsculo violeta
+   embaixo, e poeira de estrelas fixa. Tudo gradiente — barato, parado,
+   e é exatamente a quietude que o tema pede. */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(1100px 720px at 12% -8%,  rgba(179,23,62,.20), transparent 62%),
-    radial-gradient(900px 640px at 88% 108%, rgba(166,101,58,.14), transparent 60%),
-    radial-gradient(700px 520px at 62% 42%,  rgba(142,15,42,.10), transparent 66%);
+    radial-gradient(1.2px 1.2px at 8% 14%,  rgba(233,235,255,.55), transparent 60%),
+    radial-gradient(1px 1px at 23% 71%,     rgba(233,235,255,.35), transparent 60%),
+    radial-gradient(1.4px 1.4px at 41% 9%,  rgba(241,234,216,.45), transparent 60%),
+    radial-gradient(1px 1px at 57% 88%,     rgba(233,235,255,.30), transparent 60%),
+    radial-gradient(1.1px 1.1px at 73% 27%, rgba(233,235,255,.40), transparent 60%),
+    radial-gradient(1px 1px at 91% 62%,     rgba(233,235,255,.32), transparent 60%),
+    radial-gradient(1200px 760px at 14% -12%, rgba(140,146,217,.16), transparent 62%),
+    radial-gradient(1000px 700px at 90% 112%, rgba(143,127,166,.13), transparent 60%),
+    radial-gradient(800px 560px at 60% 40%,   rgba(43,45,94,.22), transparent 70%);
 }
 :root[data-theme="light"] body::before { opacity: .5; }
 
 button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
-::selection { background: rgba(179,23,62,.35); color: var(--creme); }
+::selection { background: rgba(140,146,217,.35); color: var(--creme); }
 
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -139,21 +150,21 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   width: 274px; flex: none;
   display: flex; flex-direction: column;
   padding: 22px 14px 0;
-  background: linear-gradient(178deg, rgba(46,22,25,.55), rgba(18,9,11,.30));
+  background: linear-gradient(178deg, rgba(22,24,44,.55), rgba(8,9,18,.30));
   border-right: 1px solid var(--linha);
-  box-shadow: 1px 0 0 rgba(233,90,122,.06), var(--sombra-alta);
+  box-shadow: 1px 0 0 rgba(185,189,247,.06), var(--sombra-alta);
 }
 :root[data-theme="light"] #sidebar {
-  background: linear-gradient(178deg, rgba(255,252,249,.9), rgba(247,239,230,.6));
+  background: linear-gradient(178deg, rgba(251,251,254,.9), rgba(238,240,246,.6));
 }
 
 .marca { display: flex; align-items: center; gap: 12px; padding: 4px 8px 6px; }
-.marca svg { width: 42px; height: 42px; flex: none; filter: drop-shadow(0 0 12px rgba(179,23,62,.55)); }
+.marca svg { width: 44px; height: 44px; flex: none; filter: drop-shadow(0 0 14px rgba(140,146,217,.35)); }
 .marca-txt { min-width: 0; }
 .brand {
   /* Caixa alta pelo CSS, não pelo texto: o nome vem do .env e pode ser
      qualquer coisa — a marca continua imponente independente do que for. */
-  font-size: 25px; font-weight: 600; letter-spacing: .16em; line-height: 1.1;
+  font-family: var(--serif); font-size: 23px; font-weight: 400; letter-spacing: .34em; line-height: 1.1;
   text-transform: uppercase;
   background: linear-gradient(105deg, var(--creme) 8%, var(--brilho) 46%, var(--dourado) 96%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -180,7 +191,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .faixa-fora {
   display: none; padding: 10px 16px; text-align: center;
   font-size: 13px; line-height: 1.5;
-  background: rgba(139,90,43,.18); border-bottom: 1px solid rgba(139,90,43,.4);
+  background: rgba(111,106,138,.18); border-bottom: 1px solid rgba(111,106,138,.4);
   color: var(--texto-suave);
 }
 .faixa-fora code {
@@ -196,12 +207,12 @@ body.sem-servidor #input { opacity: .5; }
   margin: 18px 0 20px; padding: 12px 16px; border-radius: var(--raio);
   background: var(--gema); color: #fff;
   font-size: 14.5px; font-weight: 600; letter-spacing: .02em; text-align: left;
-  border: 1px solid rgba(233,90,122,.35);
-  box-shadow: var(--luz-topo), 0 6px 20px rgba(142,15,42,.42), var(--sombra-baixa);
+  border: 1px solid rgba(185,189,247,.35);
+  box-shadow: var(--luz-topo), 0 6px 20px rgba(86,92,176,.42), var(--sombra-baixa);
   transition: transform .16s, box-shadow .16s, filter .16s;
 }
 .btn-new:hover { transform: translateY(-1px); filter: brightness(1.1);
-  box-shadow: var(--luz-topo), 0 10px 28px rgba(179,23,62,.5); }
+  box-shadow: var(--luz-topo), 0 10px 28px rgba(140,146,217,.5); }
 .btn-new:active { transform: translateY(0); }
 
 .secao {
@@ -218,9 +229,9 @@ body.sem-servidor #input { opacity: .5; }
 }
 .convo:hover { background: var(--sunk); color: var(--texto); border-color: var(--linha); }
 .convo.active {
-  background: linear-gradient(100deg, rgba(179,23,62,.22), rgba(142,15,42,.06));
+  background: linear-gradient(100deg, rgba(140,146,217,.22), rgba(86,92,176,.06));
   color: var(--texto); border-color: var(--linha-forte);
-  box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.16);
+  box-shadow: var(--luz-topo), 0 0 18px rgba(140,146,217,.16);
 }
 .convo.active::before {
   content: ""; position: absolute; left: 0; top: 22%; bottom: 22%; width: 2px;
@@ -271,8 +282,10 @@ body.sem-servidor #input { opacity: .5; }
 @keyframes distancia { 0%,100% { scale: 1.06; opacity: .95; }
                        50%     { scale: .62;  opacity: .55; } }
 
-@keyframes cintilar { 0%,100% { opacity: .22; } 50% { opacity: .8; } }
-.estrela { animation: cintilar 6s ease-in-out infinite; }
+@keyframes cintilar { 0%,100% { opacity: .18; } 50% { opacity: .7; } }
+.estrela { animation: cintilar 7s ease-in-out infinite; }
+.estrela:nth-child(3n)   { animation-duration: 9s;  animation-delay: -3s; }
+.estrela:nth-child(3n+1) { animation-duration: 11s; animation-delay: -6s; }
 .estrela:nth-of-type(2n) { animation-duration: 8.5s; animation-delay: -2.2s; }
 .estrela:nth-of-type(3n) { animation-duration: 11s;  animation-delay: -4.7s; }
 
@@ -321,12 +334,12 @@ body.sem-servidor #input { opacity: .5; }
   padding: 2px 7px; border-radius: 6px; border: 1px solid var(--linha);
 }
 .body pre {
-  background: linear-gradient(165deg, rgba(42,20,15,.72), rgba(18,9,11,.86));
+  background: linear-gradient(165deg, rgba(20,22,38,.72), rgba(8,9,18,.86));
   border: 1px solid var(--linha); border-radius: var(--raio);
   padding: 15px 18px; overflow-x: auto; margin: 0 0 14px; line-height: 1.6;
-  box-shadow: var(--luz-topo), inset 0 0 40px rgba(142,15,42,.10);
+  box-shadow: var(--luz-topo), inset 0 0 40px rgba(86,92,176,.10);
 }
-:root[data-theme="light"] .body pre { background: linear-gradient(165deg, #fffdfb, #f5ebe2); }
+:root[data-theme="light"] .body pre { background: linear-gradient(165deg, #fbfbfe, #f5ebe2); }
 .body pre code { background: none; padding: 0; border: none; color: var(--texto); font-size: 13.5px; }
 .body blockquote {
   margin: 0 0 14px; padding: 2px 0 2px 17px;
@@ -359,7 +372,7 @@ body.sem-servidor #input { opacity: .5; }
   background: var(--sunk); border: 1px solid var(--linha);
   padding: 4px 12px; border-radius: 999px; white-space: nowrap; transition: all .16s;
 }
-.fontes a:hover { color: var(--creme); border-color: var(--linha-forte); box-shadow: 0 0 14px rgba(179,23,62,.24); }
+.fontes a:hover { color: var(--creme); border-color: var(--linha-forte); box-shadow: 0 0 14px rgba(140,146,217,.24); }
 
 /* Cada ferramenta usada vira uma linha visível na resposta. Ficam à mostra
    de propósito: se ela mexeu num arquivo seu, você precisa saber qual. */
@@ -377,15 +390,15 @@ body.sem-servidor #input { opacity: .5; }
 .learned {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 15px;
   font-size: 12.5px; color: var(--texto-suave);
-  background: linear-gradient(100deg, rgba(179,23,62,.20), rgba(166,101,58,.10));
+  background: linear-gradient(100deg, rgba(140,146,217,.20), rgba(143,127,166,.10));
   border: 1px solid var(--linha-forte); border-radius: 999px; padding: 6px 15px;
-  box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.16);
+  box-shadow: var(--luz-topo), 0 0 18px rgba(140,146,217,.16);
 }
 .learned b { color: var(--creme); font-weight: 600; }
 
 .error {
   border-left: 2px solid var(--rubi); padding: 12px 17px;
-  background: linear-gradient(100deg, rgba(142,15,42,.18), transparent);
+  background: linear-gradient(100deg, rgba(86,92,176,.18), transparent);
   border-radius: 0 var(--raio-p) var(--raio-p) 0;
   color: var(--brilho); font-size: 14.5px; white-space: pre-wrap;
 }
@@ -416,12 +429,12 @@ body.sem-servidor #input { opacity: .5; }
   padding: 12px 12px 12px 19px; border-radius: 18px;
   background: linear-gradient(165deg, var(--painel-alto), var(--painel));
   border: 1px solid var(--linha-forte);
-  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 26px rgba(142,15,42,.12);
+  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 26px rgba(86,92,176,.12);
   transition: border-color .2s, box-shadow .2s;
 }
 .box:focus-within {
   border-color: var(--rubi);
-  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 34px rgba(179,23,62,.30);
+  box-shadow: var(--luz-topo), var(--sombra-alta), 0 0 34px rgba(140,146,217,.30);
 }
 #input {
   flex: 1; border: none; background: none; color: var(--texto);
@@ -432,12 +445,12 @@ body.sem-servidor #input { opacity: .5; }
 #send {
   padding: 10px 22px; border-radius: 12px; flex: none;
   background: var(--gema); color: #fff; font-size: 14.5px; font-weight: 600;
-  letter-spacing: .02em; border: 1px solid rgba(233,90,122,.4);
-  box-shadow: var(--luz-topo), 0 5px 18px rgba(142,15,42,.45);
+  letter-spacing: .02em; border: 1px solid rgba(185,189,247,.4);
+  box-shadow: var(--luz-topo), 0 5px 18px rgba(86,92,176,.45);
   transition: transform .16s, filter .16s, box-shadow .16s;
 }
 #send:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.12);
-  box-shadow: var(--luz-topo), 0 9px 26px rgba(179,23,62,.55); }
+  box-shadow: var(--luz-topo), 0 9px 26px rgba(140,146,217,.55); }
 #send:active:not(:disabled) { transform: translateY(0); }
 #send:disabled { opacity: .32; cursor: default; box-shadow: none; }
 
@@ -449,12 +462,12 @@ body.sem-servidor #input { opacity: .5; }
 #panel {
   position: relative; z-index: 2;
   width: 348px; flex: none; display: flex; flex-direction: column;
-  background: linear-gradient(190deg, rgba(46,22,25,.62), rgba(18,9,11,.42));
+  background: linear-gradient(190deg, rgba(22,24,44,.62), rgba(8,9,18,.42));
   border-left: 1px solid var(--linha);
-  box-shadow: -1px 0 0 rgba(233,90,122,.06), var(--sombra-alta);
+  box-shadow: -1px 0 0 rgba(185,189,247,.06), var(--sombra-alta);
 }
 :root[data-theme="light"] #panel {
-  background: linear-gradient(190deg, rgba(255,252,249,.92), rgba(247,239,230,.7));
+  background: linear-gradient(190deg, rgba(251,251,254,.92), rgba(238,240,246,.7));
 }
 #panel.hidden { display: none; }
 
@@ -483,7 +496,7 @@ body.sem-servidor #input { opacity: .5; }
 #docs { flex: 1; overflow-y: auto; padding: 16px; }
 
 .cerebro { display: flex; justify-content: center; padding: 6px 0 14px; }
-.cerebro svg { width: 168px; height: auto; filter: drop-shadow(0 0 18px rgba(179,23,62,.42)); }
+.cerebro svg { width: 168px; height: auto; filter: drop-shadow(0 0 18px rgba(140,146,217,.42)); }
 
 .doc {
   background: linear-gradient(160deg, var(--painel-alto), var(--painel));
@@ -494,7 +507,7 @@ body.sem-servidor #input { opacity: .5; }
 }
 .doc:hover {
   border-color: var(--linha-forte); transform: translateY(-1px);
-  box-shadow: var(--luz-topo), 0 8px 22px rgba(142,15,42,.22);
+  box-shadow: var(--luz-topo), 0 8px 22px rgba(86,92,176,.22);
 }
 .doc-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .doc-name { font-family: var(--mono); font-size: 11px; color: var(--brilho); letter-spacing: .02em; }
@@ -524,10 +537,10 @@ body.sem-servidor #input { opacity: .5; }
   padding: 2px 7px; border-radius: 999px; margin-right: 5px;
   border: 1px solid var(--linha-forte); color: var(--texto-fraco);
 }
-.tag.projeto { color: var(--brilho); border-color: rgba(233,90,122,.4); }
+.tag.projeto { color: var(--brilho); border-color: rgba(185,189,247,.4); }
 .tag.arquivada, .tag.superseded { opacity: .75; }
 .tag.ok { color: var(--verde); border-color: color-mix(in srgb, var(--verde) 40%, transparent); }
-.tag.falhou { color: var(--brilho); border-color: rgba(233,90,122,.45); }
+.tag.falhou { color: var(--brilho); border-color: rgba(185,189,247,.45); }
 .doc.inativa { opacity: .55; }
 .doc-meta {
   margin-top: 8px; font-size: 11.5px; color: var(--texto-fraco);
@@ -541,7 +554,7 @@ body.sem-servidor #input { opacity: .5; }
   transition: color .15s, border-color .15s;
 }
 .mini:hover { color: var(--creme); border-color: var(--brilho); }
-.mini.destaque { color: var(--brilho); border-color: rgba(233,90,122,.45); }
+.mini.destaque { color: var(--brilho); border-color: rgba(185,189,247,.45); }
 /* Estado dos DOIS índices, lado a lado. Discreto de propósito: é
    informação de manutenção, não o assunto da tela. */
 .indices { display: flex; gap: 12px; margin-top: 7px; font-size: 11px; }
@@ -559,7 +572,7 @@ body.sem-servidor #input { opacity: .5; }
 
 .aviso-painel {
   margin: 0 0 12px; padding: 11px 13px; font-size: 12.5px; line-height: 1.55;
-  border: 1px solid rgba(233,90,122,.35); border-radius: var(--raio-p);
+  border: 1px solid rgba(185,189,247,.35); border-radius: var(--raio-p);
   color: var(--texto-suave);
 }
 .aviso-painel b { color: var(--creme); }
@@ -580,14 +593,14 @@ body.sem-servidor #input { opacity: .5; }
 }
 .add input::placeholder, .add textarea::placeholder { color: var(--texto-fraco); }
 .add input:focus, .add textarea:focus {
-  border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(179,23,62,.22);
+  border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(140,146,217,.22);
 }
 .add textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
 .add button {
   width: 100%; padding: 11px; border-radius: var(--raio-p);
   background: var(--gema); color: #fff; font-size: 13.5px; font-weight: 600;
-  border: 1px solid rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+  border: 1px solid rgba(185,189,247,.32);
+  box-shadow: var(--luz-topo), 0 4px 16px rgba(86,92,176,.38);
   transition: transform .16s, filter .16s;
 }
 .add button:hover { transform: translateY(-1px); filter: brightness(1.1); }
@@ -606,7 +619,7 @@ body.sem-servidor #input { opacity: .5; }
   background: var(--sunk); color: var(--texto); outline: none;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.28);
 }
-#personaTxt:focus { border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(179,23,62,.22); }
+#personaTxt:focus { border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.28), 0 0 16px rgba(140,146,217,.22); }
 .persona-botoes { display: flex; gap: 9px; margin-top: 11px; }
 .persona-botoes button {
   flex: 1; padding: 10px; border-radius: var(--raio-p); font-size: 13px; font-weight: 600;
@@ -615,8 +628,8 @@ body.sem-servidor #input { opacity: .5; }
 }
 .persona-botoes button:hover { color: var(--creme); border-color: var(--linha-forte); }
 .persona-botoes .primario {
-  background: var(--gema); color: #fff; border-color: rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+  background: var(--gema); color: #fff; border-color: rgba(185,189,247,.32);
+  box-shadow: var(--luz-topo), 0 4px 16px rgba(86,92,176,.38);
 }
 .persona-botoes .primario:hover { color: #fff; filter: brightness(1.1); }
 .persona-aviso { font-size: 12.5px; color: var(--brilho); min-height: 20px; margin-top: 10px; text-align: center; }
@@ -624,8 +637,8 @@ body.sem-servidor #input { opacity: .5; }
 
 .btn-livro {
   width: 100%; padding: 12px; border-radius: var(--raio-p); font-size: 13.5px; font-weight: 600;
-  background: var(--gema); color: #fff; border: 1px solid rgba(233,90,122,.32);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+  background: var(--gema); color: #fff; border: 1px solid rgba(185,189,247,.32);
+  box-shadow: var(--luz-topo), 0 4px 16px rgba(86,92,176,.38);
   transition: transform .16s, filter .16s;
 }
 .btn-livro:hover { transform: translateY(-1px); filter: brightness(1.1); }
@@ -644,26 +657,31 @@ body.sem-servidor #input { opacity: .5; }
 
 <aside id="sidebar">
   <div class="marca">
-    <!-- Gema lapidada: facetas em gradiente, núcleo claro, brilho externo -->
+    <!-- Eclipse: esfera na sombra, só a borda acesa, e uma órbita fina -->
     <svg viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="gTopo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
-        </linearGradient>
-        <linearGradient id="gBaixo" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
-        </linearGradient>
-        <radialGradient id="gNucleo" cx=".5" cy=".42" r=".5">
-          <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
-          <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#gBaixo)"/>
-      <path d="M14 7h20l8 11H6z" fill="url(#gTopo)"/>
-      <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".30"/>
-      <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
-      <circle cx="24" cy="20" r="10" fill="url(#gNucleo)"/>
-      <path d="M6 18h36" stroke="#ffd9df" stroke-opacity=".45" stroke-width=".8"/>
+  <defs>
+    <radialGradient id="lCorona" cx=".5" cy=".5" r=".5">
+      <stop offset=".52" stop-color="#b9bdf7" stop-opacity="0"/>
+      <stop offset=".63" stop-color="#b9bdf7" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#b9bdf7" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lLuz" x1=".15" y1=".9" x2=".85" y2=".1">
+      <stop offset="0" stop-color="#f3f4ff"/>
+      <stop offset=".45" stop-color="#a6abef"/>
+      <stop offset="1" stop-color="#2b2d5e"/>
+    </linearGradient>
+    <radialGradient id="lSombra" cx=".62" cy=".36" r=".62">
+      <stop offset="0" stop-color="#0d0f1f"/>
+      <stop offset="1" stop-color="#07080f"/>
+    </radialGradient>
+  </defs>
+  <circle cx="24" cy="24" r="22" fill="url(#lCorona)"/>
+  <circle cx="24" cy="24" r="13.4" fill="url(#lLuz)"/>
+  <circle cx="26.9" cy="21.6" r="12.9" fill="url(#lSombra)"/>
+  <ellipse cx="24" cy="24" rx="21" ry="6.2" transform="rotate(-22 24 24)"
+           fill="none" stroke="#b9bdf7" stroke-opacity=".5" stroke-width=".8"/>
+  <circle cx="40.10" cy="14.36" r="1.5" fill="#f1ead8"/>
+  <circle cx="40.10" cy="14.36" r="3.2" fill="#f1ead8" opacity=".16"/>
     </svg>
     <div class="marca-txt">
       <div class="brand" id="brand">LIVIA</div>
@@ -692,64 +710,83 @@ body.sem-servidor #input { opacity: .5; }
 </aside>
 
 <main id="main">
-  <!-- Planetas em órbita. Só atmosfera: bem translúcido, movimento lento.
-       A lua percorre a elipse via offset-path e encolhe na metade distante,
-       o que dá a sensação de profundidade sem precisar sumir atrás do disco. -->
+  <!-- Um planeta em eclipse, quase todo na sombra: só a borda de baixo
+       acesa, um anel fino, uma lua pálida em órbita lenta e poeira. É a
+       mesma figura do logo, em escala de paisagem. Atmosfera, não ilustração:
+       fica translúcido atrás da conversa. A lua percorre a elipse via
+       offset-path e encolhe na metade distante, o que dá profundidade. -->
   <div id="arte" aria-hidden="true">
     <svg viewBox="0 0 900 620" preserveAspectRatio="xMidYMid slice" fill="none">
       <defs>
-        <radialGradient id="pCorpo" cx=".36" cy=".32" r=".78">
-          <stop offset="0"   stop-color="#ffb9c6"/>
-          <stop offset=".38" stop-color="#e95a7a"/>
-          <stop offset=".72" stop-color="#b3173e"/>
-          <stop offset="1"   stop-color="#4a0a18"/>
+        <radialGradient id="pCorona" cx=".5" cy=".5" r=".5">
+          <stop offset=".5"  stop-color="#b9bdf7" stop-opacity="0"/>
+          <stop offset=".6"  stop-color="#b9bdf7" stop-opacity=".22"/>
+          <stop offset="1"   stop-color="#b9bdf7" stop-opacity="0"/>
         </radialGradient>
-        <radialGradient id="pHalo" cx=".5" cy=".5" r=".5">
-          <stop offset=".58" stop-color="#e95a7a" stop-opacity=".30"/>
-          <stop offset="1"   stop-color="#e95a7a" stop-opacity="0"/>
+        <linearGradient id="pLuz" x1=".1" y1=".95" x2=".8" y2=".05">
+          <stop offset="0"   stop-color="#e9ebff"/>
+          <stop offset=".4"  stop-color="#8c92d9"/>
+          <stop offset="1"   stop-color="#1c1d40"/>
+        </linearGradient>
+        <radialGradient id="pSombra" cx=".6" cy=".36" r=".66">
+          <stop offset="0"   stop-color="#11132a"/>
+          <stop offset="1"   stop-color="#07080f"/>
         </radialGradient>
         <radialGradient id="pLua" cx=".34" cy=".3" r=".8">
-          <stop offset="0"   stop-color="#ffe0cf"/>
-          <stop offset=".5"  stop-color="#c08a4a"/>
-          <stop offset="1"   stop-color="#5e3418"/>
+          <stop offset="0"   stop-color="#f6f1e4"/>
+          <stop offset=".55" stop-color="#cdbb93"/>
+          <stop offset="1"   stop-color="#4a4436"/>
         </radialGradient>
-        <clipPath id="pCorte"><circle cx="430" cy="310" r="132"/></clipPath>
+        <linearGradient id="pAnel" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0"   stop-color="#b9bdf7" stop-opacity="0"/>
+          <stop offset=".3"  stop-color="#b9bdf7" stop-opacity=".55"/>
+          <stop offset=".7"  stop-color="#cdbb93" stop-opacity=".4"/>
+          <stop offset="1"   stop-color="#b9bdf7" stop-opacity="0"/>
+        </linearGradient>
+        <clipPath id="pFrente"><rect x="0" y="310" width="900" height="310"/></clipPath>
       </defs>
 
-      <circle cx="430" cy="310" r="230" fill="url(#pHalo)"/>
-      <circle cx="430" cy="310" r="132" fill="url(#pCorpo)"/>
-
-      <!-- faixas atmosféricas, recortadas no disco -->
-      <g clip-path="url(#pCorte)" opacity=".32">
-        <ellipse cx="430" cy="250" rx="150" ry="17" fill="#ffd0d8" opacity=".5"/>
-        <ellipse cx="430" cy="294" rx="150" ry="12" fill="#5a0d1a" opacity=".55"/>
-        <ellipse cx="430" cy="336" rx="150" ry="22" fill="#ffb9c6" opacity=".3"/>
-        <ellipse cx="430" cy="382" rx="150" ry="15" fill="#4a0a18" opacity=".6"/>
-        <circle  cx="374" cy="274" r="27" fill="#8e0f2a" opacity=".4"/>
-        <circle  cx="486" cy="354" r="18" fill="#5a0d1a" opacity=".35"/>
+      <circle cx="430" cy="310" r="250" fill="url(#pCorona)"/>
+      <!-- anel, metade de trás (some atrás do disco) -->
+      <ellipse cx="430" cy="310" rx="236" ry="46" transform="rotate(-14 430 310)"
+               stroke="url(#pAnel)" stroke-width="1.4" opacity=".55"/>
+      <circle cx="430" cy="310" r="140" fill="url(#pLuz)"/>
+      <circle cx="458" cy="286" r="136" fill="url(#pSombra)"/>
+      <!-- anel, metade da frente, por cima do disco -->
+      <g clip-path="url(#pFrente)">
+        <ellipse cx="430" cy="310" rx="236" ry="46" transform="rotate(-14 430 310)"
+                 stroke="url(#pAnel)" stroke-width="1.6" opacity=".8"/>
+        <ellipse cx="430" cy="310" rx="252" ry="51" transform="rotate(-14 430 310)"
+                 stroke="#b9bdf7" stroke-width=".7" opacity=".25"/>
       </g>
 
       <ellipse cx="430" cy="310" rx="260" ry="92"
-               stroke="#e95a7a" stroke-width="1.2" opacity=".2" stroke-dasharray="5 9"/>
+               stroke="#b9bdf7" stroke-width="1" opacity=".14" stroke-dasharray="2 10"/>
 
       <g class="lua">
-        <circle r="27" fill="url(#pLua)"/>
-        <circle r="27" fill="none" stroke="#ffe0cf" stroke-opacity=".26" stroke-width="1"/>
-        <circle cx="-8" cy="-6" r="6"   fill="#4a2c1c" opacity=".35"/>
-        <circle cx="9"  cy="8"  r="4.5" fill="#4a2c1c" opacity=".28"/>
+        <circle r="34" fill="#f1ead8" opacity=".08"/>
+        <circle r="17" fill="url(#pLua)"/>
+        <circle cx="-5" cy="-3" r="3.6" fill="#4a4436" opacity=".3"/>
+        <circle cx="6"  cy="5"  r="2.6" fill="#4a4436" opacity=".24"/>
       </g>
 
-      <g fill="#ffd0d8">
-        <circle class="estrela" cx="132" cy="118" r="1.8"/>
-        <circle class="estrela" cx="246" cy="72"  r="1.3"/>
-        <circle class="estrela" cx="88"  cy="286" r="1.6"/>
-        <circle class="estrela" cx="196" cy="430" r="1.4"/>
-        <circle class="estrela" cx="322" cy="196" r="1.2"/>
-        <circle class="estrela" cx="76"  cy="512" r="1.7"/>
-        <circle class="estrela" cx="404" cy="520" r="1.3"/>
-        <circle class="estrela" cx="842" cy="146" r="1.5"/>
-        <circle class="estrela" cx="806" cy="536" r="1.4"/>
-        <circle class="estrela" cx="288" cy="330" r="1.1"/>
+      <!-- poeira e estrelas: frias, quase todas; uma ou outra cor de lua -->
+      <g fill="#dfe2ff">
+        <circle class="estrela" cx="132" cy="118" r="1.5"/>
+        <circle class="estrela" cx="246" cy="72"  r="1.1"/>
+        <circle class="estrela" cx="88"  cy="286" r="1.3"/>
+        <circle class="estrela" cx="196" cy="430" r="1.2"/>
+        <circle class="estrela" cx="322" cy="168" r="1"/>
+        <circle class="estrela" cx="76"  cy="512" r="1.4"/>
+        <circle class="estrela" cx="404" cy="560" r="1.1"/>
+        <circle class="estrela" cx="842" cy="146" r="1.3"/>
+        <circle class="estrela" cx="806" cy="536" r="1.2"/>
+        <circle class="estrela" cx="728" cy="64"  r="1"/>
+        <circle class="estrela" cx="640" cy="590" r="1.1"/>
+      </g>
+      <g fill="#f1ead8">
+        <circle class="estrela" cx="702" cy="236" r="1.6"/>
+        <circle class="estrela" cx="168" cy="214" r="1.2"/>
       </g>
     </svg>
   </div>
@@ -893,19 +930,20 @@ function aplicarIdentidade(nome) {
   document.title = nomeAssistente;
   $("brand").textContent = nomeAssistente;
 
-  // Ícone da aba: um monograma gerado na hora, sem arquivo externo.
-  // Gema lapidada com a inicial dentro — a mesma joia da barra lateral,
-  // reduzida ao que sobrevive a 16 pixels na aba do navegador.
+  // Ícone da aba: o eclipse da barra lateral reduzido ao que sobrevive a
+  // 16 pixels — a borda acesa e a órbita —, com a inicial no escuro do disco.
   const letra = escapar(nomeAssistente[0].toUpperCase());
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
-    '<stop offset="0" stop-color="#e95a7a"/><stop offset=".55" stop-color="#b3173e"/>' +
-    '<stop offset="1" stop-color="#5a0d1a"/></linearGradient></defs>' +
-    '<path d="M18 8h28l10 15-24 33L8 23z" fill="url(#g)"/>' +
-    '<path d="M18 8h28l10 15H8z" fill="#e95a7a" opacity=".55"/>' +
-    `<text x="32" y="42" text-anchor="middle" fill="#fff2f4"` +
-    ` font-family="Georgia,serif" font-size="26" font-weight="600">${letra}</text></svg>`;
+    '<defs><linearGradient id="g" x1=".1" y1=".9" x2=".9" y2=".1">' +
+    '<stop offset="0" stop-color="#f3f4ff"/><stop offset=".5" stop-color="#a6abef"/>' +
+    '<stop offset="1" stop-color="#2b2d5e"/></linearGradient></defs>' +
+    '<circle cx="32" cy="32" r="26" fill="url(#g)"/>' +
+    '<circle cx="36" cy="28.5" r="25" fill="#090a14"/>' +
+    '<ellipse cx="32" cy="32" rx="31" ry="9" transform="rotate(-22 32 32)" fill="none"' +
+    ' stroke="#b9bdf7" stroke-opacity=".6" stroke-width="1.6"/>' +
+    `<text x="35" y="40" text-anchor="middle" fill="#e9ebff"` +
+    ` font-family="Georgia,serif" font-size="24" font-style="italic">${letra}</text></svg>`;
   document.querySelector("link[rel=icon]").href =
     "data:image/svg+xml," + encodeURIComponent(svg);
 }
@@ -1561,12 +1599,12 @@ const CEREBRO = `
   <svg viewBox="0 0 200 160" fill="none" aria-hidden="true">
     <defs>
       <radialGradient id="cNucleo" cx=".5" cy=".5" r=".5">
-        <stop offset="0" stop-color="#ffd9df"/>
-        <stop offset=".45" stop-color="#e95a7a"/>
-        <stop offset="1" stop-color="#8e0f2a" stop-opacity="0"/>
+        <stop offset="0" stop-color="#e9ebff"/>
+        <stop offset=".45" stop-color="#b9bdf7"/>
+        <stop offset="1" stop-color="#565cb0" stop-opacity="0"/>
       </radialGradient>
       <linearGradient id="cTraco" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#a6653a"/>
+        <stop offset="0" stop-color="#b9bdf7"/><stop offset="1" stop-color="#8f7fa6"/>
       </linearGradient>
     </defs>
     <path d="M100 26c-24-14-56-6-64 18-22 6-30 34-14 50-10 20 6 44 28 44 10 14 34 16 50 4
@@ -1577,8 +1615,8 @@ const CEREBRO = `
       <path d="M74 118h20v-16M126 118h-20v-16"/>
     </g>
     <circle cx="100" cy="80" r="26" fill="url(#cNucleo)"/>
-    <circle cx="100" cy="80" r="7" fill="#ffd9df" opacity=".9"/>
-    <g fill="#e95a7a">
+    <circle cx="100" cy="80" r="7" fill="#e9ebff" opacity=".9"/>
+    <g fill="#b9bdf7">
       <circle class="sinapse" cx="100" cy="26" r="3"/>
       <circle class="sinapse" cx="64"  cy="52" r="2.6"/>
       <circle class="sinapse" cx="136" cy="52" r="2.6"/>
@@ -1974,6 +2012,10 @@ $("input").addEventListener("input", (e) => {
   $("input").focus();
 })();
 </script>
-<script src="/assets/nebulosa.js"></script>
+<script src="/assets/galaxia.js?v=8"></script>
+<script src="/assets/nebulosa.js?v=8"></script>
+<!-- A galáxia 3D (Three.js empacotado). Módulo: carrega depois e avisa a
+     Nebulosa com o evento "cosmos-pronto". Ver web/cosmos/README.md. -->
+<script type="module" src="/assets/cosmos.js?v=8"></script>
 </body>
 </html>

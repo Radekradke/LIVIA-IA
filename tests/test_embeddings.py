@@ -110,7 +110,7 @@ async def test_gera_local_e_normaliza(local, monkeypatch):
     # Normalizado = comprimento 1, que é o que faz o produto escalar ser
     # a semelhança do cosseno.
     np.testing.assert_allclose(np.linalg.norm(matriz, axis=1), [1.0, 1.0], atol=1e-6)
-    assert assinatura == "ollama:nomic-embed-text:4"
+    assert assinatura == "ollama:nomic-embed-text+prefixo:4"
 
 
 @respx.mock
@@ -201,7 +201,9 @@ async def test_cache_e_por_gerador_tambem(local, monkeypatch):
 def test_indice_de_outro_gerador_e_incompativel(local, monkeypatch):
     monkeypatch.setattr(config, "GEMINI_API_KEY", "")
     assert embeddings.compativel("gemini:gemini-embedding-001:768") is False
-    assert embeddings.compativel("ollama:nomic-embed-text:768") is True
+    assert embeddings.compativel("ollama:nomic-embed-text+prefixo:768") is True
+    # vetor antigo, gerado sem o prefixo de tarefa, é refeito
+    assert embeddings.compativel("ollama:nomic-embed-text:768") is False
 
 
 def test_indice_antigo_sem_assinatura_conta_como_gemini(so_nuvem):
@@ -248,7 +250,7 @@ async def test_biblioteca_inteira_funciona_local(local, biblioteca_limpa, monkey
     passos = [p async for p in biblioteca.adicionar("curso.txt", texto.encode("utf-8"))]
 
     assert passos[-1]["etapa"] == "pronto"
-    assert passos[-1]["livro"]["assinatura"] == "ollama:nomic-embed-text:3"
+    assert passos[-1]["livro"]["assinatura"] == "ollama:nomic-embed-text+prefixo:3"
 
     achados = await biblioteca.buscar("como funciona ponteiro?")
     assert achados and "Ponteiros" in achados[0]["texto"]

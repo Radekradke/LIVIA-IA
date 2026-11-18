@@ -166,7 +166,16 @@ async def extract(
             "`replaces` com o nome daquela memória.\n"
         )
     elif preferindo:
-        aviso = "\nATENÇÃO: o usuário parece estar declarando uma preferência durável.\n"
+        aviso = (
+            "\nATENÇÃO: o usuário parece estar declarando uma preferência durável. "
+            "Se ela substitui ou atualiza uma preferência da lista de memórias "
+            "parecidas acima, preencha `replaces` com o nome daquela memória.\n"
+        )
+    else:
+        aviso = (
+            "\nSe o fato novo desfaz ou substitui algo afirmado por uma das memórias "
+            "parecidas acima, preencha `replaces` com o nome daquela memória.\n"
+        )
 
     prompt = (
         f"MEMÓRIAS PARECIDAS COM ESTE TRECHO:\n{contexto_parecidas}\n"

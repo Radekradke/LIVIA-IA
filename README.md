@@ -525,6 +525,18 @@ alguém em silêncio passaria a ter uma agenda que não é a dele.
 | 📌 ancorar | a ideia não se move e puxa as parecidas para perto |
 | clicar em duas constelações | **✦ Nó-ponte**: a Livia sugere uma pergunta que liga os dois assuntos |
 
+O fundo do céu é uma **galáxia 3D em Three.js** (`web/cosmos/`, empacotada em
+`web/cosmos.js`): ~70 mil estrelas em braços espirais girando devagar, nuvens
+de gás luminoso, campo de estrelas com profundidade, poeira passando na frente,
+estrelas cadentes raras e bloom. A câmera é posicionada para que o plano das
+ideias coincida com o da galáxia, então dar zoom é voar para dentro do disco;
+o mouse inclina a galáxia de leve. O pulso de gravidade faz o disco ondular.
+Sem WebGL2, quem desenha é o shader 2D (`web/galaxia.js`); sem WebGL nenhum,
+um degradê em CSS. Cada
+ideia é uma estrela, e a temperatura é a cor de estrela de verdade: apagada é
+cinza, esfriando é anã vermelha, morna é amarela, em brasa é branco-azulada.
+Sem WebGL, o céu volta a ser o degradê em CSS e nada mais muda.
+
 A **Esteira** é o funil em colunas (arrastar entre colunas promove, ou abre as
 perguntas que faltam) e tem a matriz **esforço × impacto**. A **Fogueira** é a
 revisão rápida: sugestões, propostas, e as ideias da mais quente à apagada.
@@ -555,7 +567,18 @@ significado, e com o mesmo cache por hash da memória.
 | `/esfriando` | O que está quase indo para a borda escura |
 | `/promover <nº>` | Sobe a ideia, ou diz o que falta responder |
 | `/padroes` | O que o seu funil revela sobre o seu jeito de tocar ideia |
+| `/sistemas` | As categorias (sistemas solares) e as ideias que orbitam cada uma |
 | `/ajuda` | Mostra os comandos |
+
+### Sistemas solares
+
+Categoria é um **sistema solar**: o sol é o nome ("Jogos", "Tatuagem", "Lifting"), as ideias são **planetas** em órbita e as notas de cada ideia são **luas** girando em volta do núcleo.
+
+- **☉ Sistema** no topo do céu acende um sol novo; solte uma ideia em cima dele para pôr em órbita, arraste para além do anel de fora para soltar. Arrastar o sol leva o sistema inteiro.
+- Os anéis seguem a temperatura: em brasa orbita perto do sol, apagada vai para o anel de fora. O sol brilha com as três ideias mais quentes dele.
+- A órbita para quando o mouse passa num planeta, quando a gaveta está aberta e com "reduzir movimento" ligado. A gravidade não mexe em planeta e desvia dos sistemas.
+- Notas: na gaveta da ideia, **☾ Nova lua**. Quando a Livia anota algo na conversa ("anota na #3 que…"), também vira nota, e ela entra no vetor da ideia.
+- A Livia **sugere** sistema quando acha uma constelação de 3+ ideias soltas falando da mesma coisa — aparece na Fogueira, e só vira sistema se você aceitar.
 
 ---
 

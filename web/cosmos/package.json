@@ -1,0 +1,12 @@
+{
+  "name": "livia-cosmos",
+  "private": true,
+  "description": "Galáxia 3D da Nebulosa (Three.js), empacotada em web/cosmos.js",
+  "scripts": {
+    "build": "esbuild cosmos.src.js --bundle --minify --format=esm --target=es2020 --legal-comments=eof --outfile=../cosmos.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "three": "0.187.0"
+  }
+}

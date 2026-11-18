@@ -52,7 +52,7 @@ GEMINI_EMBED_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_EMBED_MODEL = "gemini-embedding-001"
 
 LOTE = 50            # textos por chamada
-LIMITE_TEXTO = 8000  # caracteres por texto; o resto é cortado
+LIMITE_TEXTO = 6000  # caracteres por texto; o resto é cortado (cabe nos 2048 tokens do Gemini)
 
 
 class EmbeddingError(RuntimeError):
@@ -88,9 +88,26 @@ def disponivel() -> bool:
 
 
 def _modelo(provedor: str) -> str:
-    return (
-        config.OLLAMA_EMBED_MODEL if provedor == "ollama" else GEMINI_EMBED_MODEL
-    )
+    if provedor != "ollama":
+        return GEMINI_EMBED_MODEL
+    # O "+prefixo" entra na identidade de propósito: vetor do nomic gerado
+    # COM o prefixo de tarefa não se compara com vetor gerado sem. Mudar a
+    # assinatura faz o cache e os índices antigos serem refeitos sozinhos,
+    # em vez de misturar os dois tipos em silêncio.
+    return config.OLLAMA_EMBED_MODEL + ("+prefixo" if _usa_prefixo() else "")
+
+
+def _usa_prefixo() -> bool:
+    return "nomic" in (config.OLLAMA_EMBED_MODEL or "").lower()
+
+
+def _preparar_ollama(texto: str, tarefa: str) -> str:
+    """O nomic-embed-text é assimétrico: espera saber se o texto é pergunta
+    ou documento. Sem o prefixo ele funciona, mas a busca fica pior."""
+    cortado = texto[:LIMITE_TEXTO]
+    if not _usa_prefixo() or cortado.startswith(("search_query: ", "search_document: ")):
+        return cortado
+    return ("search_query: " if tarefa == PERGUNTA else "search_document: ") + cortado
 
 
 def assinatura(provedor: str | None = None, dimensoes: int | None = None) -> str:
@@ -115,7 +132,7 @@ def _dimensoes_esperadas(provedor: str) -> int | str:
 # --------------------------------------------------------------------------
 
 
-async def _ollama(textos: list[str], _tarefa: str) -> list[list[float]]:
+async def _ollama(textos: list[str], tarefa: str) -> list[list[float]]:
     """Embeddings locais via /api/embed.
 
     O endpoint antigo (`/api/embeddings`, singular, um texto por vez) ainda
@@ -125,7 +142,7 @@ async def _ollama(textos: list[str], _tarefa: str) -> list[list[float]]:
     url = f"{config.OLLAMA_BASE_URL}/api/embed"
     corpo = {
         "model": config.OLLAMA_EMBED_MODEL,
-        "input": [t[:LIMITE_TEXTO] for t in textos],
+        "input": [_preparar_ollama(t, tarefa) for t in textos],
     }
 
     try:
@@ -136,7 +153,7 @@ async def _ollama(textos: list[str], _tarefa: str) -> list[list[float]]:
                 # versão" ou "o modelo não está baixado". Só a primeira merece
                 # tentar a rota antiga; a segunda precisa da mensagem que
                 # ensina o `ollama pull`.
-                return await _ollama_antigo(textos, c)
+                return await _ollama_antigo(textos, c, tarefa)
             if resposta.status_code >= 400:
                 raise EmbeddingError(_ollama_recado(resposta.text))
             dados = resposta.json()
@@ -154,12 +171,14 @@ async def _ollama(textos: list[str], _tarefa: str) -> list[list[float]]:
     return vetores
 
 
-async def _ollama_antigo(textos: list[str], cliente: httpx.AsyncClient) -> list[list[float]]:
+async def _ollama_antigo(
+    textos: list[str], cliente: httpx.AsyncClient, tarefa: str = "RETRIEVAL_DOCUMENT"
+) -> list[list[float]]:
     url = f"{config.OLLAMA_BASE_URL}/api/embeddings"
     saida: list[list[float]] = []
     for texto in textos:
         resposta = await cliente.post(
-            url, json={"model": config.OLLAMA_EMBED_MODEL, "prompt": texto[:LIMITE_TEXTO]}
+            url, json={"model": config.OLLAMA_EMBED_MODEL, "prompt": _preparar_ollama(texto, tarefa)}
         )
         if resposta.status_code >= 400:
             raise EmbeddingError(_ollama_recado(resposta.text))

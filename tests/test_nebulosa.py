@@ -20,8 +20,8 @@ from tests.test_memoria import vetores  # noqa: F401  (fixture)
 @pytest.fixture(autouse=True)
 def _ceu_vazio(tmp_path, monkeypatch):
     with db._connect() as conn:
-        for tabela in ("ideia_sugestoes", "ideia_ligacoes", "ideia_gates",
-                       "ideia_eventos", "ideia_layouts", "constelacao_nomes", "ideias"):
+        for tabela in ("ideia_sugestoes", "ideia_ligacoes", "ideia_gates", "ideia_notas",
+                       "ideia_eventos", "ideia_layouts", "constelacao_nomes", "ideias", "sistemas"):
             conn.execute(f"DELETE FROM {tabela}")
     from livia.store import lessons
 
@@ -150,7 +150,8 @@ def test_juntar_arquiva_a_absorvida_sem_apagar_nada():
     nebulosa.responder_gate(b["id"], "problema", "decalque manual demora")
     fica = nebulosa.juntar(a["id"], b["id"])
     assert "decalque" not in fica["conteudo"]  # o gate não vira texto...
-    assert "Converter foto" in fica["conteudo"]  # ...mas o texto vem junto
+    # ...e o texto da absorvida vem junto, como nota (uma lua nova)
+    assert any("Converter foto" in n["texto"] for n in nebulosa.notas(a["id"]))
     assert fica["gates"]["problema"] == "decalque manual demora"
     sai = nebulosa.obter(b["id"])
     assert sai["estagio"] == "arquivada" and sai["motivo_arquivo"].startswith("juntada")
@@ -362,6 +363,8 @@ def test_estado_e_assets(logado):
     dados = logado.get("/api/nebulosa").json()
     assert len(dados["ideias"]) == 1 and dados["estagios"][0]["chave"] == "faisca"
     assert logado.get("/assets/nebulosa.js").status_code == 200
+    assert logado.get("/assets/galaxia.js").status_code == 200
+    assert logado.get("/assets/cosmos.js").status_code == 200
     assert logado.get("/assets/../.env").status_code == 404
 
 
@@ -423,3 +426,167 @@ def test_prompt_conhece_a_nebulosa(vetores):
 
     nebulosa.criar("migrar o banco para postgres", titulo="Migração Postgres")
     assert "# A Nebulosa" in context.build_system_prompt()
+
+
+# ── sistemas solares e notas ──────────────────────────────────────────────
+
+
+def test_sistema_agrupa_ideias_e_o_sol_brilha_com_as_mais_quentes():
+    a = nebulosa.criar("ideia a", x=100, y=0)
+    b = nebulosa.criar("ideia b", x=300, y=0)
+    sist = nebulosa.criar_sistema("Jogos", ideias=[a["id"], b["id"]])
+    assert set(sist["membros"]) == {a["id"], b["id"]}
+    assert (sist["x"], sist["y"]) == (200, 0)          # nasce no meio delas
+    assert nebulosa.publico(nebulosa.obter(a["id"]))["sistema_nome"] == "Jogos"
+    assert sist["calor"] == pytest.approx(nebulosa.PESOS["criar"] + nebulosa.PESOS["sistema"], abs=0.5)
+
+
+def test_tirar_do_sistema_e_apagar_sistema_nao_apaga_ideia():
+    a = nebulosa.criar("ideia a")
+    sist = nebulosa.criar_sistema("Lifting", ideias=[a["id"]])
+    nebulosa.colocar_no_sistema(a["id"], None, x=10, y=20)
+    linha = nebulosa.obter(a["id"])
+    assert linha["sistema_id"] is None and (linha["pos_x"], linha["pos_y"]) == (10, 20)
+    nebulosa.colocar_no_sistema(a["id"], "lifting")      # pelo nome, sem caixa
+    assert nebulosa.apagar_sistema(sist["id"])
+    assert nebulosa.obter(a["id"])["sistema_id"] is None
+    assert nebulosa.obter(a["id"]) is not None
+
+
+def test_nota_e_lua_aquece_e_entra_no_detalhe():
+    i = nebulosa.criar("ideia")
+    _envelhecer(i["id"], 48)
+    frio = nebulosa.publico(nebulosa.obter(i["id"]))["calor"]
+    nota = nebulosa.adicionar_nota(i["id"], "pensei numa versão mobile")
+    detalhe = nebulosa.detalhar(i["id"])
+    assert detalhe["n_notas"] == 1 and detalhe["notas"][0]["texto"] == "pensei numa versão mobile"
+    assert detalhe["calor"] > frio
+    nebulosa.editar_nota(nota["id"], "versão mobile primeiro")
+    assert nebulosa.notas(i["id"])[0]["texto"] == "versão mobile primeiro"
+    assert nebulosa.apagar_nota(nota["id"]) and nebulosa.notas(i["id"]) == []
+
+
+def test_anotar_pela_livia_cria_nota_e_nao_mexe_no_texto():
+    i = nebulosa.criar("texto original")
+    nebulosa.anotar(i["id"], "um pensamento depois", origem="livia:conversa")
+    assert nebulosa.obter(i["id"])["conteudo"] == "texto original"
+    assert nebulosa.notas(i["id"])[0]["origem"] == "livia:conversa"
+
+
+async def test_livia_sugere_sistema_para_constelacao_solta_e_so_cria_se_aceitar(vetores):
+    ids = [nebulosa.criar(t)["id"] for t in (
+        "migrar o banco para postgres", "backup do banco de dados sqlite", "banco de dados replica")]
+    lista = await nebulosa.gerar_sugestoes(forcar=True)
+    sug = [s for s in lista if s["tipo"] == "sistema"]
+    assert sug and set(sug[0]["dados"]["membros"]) <= set(ids)
+    assert nebulosa.sistemas() == []                     # nada criado sozinho
+    nebulosa.decidir_sugestao(sug[0]["id"], aceitar=True)
+    assert len(nebulosa.sistemas()) == 1
+
+
+async def test_ferramentas_de_sistema():
+    from livia import ferramentas
+
+    a = nebulosa.criar("ideia a")
+    texto, ok = await ferramentas.executar_async("criar_sistema", {"nome": "Livro", "ideias": [a["id"]]})
+    assert ok and "Livro" in texto
+    texto, ok = await ferramentas.executar_async("colocar_no_sistema", {"id": a["id"], "sistema": "nenhum"})
+    assert ok and nebulosa.obter(a["id"])["sistema_id"] is None
+    assert "Livro" in await nebulosa.comando("/sistemas", "")
+
+
+def test_rotas_de_sistema_e_nota(logado):
+    i = logado.post("/api/nebulosa/ideias", json={"conteudo": "ideia"}).json()["ideia"]
+    s = logado.post("/api/nebulosa/sistemas", json={"nome": "Jogos", "ideias": [i["id"]]}).json()["sistema"]
+    assert logado.get("/api/nebulosa").json()["sistemas"][0]["nome"] == "Jogos"
+    n = logado.post(f"/api/nebulosa/ideias/{i['id']}/notas", json={"texto": "lua"}).json()["nota"]
+    assert logado.get(f"/api/nebulosa/ideias/{i['id']}").json()["ideia"]["notas"][0]["id"] == n["id"]
+    assert logado.post(f"/api/nebulosa/ideias/{i['id']}/sistema", json={"sistema": None, "x": 1, "y": 2}).status_code == 200
+    assert logado.delete(f"/api/nebulosa/sistemas/{s['id']}").json()["ok"]
+
+
+# ── robustez: WAL, backup, prefixo do nomic ───────────────────────────────
+
+
+def test_banco_em_wal_e_backup_leva_o_que_esta_no_wal():
+    import io, sqlite3, zipfile
+    from livia import backup, db
+
+    nebulosa.criar("ideia que só existe no -wal")
+    with db._connect() as conn:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    dados, _ = backup.exportar()
+    with zipfile.ZipFile(io.BytesIO(dados)) as zf, open("/tmp/_retrato.db", "wb") as f:
+        f.write(zf.read("livia.db"))
+    titulos = [r[0] for r in sqlite3.connect("/tmp/_retrato.db").execute("SELECT titulo FROM ideias")]
+    assert "ideia que só existe no -wal" in titulos
+
+
+def test_nomic_ganha_prefixo_de_tarefa_e_muda_a_assinatura(monkeypatch):
+    from livia import config, embeddings
+
+    monkeypatch.setattr(config, "OLLAMA_EMBED_MODEL", "nomic-embed-text")
+    assert embeddings._preparar_ollama("oi", embeddings.PERGUNTA) == "search_query: oi"
+    assert embeddings._preparar_ollama("oi", embeddings.DOCUMENTO) == "search_document: oi"
+    assert embeddings.chave_cache("ollama").endswith("+prefixo")
+    monkeypatch.setattr(config, "OLLAMA_EMBED_MODEL", "mxbai-embed-large")
+    assert embeddings._preparar_ollama("oi", embeddings.PERGUNTA) == "oi"
+
+
+# ── relatórios: trabalho feito com outra IA ───────────────────────────────
+
+
+def test_relatorio_guarda_ia_e_link_e_aquece_mais_que_nota():
+    a = nebulosa.criar("ideia a"); b = nebulosa.criar("ideia b")
+    _envelhecer(a["id"], 72); _envelhecer(b["id"], 72)
+    nebulosa.adicionar_nota(a["id"], "lembrete")
+    r = nebulosa.adicionar_nota(b["id"], "montei o MVP com ele", tipo="relatorio",
+                                ia="ChatGPT", link="https://chatgpt.com/share/abc")
+    assert (r["ia"], r["ia_nome"]) == ("gpt", "ChatGPT")      # apelido normalizado
+    assert nebulosa.notas(b["id"])[0]["link"] == "https://chatgpt.com/share/abc"
+    pb = nebulosa.publico(nebulosa.obter(b["id"]))
+    assert pb["calor"] > nebulosa.publico(nebulosa.obter(a["id"]))["calor"]
+    assert pb["n_relatorios"] == 1 and pb["luas"] == ["gpt"]
+
+
+def test_relatorio_sem_ia_ou_com_link_estranho_recusa():
+    i = nebulosa.criar("ideia")
+    with pytest.raises(nebulosa.NebulosaError):
+        nebulosa.adicionar_nota(i["id"], "x", tipo="relatorio")
+    with pytest.raises(nebulosa.NebulosaError):
+        nebulosa.adicionar_nota(i["id"], "x", tipo="relatorio", ia="claude", link="javascript:alert(1)")
+
+
+async def test_resumir_relatorio_cai_no_texto_quando_modelo_nao_responde(monkeypatch):
+    from livia import brain
+
+    async def nada(*a, **k):
+        return None
+    monkeypatch.setattr(brain, "structured", nada)
+    r = await nebulosa.resumir_relatorio("conversa longa colada aqui")
+    assert r == {"texto": "conversa longa colada aqui", "ia": "", "resumido": False}
+
+    async def resumo(*a, **k):
+        return {"feito": "Fiz o loop de combate.", "proximos": ["testar inimigos"], "ia": "claude"}
+    monkeypatch.setattr(brain, "structured", resumo)
+    r = await nebulosa.resumir_relatorio("...")
+    assert r["resumido"] and r["ia"] == "claude" and "- testar inimigos" in r["texto"]
+
+
+async def test_livia_registra_relatorio_pela_conversa():
+    from livia import ferramentas
+
+    i = nebulosa.criar("jogo de combos")
+    texto, ok = await ferramentas.executar_async(
+        "registrar_relatorio", {"id": i["id"], "ia": "gemini", "texto": "fechei as 30 cartas"})
+    assert ok and "Gemini" in texto
+    assert "relatório (Gemini)" in nebulosa._fmt(nebulosa.publico(nebulosa.obter(i["id"])))
+
+
+def test_rota_de_relatorio(logado):
+    i = logado.post("/api/nebulosa/ideias", json={"conteudo": "ideia"}).json()["ideia"]
+    r = logado.post(f"/api/nebulosa/ideias/{i['id']}/notas",
+                    json={"texto": "feito", "tipo": "relatorio", "ia": "claude"})
+    assert r.status_code == 200 and r.json()["nota"]["ia"] == "claude"
+    assert logado.post(f"/api/nebulosa/ideias/{i['id']}/notas",
+                       json={"texto": "feito", "tipo": "relatorio"}).status_code == 400

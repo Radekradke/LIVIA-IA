@@ -249,7 +249,55 @@ CREATE TABLE IF NOT EXISTS constelacao_nomes (
     nome      TEXT NOT NULL,
     criado_em TEXT NOT NULL
 );
+
+-- Sistemas solares: as CATEGORIAS que o André decide (constelação é o que
+-- a Livia acha parecido; sistema é o que ele diz que é junto). O sol fica
+-- em (pos_x, pos_y); as ideias do sistema orbitam em volta.
+CREATE TABLE IF NOT EXISTS sistemas (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome          TEXT NOT NULL,
+    descricao     TEXT NOT NULL DEFAULT '',
+    pos_x         REAL NOT NULL DEFAULT 0,
+    pos_y         REAL NOT NULL DEFAULT 0,
+    origem        TEXT NOT NULL DEFAULT 'manual',
+    criado_em     TEXT NOT NULL,
+    atualizado_em TEXT NOT NULL
+);
+
+-- Notas de uma ideia: as luas do planeta. Uma ideia tem um texto principal
+-- (o que ela É) e quantas notas quiser (o que foi pensado sobre ela).
+CREATE TABLE IF NOT EXISTS ideia_notas (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ideia_id      INTEGER NOT NULL REFERENCES ideias(id) ON DELETE CASCADE,
+    texto         TEXT NOT NULL,
+    origem        TEXT NOT NULL DEFAULT 'manual',
+    criado_em     TEXT NOT NULL,
+    atualizado_em TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ideia_notas ON ideia_notas(ideia_id, id);
 """
+
+# Colunas acrescentadas depois que a tabela já existia em bancos de verdade.
+# `CREATE TABLE IF NOT EXISTS` não mexe em tabela existente, então elas
+# entram por ALTER — tolerante: se a coluna já está lá, segue a vida.
+_COLUNAS = [
+    ("ideias", "sistema_id", "INTEGER REFERENCES sistemas(id) ON DELETE SET NULL"),
+    ("ideias", "orbita_fase", "REAL"),
+    ("ideia_sugestoes", "dados", "TEXT NOT NULL DEFAULT ''"),
+    # relatórios: a nota que registra trabalho feito com outra IA
+    ("ideia_notas", "tipo", "TEXT NOT NULL DEFAULT 'nota'"),
+    ("ideia_notas", "ia", "TEXT NOT NULL DEFAULT ''"),
+    ("ideia_notas", "link", "TEXT NOT NULL DEFAULT ''"),
+]
+
+
+def _migrar(conn: sqlite3.Connection) -> None:
+    for tabela, coluna, ddl in _COLUNAS:
+        existentes = {r[1] for r in conn.execute(f"PRAGMA table_info({tabela})")}
+        if coluna not in existentes:
+            conn.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {ddl}")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ideias_sistema ON ideias(sistema_id)")
 
 
 def _now() -> str:
@@ -270,12 +318,19 @@ def _connect() -> Iterator[sqlite3.Connection]:
     """
     global _criado
     config.DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.DB_PATH)
+    # timeout: espera até 10 s por um lock em vez de estourar "database is
+    # locked" na hora — o learner e a Nebulosa escrevem em segundo plano
+    # enquanto o chat também escreve.
+    conn = sqlite3.connect(config.DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         if not _criado:
+            # WAL deixa leitura e escrita acontecerem juntas. É persistente
+            # (fica gravado no arquivo), então basta uma vez por processo.
+            conn.execute("PRAGMA journal_mode = WAL")
             conn.executescript(_SCHEMA)
+            _migrar(conn)
             _criado = True
         yield conn
         conn.commit()
@@ -288,6 +343,7 @@ def init() -> None:
     _criado = False
     with _connect() as conn:
         conn.executescript(_SCHEMA)
+        _migrar(conn)
 
 
 def create_conversation(title: str = "Nova conversa") -> int:

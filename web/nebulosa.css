@@ -1,23 +1,26 @@
 /* ══════════════════════════════════════════════════════════════════
    NEBULOSA — o céu de ideias, ao lado da conversa
-   Mesma joia do resto da Livia. A temperatura é a única cor nova:
-   cinza de cinza (apagada) → cobre → âmbar → rosa-branco em brasa.
+   O fundo é uma galáxia desenhada na GPU (web/galaxia.js); aqui fica o
+   que mora nela. Cada ideia é uma estrela, e a temperatura é a cor da
+   estrela de verdade: as frias são vermelhas e fracas, as quentes são
+   branco-azuladas. Quem passou por aula de astronomia lê na hora; quem
+   não passou lê pelo brilho, que é o mesmo nos dois casos.
    ══════════════════════════════════════════════════════════════════ */
 
 :root {
-  --t-apagada:   #6f5c56;
-  --t-esfriando: #a6653a;
-  --t-morna:     #d99a4e;
-  --t-brasa:     #ff8fa3;
-  --t-brasa-nucleo: #ffe3e8;
+  --t-apagada:   #4f5168;   /* resto de estrela, cinza-azulado */
+  --t-esfriando: #c27b66;   /* anã vermelha */
+  --t-morna:     #e3cf9e;   /* estrela amarela, como o sol */
+  --t-brasa:     #cfe0ff;   /* branco-azulada, a mais quente */
+  --t-brasa-nucleo: #ffffff;
   --chat-w: 44%;
 }
 :root[data-theme="light"] {
-  --t-apagada:   #a8968f;
-  --t-esfriando: #9a5a2f;
-  --t-morna:     #b87a2c;
-  --t-brasa:     #d4285a;
-  --t-brasa-nucleo: #ffd0da;
+  --t-apagada:   #9a9cb3;
+  --t-esfriando: #a35a45;
+  --t-morna:     #9c7d33;
+  --t-brasa:     #3f63c9;
+  --t-brasa-nucleo: #e8efff;
 }
 
 /* ─────────────── troca de modo (conversa · lado a lado · nebulosa) ─────────────── */
@@ -34,8 +37,8 @@
 .modos button:hover { color: var(--texto-suave); }
 .modos button.ativo {
   color: var(--creme);
-  background: linear-gradient(100deg, rgba(179,23,62,.28), rgba(142,15,42,.10));
-  box-shadow: var(--luz-topo), 0 0 14px rgba(179,23,62,.18);
+  background: linear-gradient(100deg, rgba(140,146,217,.28), rgba(86,92,176,.10));
+  box-shadow: var(--luz-topo), 0 0 14px rgba(140,146,217,.18);
 }
 .modos .badge-neb {
   display: inline-block; min-width: 14px; margin-left: 4px; padding: 0 4px;
@@ -84,9 +87,9 @@ body:not(.modo-lado) .divisor { display: none; }
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   padding: 14px 18px 12px;
   border-bottom: 1px solid var(--linha);
-  background: linear-gradient(180deg, rgba(18,9,11,.55), rgba(18,9,11,.15));
+  background: linear-gradient(180deg, rgba(8,9,18,.55), rgba(8,9,18,.15));
 }
-:root[data-theme="light"] .neb-topo { background: linear-gradient(180deg, rgba(255,252,249,.85), rgba(255,252,249,.4)); }
+:root[data-theme="light"] .neb-topo { background: linear-gradient(180deg, rgba(251,251,254,.85), rgba(251,251,254,.4)); }
 
 .neb-marca { display: flex; align-items: baseline; gap: 10px; }
 .neb-marca h2 {
@@ -115,7 +118,7 @@ body:not(.modo-lado) .divisor { display: none; }
 
 .neb-acoes { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
 .neb-btn.icone { padding: 7px 9px; min-width: 32px; }
-.neb-btn.icone.ligado { color: var(--creme); border-color: var(--linha-forte); background: rgba(179,23,62,.16); }
+.neb-btn.icone.ligado { color: var(--creme); border-color: var(--linha-forte); background: rgba(140,146,217,.16); }
 .neb-btn {
   padding: 7px 13px; border-radius: 10px; font-size: 12.5px; font-weight: 600;
   color: var(--texto-suave); background: var(--sunk); border: 1px solid var(--linha);
@@ -125,8 +128,8 @@ body:not(.modo-lado) .divisor { display: none; }
 .neb-btn:hover { color: var(--creme); border-color: var(--linha-forte); }
 .neb-btn:disabled { opacity: .4; cursor: default; }
 .neb-btn.gema {
-  color: #fff; background: var(--gema); border-color: rgba(233,90,122,.38);
-  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+  color: #fff; background: var(--gema); border-color: rgba(185,189,247,.38);
+  box-shadow: var(--luz-topo), 0 4px 16px rgba(86,92,176,.38);
 }
 .neb-btn.gema:hover { filter: brightness(1.1); transform: translateY(-1px); }
 .neb-btn kbd {
@@ -134,7 +137,7 @@ body:not(.modo-lado) .divisor { display: none; }
   padding: 0 4px; border: 1px solid currentColor; border-radius: 4px;
 }
 .neb-btn.puxando { animation: puxar 1s ease-in-out infinite; }
-@keyframes puxar { 50% { box-shadow: var(--luz-topo), 0 0 26px rgba(233,90,122,.7); } }
+@keyframes puxar { 50% { box-shadow: var(--luz-topo), 0 0 26px rgba(185,189,247,.7); } }
 
 .neb-intensidade {
   display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--texto-fraco);
@@ -147,159 +150,220 @@ body:not(.modo-lado) .divisor { display: none; }
 
 /* ─────────────── céu ─────────────── */
 
+/* Sem WebGL, este degradê é o céu inteiro. Com WebGL, a galáxia pinta
+   por cima e isto vira só a cor de enquanto ela carrega. */
 .ceu {
   position: absolute; inset: 0; overflow: hidden; cursor: grab;
   touch-action: none; user-select: none;
   background:
-    radial-gradient(1px 1px at 12% 18%, rgba(255,208,216,.55), transparent 60%),
-    radial-gradient(1px 1px at 68% 34%, rgba(255,208,216,.40), transparent 60%),
-    radial-gradient(1.4px 1.4px at 42% 76%, rgba(255,224,207,.45), transparent 60%),
-    radial-gradient(1px 1px at 86% 82%, rgba(255,208,216,.35), transparent 60%),
-    radial-gradient(1px 1px at 24% 58%, rgba(255,208,216,.30), transparent 60%),
-    radial-gradient(900px 600px at 50% 45%, rgba(142,15,42,.16), transparent 70%);
+    radial-gradient(1px 1px at 12% 18%, rgba(223,226,255,.55), transparent 60%),
+    radial-gradient(1px 1px at 68% 34%, rgba(223,226,255,.40), transparent 60%),
+    radial-gradient(1.4px 1.4px at 42% 76%, rgba(241,234,216,.45), transparent 60%),
+    radial-gradient(1px 1px at 86% 82%, rgba(223,226,255,.35), transparent 60%),
+    radial-gradient(1px 1px at 24% 58%, rgba(223,226,255,.30), transparent 60%),
+    radial-gradient(900px 600px at 50% 45%, rgba(43,45,94,.45), transparent 70%),
+    #05060c;
 }
 :root[data-theme="light"] .ceu {
-  background: radial-gradient(900px 600px at 50% 45%, rgba(179,23,62,.07), transparent 70%);
+  background: radial-gradient(900px 600px at 50% 45%, rgba(140,146,217,.10), transparent 70%), #eef0f6;
 }
 .ceu.panning { cursor: grabbing; }
 .ceu:focus { outline: none; }
 .ceu:focus-visible { outline: 2px solid var(--linha-forte); outline-offset: -2px; }
 
+.galaxia { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+
 .mundo { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 
-/* A borda escura: onde as ideias apagadas vão parar. Um anel, não um muro —
-   continua dando para arrastar uma ideia de volta para o centro. */
+/* A borda escura. Com a galáxia, quem desenha o escuro e o horizonte é o
+   shader; o anel em CSS só aparece quando não há WebGL. */
 .borda-escura {
   position: absolute; border-radius: 50%; pointer-events: none;
   transform: translate(-50%, -50%);
   background: radial-gradient(closest-side, transparent 84%, rgba(0,0,0,.36) 93%, rgba(0,0,0,.6) 100%);
-  border: 1px dashed rgba(143,111,102,.22);
+  border: 1px dashed rgba(185,189,247,.16);
 }
+.ceu.webgl .borda-escura { display: none; }
 :root[data-theme="light"] .borda-escura {
-  background: radial-gradient(closest-side, transparent 84%, rgba(90,13,26,.06) 93%, rgba(90,13,26,.12) 100%);
+  background: radial-gradient(closest-side, transparent 84%, rgba(43,45,94,.06) 93%, rgba(43,45,94,.12) 100%);
 }
 .borda-rotulo {
   position: absolute; transform: translate(-50%, 0); pointer-events: none;
-  font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--texto-fraco); opacity: .6;
-  white-space: nowrap;
+  font-family: var(--serif); font-style: italic; font-size: 13px; letter-spacing: .3em;
+  color: var(--texto-fraco); opacity: .55; white-space: nowrap;
 }
 
+/* Fios. O semântico é pontilhado e quase some — é o que o vetor acha.
+   O manual é cor de lua — é o que você decidiu. A ponte corre devagar,
+   porque é uma pergunta ainda em aberto. */
 .fios { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .fios line { stroke-linecap: round; }
-.fio-manual { stroke: var(--dourado); stroke-opacity: .55; stroke-width: 1.6; }
-.fio-semantico { stroke: var(--brilho); stroke-opacity: .16; stroke-width: 1; stroke-dasharray: 3 6; }
-.fio-ponte { stroke: var(--brilho); stroke-opacity: .5; stroke-width: 1.2; stroke-dasharray: 6 5; }
+.fio-manual { stroke: var(--dourado); stroke-opacity: .5; stroke-width: 1.2; }
+.fio-semantico { stroke: var(--brilho); stroke-opacity: .2; stroke-width: 1; stroke-dasharray: 1 7; }
+.fio-ponte {
+  stroke: var(--brilho); stroke-opacity: .55; stroke-width: 1.1; stroke-dasharray: 6 8;
+  animation: fluir 7s linear infinite;
+}
+@keyframes fluir { to { stroke-dashoffset: -56; } }
 
+/* Nome de constelação: como legenda de mapa antigo do céu — itálico,
+   espaçado, sem moldura até você passar o mouse. */
 .constelacao {
   position: absolute; transform: translate(-50%, -100%);
-  font-family: var(--serif); font-size: 15px; font-style: italic; white-space: nowrap;
-  color: var(--texto-suave); opacity: .85; cursor: pointer; padding: 2px 10px; border-radius: 999px;
-  border: 1px solid transparent; transition: opacity .3s, border-color .16s, background .16s;
-  text-shadow: 0 0 12px rgba(0,0,0,.7);
+  font-family: var(--serif); font-size: 17px; font-style: italic; letter-spacing: .08em;
+  white-space: nowrap; color: rgba(223,226,255,.74);
+  cursor: pointer; padding: 3px 14px 7px; border-radius: 999px;
+  border: 1px solid transparent; transition: opacity .3s, border-color .16s, background .16s, color .16s;
+  text-shadow: 0 0 18px rgba(5,6,12,.95), 0 0 4px rgba(5,6,12,.9);
 }
-:root[data-theme="light"] .constelacao { text-shadow: none; }
-.constelacao::before { content: "✦ "; color: var(--brilho); font-style: normal; font-size: .8em; }
-.constelacao:hover { border-color: var(--linha-forte); }
-.constelacao.selecionada { border-color: var(--brilho); background: rgba(179,23,62,.18); color: var(--creme); }
+.constelacao::after {
+  content: ""; position: absolute; left: 30%; right: 30%; bottom: 2px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(185,189,247,.6), transparent);
+}
+:root[data-theme="light"] .constelacao { color: #3a3f78; text-shadow: 0 0 10px rgba(238,240,246,.9); }
+.constelacao:hover { border-color: var(--linha-forte); color: var(--creme); }
+.constelacao.selecionada { border-color: var(--brilho); background: rgba(140,146,217,.16); color: var(--creme); }
 .constelacao.provisoria { opacity: .55; }
 
-/* As ideias no céu. A classe é .astro, e não .estrela, de propósito: o
-   index já usa .estrela nas estrelinhas do fundo, com animação de cintilar —
-   reaproveitar o nome fazia as ideias piscarem até quase sumir.
-   --c é a cor da temperatura; --g (0–1), a intensidade do brilho. */
+/* As ideias. A classe é .astro, e não .estrela, de propósito: o index já
+   usa .estrela nas estrelinhas do fundo, com animação de cintilar.
+   Cada ideia é uma ESTRELA (o .nucleo, no canto) com uma LEGENDA de vidro
+   fumê ao lado. --c é a cor da temperatura; --g (0–1), o brilho. */
 .astro {
-  --c: var(--t-morna); --g: .5;
+  --c: var(--t-morna); --g: .5; --n: 10px;
   position: absolute; left: 0; top: 0;
-  width: 200px; padding: 10px 13px 11px;
-  border-radius: 14px; cursor: pointer;
-  background: linear-gradient(160deg, var(--painel-alto), var(--painel));
-  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+  width: 200px; padding: 11px 14px 12px 16px;
+  border-radius: 4px 14px 14px 14px; cursor: pointer;
+  background: linear-gradient(160deg, rgba(14,16,32,.72), rgba(7,8,15,.58));
+  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+  border: 1px solid color-mix(in srgb, var(--c) 26%, transparent);
   box-shadow:
-    var(--luz-topo),
-    0 0 calc(6px + 30px * var(--g)) color-mix(in srgb, var(--c) calc(18% + 50% * var(--g)), transparent),
-    var(--sombra-baixa);
+    inset 0 1px 0 rgba(223,226,255,.06),
+    0 0 calc(10px + 34px * var(--g)) color-mix(in srgb, var(--c) calc(6% + 22% * var(--g)), transparent),
+    0 10px 30px rgba(0,0,0,.35);
   transition: box-shadow .4s, border-color .4s, opacity .4s, width .2s;
   will-change: transform;
 }
-.astro:hover { border-color: var(--c); z-index: 4; }
-.astro.selecionada { border-color: var(--brilho); outline: 2px solid color-mix(in srgb, var(--brilho) 40%, transparent); outline-offset: 3px; z-index: 5; }
+:root[data-theme="light"] .astro {
+  background: linear-gradient(160deg, rgba(251,251,254,.86), rgba(238,240,246,.74));
+  box-shadow: 0 0 calc(8px + 20px * var(--g)) color-mix(in srgb, var(--c) calc(8% + 20% * var(--g)), transparent),
+              0 8px 22px rgba(43,45,94,.10);
+}
+.astro:hover { border-color: color-mix(in srgb, var(--c) 60%, transparent); z-index: 4; }
+.astro.selecionada { border-color: var(--brilho); outline: 1px solid color-mix(in srgb, var(--brilho) 45%, transparent); outline-offset: 4px; z-index: 5; }
 .astro.arrastando { cursor: grabbing; z-index: 6; transition: none; }
 
 .astro.f-brasa    { --c: var(--t-brasa); }
 .astro.f-morna    { --c: var(--t-morna); }
 .astro.f-esfriando{ --c: var(--t-esfriando); }
-.astro.f-apagada  { --c: var(--t-apagada); opacity: .58; }
+.astro.f-apagada  { --c: var(--t-apagada); opacity: .5; }
 
-.astro.e-faisca   { width: 172px; border-radius: 18px; }
-.astro.e-rascunho { width: 204px; }
-.astro.e-validada { width: 228px; border-width: 1.5px; }
-.astro.e-execucao {
-  width: 248px; border-width: 2px;
-  box-shadow:
-    var(--luz-topo),
-    0 0 0 4px color-mix(in srgb, var(--c) 16%, transparent),
-    0 0 calc(14px + 40px * var(--g)) color-mix(in srgb, var(--c) calc(24% + 50% * var(--g)), transparent);
-}
-.astro.e-arquivada { opacity: .45; filter: grayscale(.6); }
+/* O estágio é o TAMANHO da estrela: faísca é um ponto, execução é um sol. */
+.astro.e-faisca   { width: 172px; --n: 8px; }
+.astro.e-rascunho { width: 204px; --n: 10px; }
+.astro.e-validada { width: 228px; --n: 12px; }
+.astro.e-execucao { width: 248px; --n: 16px; border-width: 1.5px; }
+.astro.e-arquivada { opacity: .4; filter: grayscale(.7); }
 .astro.proposta {
-  border-style: dashed; border-color: var(--brilho);
-  background: linear-gradient(160deg, rgba(179,23,62,.14), rgba(18,9,11,.4));
+  border-style: dashed; border-color: rgba(185,189,247,.55);
+  background: linear-gradient(160deg, rgba(86,92,176,.18), rgba(7,8,15,.5));
 }
-:root[data-theme="light"] .astro.proposta { background: linear-gradient(160deg, rgba(179,23,62,.08), rgba(255,252,249,.7)); }
+:root[data-theme="light"] .astro.proposta { background: linear-gradient(160deg, rgba(140,146,217,.10), rgba(251,251,254,.75)); }
 
 .estrela-topo {
   display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px;
-  color: var(--texto-fraco); letter-spacing: .03em; line-height: 1.4;
+  color: var(--texto-fraco); letter-spacing: .04em; line-height: 1.4; min-height: 12px;
 }
-.estrela-topo .num { color: var(--c); font-weight: 700; }
-.estrela-topo .graus { margin-left: auto; color: var(--c); }
+.estrela-topo .num { color: color-mix(in srgb, var(--c) 80%, var(--texto)); font-weight: 600; }
+.estrela-topo .graus { margin-left: auto; color: var(--c); opacity: .85; }
 .estrela-topo .pino { font-size: 10px; opacity: .85; }
+
+/* A estrela em si, pendurada no canto da legenda. Cintila devagar, cada
+   uma no seu tempo (--d vem do número da ideia). As quentes e os sóis
+   ganham raios de difração — a cruz das fotos de telescópio. */
 .nucleo {
-  width: 8px; height: 8px; border-radius: 50%; flex: none;
-  background: radial-gradient(circle, var(--t-brasa-nucleo) 0, var(--c) 55%, transparent 72%);
-  box-shadow: 0 0 calc(4px + 10px * var(--g)) var(--c);
+  position: absolute; left: calc(var(--n) / -2); top: calc(var(--n) / -2);
+  width: var(--n); height: var(--n); border-radius: 50%; flex: none;
+  background: radial-gradient(circle, var(--t-brasa-nucleo) 0, var(--c) 42%, transparent 72%);
+  box-shadow: 0 0 calc(4px + 16px * var(--g)) var(--c), 0 0 calc(12px + 40px * var(--g)) color-mix(in srgb, var(--c) 40%, transparent);
+  animation: brilhar 6s ease-in-out infinite; animation-delay: var(--d, 0s);
 }
+@keyframes brilhar { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .72; transform: scale(.86); } }
+.nucleo::before, .nucleo::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: calc(var(--n) * 5); height: 1px; transform: translate(-50%, -50%);
+  background: linear-gradient(90deg, transparent, var(--c), transparent);
+  opacity: 0; pointer-events: none;
+}
+.nucleo::after { transform: translate(-50%, -50%) rotate(90deg); }
+.astro.f-brasa .nucleo::before, .astro.f-brasa .nucleo::after,
+.astro.e-execucao .nucleo::before, .astro.e-execucao .nucleo::after { opacity: calc(.35 + .6 * var(--g)); }
+@media (prefers-reduced-motion: reduce) { .nucleo { animation: none; } }
+
 .estrela-titulo {
-  margin-top: 5px; font-size: 13.5px; line-height: 1.38; color: var(--texto); font-weight: 600;
+  margin-top: 4px; font-size: 13.5px; line-height: 1.4; color: var(--texto); font-weight: 600;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .estrela-texto {
-  margin-top: 5px; font-size: 12px; line-height: 1.45; color: var(--texto-suave);
+  margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--texto-suave);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.estrela-pe { margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
+.estrela-pe { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: .04em; text-transform: uppercase;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase;
   padding: 1px 7px; border-radius: 999px; border: 1px solid var(--linha-forte); color: var(--texto-fraco);
   white-space: nowrap;
 }
-.chip.livia { color: var(--brilho); border-color: rgba(233,90,122,.45); }
+.chip.livia { color: var(--brilho); border-color: rgba(185,189,247,.45); }
 .chip.falta { color: var(--dourado); border-color: color-mix(in srgb, var(--dourado) 45%, transparent); }
 
-/* Aquecida pela conversa: um pulso só, para o olho achar no céu. */
-.astro.aquecendo { animation: aquecer 1.6s ease-out 2; }
+/* Aquecida pela conversa: a estrela incha e solta um anel, uma vez. */
+.astro.aquecendo { animation: aquecer 1.8s ease-out 2; }
+.astro.aquecendo .nucleo { animation: inchar 1.8s ease-out 2; }
 @keyframes aquecer {
-  0%   { box-shadow: var(--luz-topo), 0 0 0 0 color-mix(in srgb, var(--t-brasa) 70%, transparent); }
-  60%  { box-shadow: var(--luz-topo), 0 0 0 18px transparent, 0 0 50px var(--t-brasa); }
-  100% { box-shadow: var(--luz-topo), 0 0 0 0 transparent; }
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--t-brasa) 60%, transparent); }
+  60%  { box-shadow: 0 0 0 22px transparent, 0 0 60px color-mix(in srgb, var(--t-brasa) 50%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
-@media (prefers-reduced-motion: reduce) { .astro.aquecendo { animation: none; outline: 2px solid var(--t-brasa); } }
+@keyframes inchar { 0% { transform: scale(1); } 30% { transform: scale(2.2); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .astro.aquecendo, .astro.aquecendo .nucleo { animation: none; }
+  .astro.aquecendo { outline: 1px solid var(--t-brasa); }
+}
 
-/* Nível de detalhe pelo zoom. Longe: pontos de luz. Meio: só o título. */
+/* Nível de detalhe pelo zoom. Longe: só as estrelas. Meio: só o título. */
 .ceu.lod-medio .estrela-texto, .ceu.lod-medio .estrela-pe { display: none; }
-/* No meio do caminho só o título fica — então ele cresce, para continuar
-   legível com o mundo encolhido. */
 .ceu.lod-medio .estrela-titulo { font-size: 17px; line-height: 1.3; -webkit-line-clamp: 2; }
 .ceu.lod-medio .estrela-topo { font-size: 12px; }
+.ceu.lod-medio .astro { --n: 14px; }
+.ceu.lod-medio .astro.e-execucao { --n: 22px; }
+
 .ceu.lod-longe .astro {
-  width: 22px !important; height: 22px; padding: 0; border-radius: 50%;
-  background: radial-gradient(circle, var(--t-brasa-nucleo) 0, var(--c) 45%, transparent 72%);
-  border: none; transform-origin: center;
+  width: calc(var(--n) * 2.4) !important; height: calc(var(--n) * 2.4); padding: 0; border-radius: 50%;
+  background: radial-gradient(circle, var(--t-brasa-nucleo) 0, var(--c) 22%, color-mix(in srgb, var(--c) 30%, transparent) 40%, transparent 70%);
+  border: none; transform-origin: center; -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: none; --n: 14px;
 }
-.ceu.lod-longe .astro.e-execucao { width: 38px !important; height: 38px; }
-.ceu.lod-longe .astro.e-validada { width: 30px !important; height: 30px; }
+.ceu.lod-longe .astro.e-validada { --n: 18px; }
+.ceu.lod-longe .astro.e-execucao { --n: 26px; }
 .ceu.lod-longe .astro > * { display: none; }
-.ceu.lod-longe .constelacao { font-size: 26px; }
+.ceu.lod-longe .astro.f-brasa::before, .ceu.lod-longe .astro.f-brasa::after,
+.ceu.lod-longe .astro.e-execucao::before, .ceu.lod-longe .astro.e-execucao::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 320%; height: 2px;
+  transform: translate(-50%, -50%); background: linear-gradient(90deg, transparent, var(--c), transparent);
+  opacity: .8;
+}
+.ceu.lod-longe .astro.f-brasa::after, .ceu.lod-longe .astro.e-execucao::after { transform: translate(-50%, -50%) rotate(90deg); }
+.ceu.lod-longe .constelacao { font-size: 30px; }
+
+/* Legenda da temperatura, discreta, no canto. */
+.legenda-temp {
+  position: absolute; left: 14px; bottom: 34px; z-index: 3; pointer-events: none;
+  display: flex; gap: 12px; font-size: 10.5px; letter-spacing: .06em; color: var(--texto-fraco);
+}
+.legenda-temp span { display: inline-flex; align-items: center; gap: 5px; }
+.legenda-temp i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+@media (max-width: 1080px) { .legenda-temp { display: none; } }
 
 .ceu-vazio[hidden] { display: none; }
 .ceu-vazio {
@@ -307,7 +371,7 @@ body:not(.modo-lado) .divisor { display: none; }
   pointer-events: none; text-align: center;
 }
 .ceu-vazio div { max-width: 360px; color: var(--texto-suave); font-size: 14px; line-height: 1.7; }
-.ceu-vazio h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; color: var(--creme); margin: 0 0 8px; }
+.ceu-vazio h3 { font-family: var(--serif); font-weight: 400; font-style: italic; font-size: 24px; letter-spacing: .04em; color: var(--creme); margin: 0 0 10px; }
 .ceu-vazio kbd, .ceu-ajuda kbd {
   font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 5px;
   border: 1px solid var(--linha-forte); color: var(--texto);
@@ -330,8 +394,8 @@ body:not(.modo-lado) .divisor { display: none; }
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 4;
   display: none; align-items: center; gap: 8px;
   padding: 7px 14px; border-radius: 999px; font-size: 12.5px; color: var(--texto-suave);
-  background: linear-gradient(100deg, rgba(179,23,62,.26), rgba(166,101,58,.12));
-  border: 1px solid var(--linha-forte); box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.18);
+  background: linear-gradient(100deg, rgba(140,146,217,.26), rgba(143,127,166,.12));
+  border: 1px solid var(--linha-forte); box-shadow: var(--luz-topo), 0 0 18px rgba(140,146,217,.18);
   cursor: pointer;
 }
 .livia-sugere.mostra { display: flex; }
@@ -341,7 +405,7 @@ body:not(.modo-lado) .divisor { display: none; }
 .rascunho-rapido {
   position: absolute; z-index: 8; width: 260px; transform: translate(-50%, -50%);
   padding: 10px; border-radius: 14px; background: var(--painel-alto);
-  border: 1px solid var(--rubi); box-shadow: var(--sombra-alta), 0 0 30px rgba(179,23,62,.3);
+  border: 1px solid var(--rubi); box-shadow: var(--sombra-alta), 0 0 30px rgba(140,146,217,.3);
 }
 .rascunho-rapido textarea {
   width: 100%; min-height: 74px; resize: none; border: none; outline: none; background: none;
@@ -357,7 +421,7 @@ body:not(.modo-lado) .divisor { display: none; }
   border-radius: var(--raio); background: var(--sunk); border: 1px solid var(--linha);
   transition: border-color .16s, background .16s;
 }
-.coluna.alvo { border-color: var(--brilho); background: rgba(179,23,62,.12); }
+.coluna.alvo { border-color: var(--brilho); background: rgba(140,146,217,.12); }
 .coluna.recolhida { flex: 0 0 150px; opacity: .8; }
 .coluna-topo {
   display: flex; align-items: baseline; justify-content: space-between;
@@ -440,7 +504,7 @@ body:not(.modo-lado) .divisor { display: none; }
 .sugestao {
   display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; margin-bottom: 8px;
   border-radius: var(--raio-p);
-  background: linear-gradient(100deg, rgba(179,23,62,.16), rgba(166,101,58,.06));
+  background: linear-gradient(100deg, rgba(140,146,217,.16), rgba(143,127,166,.06));
   border: 1px solid var(--linha-forte);
 }
 .sugestao .icone { font-size: 16px; line-height: 1.4; }
@@ -465,10 +529,10 @@ body:not(.modo-lado) .divisor { display: none; }
   position: absolute; z-index: 10; top: 0; right: 0; bottom: 0; width: min(400px, 100%);
   display: flex; flex-direction: column; transform: translateX(102%);
   transition: transform .26s cubic-bezier(.2,.8,.2,1);
-  background: linear-gradient(190deg, rgba(46,22,25,.97), rgba(18,9,11,.97));
+  background: linear-gradient(190deg, rgba(22,24,44,.97), rgba(8,9,18,.97));
   border-left: 1px solid var(--linha-forte); box-shadow: -18px 0 48px rgba(0,0,0,.5);
 }
-:root[data-theme="light"] .gaveta { background: linear-gradient(190deg, #fffdfb, #f7efe6); }
+:root[data-theme="light"] .gaveta { background: linear-gradient(190deg, #fbfbfe, #eef0f6); }
 .gaveta.aberta { transform: none; }
 @media (prefers-reduced-motion: reduce) { .gaveta { transition: none; } }
 
@@ -486,7 +550,7 @@ body:not(.modo-lado) .divisor { display: none; }
 }
 .gaveta input.titulo { font-size: 16px; font-weight: 600; }
 .gaveta textarea { resize: vertical; min-height: 110px; line-height: 1.55; }
-.gaveta input:focus, .gaveta textarea:focus { border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.25), 0 0 14px rgba(179,23,62,.2); }
+.gaveta input:focus, .gaveta textarea:focus { border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.25), 0 0 14px rgba(140,146,217,.2); }
 .gaveta .rot {
   margin: 16px 0 7px; font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
   color: var(--texto-fraco); font-weight: 700; display: flex; justify-content: space-between; align-items: center;
@@ -508,7 +572,7 @@ body:not(.modo-lado) .divisor { display: none; }
   color: var(--texto-fraco); background: var(--sunk); border: 1px solid var(--linha);
 }
 .trilha span.passou { color: var(--texto-suave); border-color: var(--linha-forte); }
-.trilha span.aqui { color: #fff; background: var(--gema); border-color: rgba(233,90,122,.4); box-shadow: 0 0 14px rgba(179,23,62,.35); }
+.trilha span.aqui { color: #fff; background: var(--gema); border-color: rgba(185,189,247,.4); box-shadow: 0 0 14px rgba(140,146,217,.35); }
 
 .gate { margin-bottom: 10px; }
 .respondidas { margin-top: 6px; }
@@ -525,7 +589,7 @@ body:not(.modo-lado) .divisor { display: none; }
   flex: 1; padding: 6px 0; border-radius: 7px; font-family: var(--mono); font-size: 12.5px;
   color: var(--texto-suave); background: var(--sunk); border: 1px solid var(--linha);
 }
-.notas button.sel { color: #fff; background: var(--gema); border-color: rgba(233,90,122,.4); }
+.notas button.sel { color: #fff; background: var(--gema); border-color: rgba(185,189,247,.4); }
 
 .botoes-linha { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
 .botoes-linha .neb-btn { flex: 1 1 auto; text-align: center; }
@@ -533,7 +597,7 @@ body:not(.modo-lado) .divisor { display: none; }
 
 .livia-faixa {
   margin-top: 16px; padding: 12px 13px; border-radius: var(--raio-p);
-  background: linear-gradient(100deg, rgba(179,23,62,.18), rgba(166,101,58,.08));
+  background: linear-gradient(100deg, rgba(140,146,217,.18), rgba(143,127,166,.08));
   border: 1px solid var(--linha-forte); font-size: 12.5px; color: var(--texto-suave); line-height: 1.55;
 }
 .livia-faixa b { color: var(--creme); }
@@ -567,7 +631,7 @@ body:not(.modo-lado) .divisor { display: none; }
 .neb-chip {
   display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--texto-suave);
   padding: 5px 13px; border-radius: 999px; cursor: pointer;
-  background: linear-gradient(100deg, rgba(255,143,163,.14), rgba(217,154,78,.08));
+  background: linear-gradient(100deg, rgba(207,224,255,.14), rgba(227,207,158,.08));
   border: 1px solid color-mix(in srgb, var(--t-brasa) 40%, transparent);
   transition: border-color .16s, color .16s;
 }
@@ -575,3 +639,164 @@ body:not(.modo-lado) .divisor { display: none; }
 .neb-chip b { color: var(--creme); font-weight: 600; }
 .neb-chip.pescada { border-style: dashed; border-color: var(--brilho); }
 .neb-chip .mini { margin-left: 2px; }
+
+/* ─────────────── sistemas solares ───────────────
+   O sol é a categoria. Fica atrás das ideias (a camada vem antes no DOM),
+   com os anéis tracejados de cada temperatura e um halo bem fraco
+   marcando até onde o sistema vai — soltar uma ideia ali dentro põe ela
+   em órbita. */
+#sistemas { position: absolute; left: 0; top: 0; }
+.sistema {
+  --c: var(--t-morna); --g: .5;
+  position: absolute; left: 0; top: 0; width: 0; height: 0;
+}
+.sistema.f-brasa     { --c: var(--t-brasa); }
+.sistema.f-esfriando { --c: var(--t-esfriando); }
+.sistema.f-apagada   { --c: var(--t-apagada); }
+.sistema > .halo, .sistema > .anel {
+  position: absolute; left: calc(var(--R) * -1); top: calc(var(--R) * -1);
+  width: calc(var(--R) * 2); height: calc(var(--R) * 2); border-radius: 50%;
+  pointer-events: none;
+}
+.sistema > .halo {
+  background: radial-gradient(circle, color-mix(in srgb, var(--c) calc(5% + 7% * var(--g)), transparent) 0,
+              transparent 68%);
+  border: 1px solid color-mix(in srgb, var(--c) 7%, transparent);
+  transition: border-color .2s, background .3s;
+}
+.sistema.alvo > .halo {
+  border: 1px dashed color-mix(in srgb, var(--brilho) 70%, transparent);
+  background: radial-gradient(circle, rgba(140,146,217,.16) 0, transparent 70%);
+}
+.sistema > .anel { border: 1px dashed color-mix(in srgb, var(--c) 22%, transparent); }
+.sistema > .anel.f-brasa     { border-color: color-mix(in srgb, var(--t-brasa) 34%, transparent); }
+.sistema > .anel.f-morna     { border-color: color-mix(in srgb, var(--t-morna) 24%, transparent); }
+.sistema > .anel.f-esfriando { border-color: color-mix(in srgb, var(--t-esfriando) 20%, transparent); }
+.sistema > .anel.f-apagada   { border-color: color-mix(in srgb, var(--t-apagada) 26%, transparent); border-style: dotted; }
+
+.sol {
+  position: absolute; left: -46px; top: -46px; width: 92px; height: 92px; border-radius: 50%;
+  cursor: grab; touch-action: none;
+  background:
+    radial-gradient(circle at 42% 38%, #fbf6ea 0, color-mix(in srgb, var(--c) 70%, #fff) 20%, var(--c) 46%,
+                    color-mix(in srgb, var(--c) 30%, transparent) 64%, transparent 72%);
+  box-shadow: 0 0 calc(30px + 60px * var(--g)) color-mix(in srgb, var(--c) calc(25% + 35% * var(--g)), transparent),
+              0 0 calc(80px + 160px * var(--g)) color-mix(in srgb, var(--c) calc(8% + 14% * var(--g)), transparent);
+  animation: respirar-sol 9s ease-in-out infinite;
+}
+.sol::before {          /* coroa: um anel de luz girando bem devagar */
+  content: ""; position: absolute; inset: -22px; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, color-mix(in srgb, var(--c) 40%, transparent),
+              transparent 30%, color-mix(in srgb, var(--c) 25%, transparent) 55%, transparent 70%);
+  filter: blur(8px); opacity: calc(.35 + .5 * var(--g));
+  animation: girar-coroa 60s linear infinite; pointer-events: none;
+}
+@keyframes respirar-sol { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes girar-coroa { to { transform: rotate(360deg); } }
+.sistema.selecionado .sol { outline: 1px solid color-mix(in srgb, var(--brilho) 60%, transparent); outline-offset: 10px; }
+.sol-nome {
+  position: absolute; left: 0; top: 62px; transform: translateX(-50%);
+  font-family: var(--serif); font-size: 22px; font-style: italic; letter-spacing: .1em;
+  color: var(--creme); white-space: nowrap; text-align: center; cursor: pointer;
+  text-shadow: 0 0 20px rgba(5,6,12,.95), 0 0 6px rgba(5,6,12,.9);
+}
+.sol-nome small {
+  display: block; font-family: var(--mono); font-style: normal; font-size: 10px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--texto-fraco); margin-top: 2px;
+}
+:root[data-theme="light"] .sol-nome { color: #2b2d5e; text-shadow: 0 0 12px rgba(238,240,246,.95); }
+.ceu.lod-longe .sol-nome { font-size: 46px; top: 90px; }
+.ceu.lod-longe .sol-nome small { font-size: 18px; }
+.ceu.lod-longe .sol { transform: scale(1.6); animation: none; }
+@media (prefers-reduced-motion: reduce) { .sol, .sol::before { animation: none; } }
+
+/* Planeta: a mesma legenda de vidro, um pouco mais leve, que anda. */
+.astro.planeta { transition: box-shadow .4s, border-color .4s, opacity .4s, width .2s; }
+
+/* Luas = notas. Cada uma gira no seu raio (--r), na sua fase (--f) e no
+   seu passo (--v), em volta do núcleo. */
+.nucleo .luas { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.nucleo .luas b {
+  position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #cfcde4 60%, #8f8daa);
+  box-shadow: 0 0 6px rgba(232,230,244,.9), 0 0 12px rgba(185,189,247,.45);
+  transform: rotate(var(--f)) translateX(var(--r));
+  animation: lua var(--v) linear infinite;
+}
+@keyframes lua {
+  from { transform: rotate(var(--f)) translateX(var(--r)); }
+  to   { transform: rotate(calc(var(--f) + 360deg)) translateX(var(--r)); }
+}
+@media (prefers-reduced-motion: reduce) { .nucleo .luas b { animation: none; } }
+.chip.lua { color: #d9d7ea; border-color: rgba(217,215,234,.3); }
+:root[data-theme="light"] .nucleo .luas b { background: #5d63b8; box-shadow: none; }
+
+/* Gaveta: sistema e notas */
+.campo-sistema {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  font-size: 12px; color: var(--texto-fraco); font-family: var(--mono);
+}
+.campo-sistema select {
+  flex: 1; background: var(--fundo-2, rgba(255,255,255,.03)); color: var(--texto);
+  border: 1px solid var(--linha); border-radius: 8px; padding: 6px 8px; font: inherit; font-family: var(--sans, inherit);
+}
+.notas-lista { display: flex; flex-direction: column; gap: 6px; }
+.nota {
+  position: relative; padding: 8px 30px 7px 12px; border-radius: 10px;
+  border: 1px solid var(--linha); background: rgba(232,230,244,.03);
+  border-left: 2px solid rgba(217,215,234,.45);
+}
+.nota p { margin: 0; font-size: 13px; line-height: 1.5; white-space: pre-wrap; cursor: text; outline: none; }
+.nota p[contenteditable="true"] { background: rgba(140,146,217,.08); border-radius: 4px; }
+.nota small { display: block; margin-top: 3px; font-size: 10.5px; color: var(--texto-fraco); font-family: var(--mono); }
+.nota .x { position: absolute; right: 6px; top: 5px; opacity: .5; background: none; border: 0; color: var(--texto-fraco); font-size: 16px; cursor: pointer; }
+.nota:hover .x { opacity: 1; }
+.nova-nota { display: flex; gap: 8px; align-items: flex-end; margin-top: 8px; }
+.nova-nota textarea { flex: 1; min-height: 44px; }
+.lista-sistema { display: flex; flex-direction: column; gap: 6px; }
+.cartao-meta .sist { color: var(--brilho); }
+.gaveta .nova-nota textarea { min-height: 52px; }
+.gaveta #gsDesc { min-height: 64px; }
+
+/* ─────────────── relatórios (trabalho com outra IA) ───────────────
+   Cada IA tem uma cor discreta, puxada da paleta do céu: a lua do
+   relatório gira com ela, e o selo na gaveta repete. */
+.ia-claude { --ia: #d9a27e; }
+.ia-gemini { --ia: #8fb4f0; }
+.ia-gpt    { --ia: #8fd3bd; }
+.ia-outra  { --ia: #c3b6e8; }
+.nucleo .luas b[class^="ia-"] {
+  background: radial-gradient(circle at 35% 35%, #fff, var(--ia) 55%, color-mix(in srgb, var(--ia) 60%, #000));
+  box-shadow: 0 0 6px var(--ia), 0 0 14px color-mix(in srgb, var(--ia) 55%, transparent);
+  width: 6px; height: 6px; left: -3px; top: -3px;
+}
+.nota.relatorio { border-left-color: var(--ia); background: color-mix(in srgb, var(--ia) 6%, transparent); }
+.rel-topo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; font-size: 11px; font-family: var(--mono); }
+.selo-ia { color: var(--ia); letter-spacing: .06em; }
+.rel-topo a { color: var(--texto-fraco); text-decoration: none; }
+.rel-topo a:hover { color: var(--brilho); }
+.nova-nota-tipo { display: flex; gap: 4px; margin-top: 10px; }
+.nova-nota-tipo button, .rel-campos .ias button {
+  background: none; border: 1px solid var(--linha); color: var(--texto-fraco);
+  border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer;
+}
+.nova-nota-tipo button.ativa { color: var(--creme); border-color: var(--brilho); background: rgba(140,146,217,.12); }
+.rel-campos { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.rel-campos[hidden] { display: none; }
+.rel-campos .ias { display: flex; gap: 6px; flex-wrap: wrap; }
+.rel-campos .ias button { color: var(--ia); border-color: color-mix(in srgb, var(--ia) 35%, transparent); }
+.rel-campos .ias button.sel { background: color-mix(in srgb, var(--ia) 18%, transparent); border-color: var(--ia); color: var(--creme); }
+.nova-nota-botoes { display: flex; flex-direction: column; gap: 6px; }
+.nova-nota-botoes [hidden] { display: none; }
+
+/* Opacidade da galáxia: um slider que abre ao lado do ◐ */
+.ceu-zoom { align-items: center; }
+.opac-galaxia {
+  display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px;
+  border-radius: 8px; background: var(--painel-alto); border: 1px solid var(--linha);
+  font-size: 11px; font-family: var(--mono); color: var(--texto-fraco); letter-spacing: .04em;
+}
+.opac-galaxia[hidden] { display: none; }
+.opac-galaxia input { width: 110px; accent-color: var(--brilho); }
+.opac-galaxia b { min-width: 34px; text-align: right; font-weight: 500; color: var(--texto-suave); }
+#opacGalBtn[aria-expanded="true"] { color: var(--creme); border-color: var(--brilho); }

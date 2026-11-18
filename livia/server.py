@@ -1061,6 +1061,8 @@ async def index(request: Request) -> Response:
 _ASSETS = {
     "nebulosa.js": "application/javascript",
     "nebulosa.css": "text/css",
+    "galaxia.js": "application/javascript",
+    "cosmos.js": "application/javascript",
 }
 
 
@@ -1110,8 +1112,8 @@ async def manifesto(request: Request) -> Response:
             # A cor da barra é a do tema escuro, que é o padrão de fábrica.
             # A variante clara é tratada por <meta name="theme-color"> com
             # media query, que o manifesto não sabe fazer.
-            "background_color": "#140a0c",
-            "theme_color": "#140a0c",
+            "background_color": "#08090f",
+            "theme_color": "#08090f",
             "categories": ["productivity", "utilities"],
             "icons": [
                 {"src": "/icones/icone-192.png", "sizes": "192x192",

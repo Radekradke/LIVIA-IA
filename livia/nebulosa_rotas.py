@@ -270,7 +270,101 @@ async def padrao_licao(request: Request) -> Response:
     return JSONResponse({"licao": licao})
 
 
+async def listar_sistemas(request: Request) -> Response:
+    return JSONResponse({"sistemas": nebulosa.sistemas()})
+
+
+async def criar_sistema(request: Request) -> Response:
+    dados = await _corpo(request)
+    try:
+        sist = nebulosa.criar_sistema(
+            str(dados.get("nome") or ""), descricao=str(dados.get("descricao") or ""),
+            x=_num(dados.get("x")), y=_num(dados.get("y")),
+            ideias=[int(i) for i in (dados.get("ideias") or [])],
+        )
+    except (nebulosa.NebulosaError, TypeError, ValueError) as exc:
+        return _erro(exc if isinstance(exc, nebulosa.NebulosaError) else nebulosa.NebulosaError(str(exc)))
+    return JSONResponse({"sistema": sist})
+
+
+async def alterar_sistema(request: Request) -> Response:
+    dados = await _corpo(request)
+    try:
+        sist = nebulosa.editar_sistema(
+            request.path_params["id"],
+            nome=dados.get("nome") if isinstance(dados.get("nome"), str) else None,
+            descricao=dados.get("descricao") if isinstance(dados.get("descricao"), str) else None,
+            x=_num(dados.get("x")), y=_num(dados.get("y")),
+        )
+    except nebulosa.NebulosaError as exc:
+        return _erro(exc)
+    return JSONResponse({"sistema": sist})
+
+
+async def apagar_sistema(request: Request) -> Response:
+    try:
+        return JSONResponse({"ok": nebulosa.apagar_sistema(request.path_params["id"])})
+    except nebulosa.NebulosaError as exc:
+        return _erro(exc)
+
+
+async def colocar(request: Request) -> Response:
+    """Põe a ideia num sistema ({"sistema": id}) ou solta ({"sistema": null, x, y})."""
+    dados = await _corpo(request)
+    try:
+        ideia = nebulosa.colocar_no_sistema(
+            request.path_params["id"], dados.get("sistema"), x=_num(dados.get("x")), y=_num(dados.get("y")),
+        )
+    except nebulosa.NebulosaError as exc:
+        return _erro(exc)
+    return JSONResponse({"ideia": ideia})
+
+
+async def criar_nota(request: Request) -> Response:
+    dados = await _corpo(request)
+    try:
+        nota = nebulosa.adicionar_nota(
+            request.path_params["id"], str(dados.get("texto") or ""),
+            tipo=str(dados.get("tipo") or "nota"), ia=str(dados.get("ia") or ""),
+            link=str(dados.get("link") or ""),
+        )
+    except nebulosa.NebulosaError as exc:
+        return _erro(exc)
+    return JSONResponse({"nota": nota})
+
+
+async def resumir_relatorio(request: Request) -> Response:
+    dados = await _corpo(request)
+    try:
+        return JSONResponse(await nebulosa.resumir_relatorio(
+            str(dados.get("texto") or ""), titulo=str(dados.get("titulo") or "")))
+    except nebulosa.NebulosaError as exc:
+        return _erro(exc)
+
+
+async def alterar_nota(request: Request) -> Response:
+    dados = await _corpo(request)
+    try:
+        nota = nebulosa.editar_nota(int(request.path_params["id"]), str(dados.get("texto") or ""))
+    except nebulosa.NebulosaError as exc:
+        return _erro(exc)
+    return JSONResponse({"nota": nota})
+
+
+async def apagar_nota(request: Request) -> Response:
+    return JSONResponse({"ok": nebulosa.apagar_nota(int(request.path_params["id"]))})
+
+
 routes = [
+    Route("/api/nebulosa/sistemas", listar_sistemas),
+    Route("/api/nebulosa/sistemas", criar_sistema, methods=["POST"]),
+    Route("/api/nebulosa/sistemas/{id:int}", alterar_sistema, methods=["PATCH"]),
+    Route("/api/nebulosa/sistemas/{id:int}", apagar_sistema, methods=["DELETE"]),
+    Route("/api/nebulosa/ideias/{id:int}/sistema", colocar, methods=["POST"]),
+    Route("/api/nebulosa/ideias/{id:int}/notas", criar_nota, methods=["POST"]),
+    Route("/api/nebulosa/notas/{id:int}", alterar_nota, methods=["PATCH"]),
+    Route("/api/nebulosa/relatorios/resumir", resumir_relatorio, methods=["POST"]),
+    Route("/api/nebulosa/notas/{id:int}", apagar_nota, methods=["DELETE"]),
     Route("/api/nebulosa", estado),
     Route("/api/nebulosa/ideias", criar, methods=["POST"]),
     Route("/api/nebulosa/ideias/{id:int}", detalhar),

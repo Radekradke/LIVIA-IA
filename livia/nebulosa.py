@@ -108,6 +108,9 @@ PESOS = {
     "gate": 3.0,
     "abrir": 1.5,
     "adotar": 12.0,
+    "nota": 5.0,
+    "relatorio": 9.0,   # trabalho de verdade numa ideia esquenta mais que um lembrete
+    "sistema": 3.0,
 }
 CALOR_MAX = 100.0
 
@@ -335,10 +338,17 @@ def publico(
     linha: dict[str, object],
     resp: dict[str, str] | None = None,
     agora: datetime | None = None,
+    extra: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    """A ideia como a interface e o modelo enxergam."""
+    """A ideia como a interface e o modelo enxergam.
+
+    `extra` leva o que é caro buscar ideia por ideia (nomes dos sistemas,
+    contagem de notas); `listar` monta de uma vez para todas.
+    """
     id_ = int(linha["id"])
     resp = respostas(id_) if resp is None else resp
+    if extra is None:
+        extra = _extras([id_])
     calor = calor_agora(linha, agora)
     estagio = str(linha.get("estagio") or "faisca")
     seguinte = proximo(estagio)
@@ -368,16 +378,50 @@ def publico(
         "proximo": seguinte,
         "faltando": [g.to_json() for g in faltando(linha, seguinte, resp)] if seguinte else [],
         "vetorizada": linha.get("vetor") is not None,
+        "sistema_id": linha.get("sistema_id"),
+        "sistema_nome": extra["sistemas"].get(linha.get("sistema_id")) if linha.get("sistema_id") else None,
+        "orbita_fase": linha.get("orbita_fase"),
+        "n_notas": extra["notas"].get(id_, 0),
+        "n_relatorios": extra["relatorios"].get(id_, 0),
+        "luas": extra["luas"].get(id_, []),
         "criado_em": linha.get("criado_em") or "",
         "atualizado_em": linha.get("atualizado_em") or "",
     }
+
+
+def _extras(ids: list[int] | None = None) -> dict[str, object]:
+    with db._connect() as conn:
+        nomes = {int(r["id"]): r["nome"] for r in conn.execute("SELECT id, nome FROM sistemas")}
+        if ids is None:
+            linhas = conn.execute(
+                "SELECT ideia_id, tipo, ia FROM ideia_notas ORDER BY id"
+            ).fetchall()
+        else:
+            marcas = ",".join("?" * len(ids)) or "NULL"
+            linhas = conn.execute(
+                f"SELECT ideia_id, tipo, ia FROM ideia_notas WHERE ideia_id IN ({marcas}) "
+                "ORDER BY id", ids,
+            ).fetchall()
+    contagem: dict[int, int] = {}
+    luas: dict[int, list[str]] = {}
+    relatorios: dict[int, int] = {}
+    for r in linhas:
+        k = int(r["ideia_id"])
+        contagem[k] = contagem.get(k, 0) + 1
+        # Cada lua leva a "cor" de quem ajudou: a IA do relatório, ou nada.
+        luas.setdefault(k, []).append(r["ia"] if r["tipo"] == "relatorio" else "")
+        if r["tipo"] == "relatorio":
+            relatorios[k] = relatorios.get(k, 0) + 1
+    return {"sistemas": nomes, "notas": contagem,
+            "luas": {k: v[-6:] for k, v in luas.items()}, "relatorios": relatorios}
 
 
 def listar(*, incluir_arquivadas: bool = True) -> list[dict[str, object]]:
     where = "" if incluir_arquivadas else "WHERE estagio != 'arquivada'"
     todas = _todas_respostas()
     agora = _agora()
-    return [publico(l, todas.get(int(l["id"]), {}), agora) for l in _linhas(where)]
+    extra = _extras()
+    return [publico(l, todas.get(int(l["id"]), {}), agora, extra) for l in _linhas(where)]
 
 
 def resumo() -> dict[str, object]:
@@ -411,6 +455,7 @@ def estado() -> dict[str, object]:
         "gates": {k: [g.to_json() for g in v] for k, v in gates().items()},
         "faixas": [{"chave": c, "nome": r, "minimo": m} for m, c, r in FAIXAS],
         "sugestoes": sugestoes(),
+        "sistemas": sistemas(),
         "resumo": resumo(),
     }
 
@@ -541,14 +586,274 @@ def editar(
     return publico(obter(int(linha["id"])))
 
 
-def anotar(id_: object, texto: str, *, conversa: int | None = None) -> dict[str, object]:
-    """Acrescenta um parágrafo ao fim da ideia, sem reescrever o que existe."""
+def anotar(id_: object, texto: str, *, conversa: int | None = None, origem: str = "manual") -> dict[str, object]:
+    """Acrescenta uma NOTA à ideia — uma lua nova no planeta.
+
+    Antes isto colava um parágrafo no fim do texto. Virou nota separada
+    porque é o que uma anotação é: algo pensado SOBRE a ideia, com data, que
+    pode ser editado ou apagado sozinho sem mexer no que a ideia é.
+    """
+    adicionar_nota(id_, texto, origem=origem, conversa=conversa)
+    return publico(_exigir(id_))
+
+
+# --------------------------------------------------------------------------
+# Notas (as luas)
+# --------------------------------------------------------------------------
+
+
+# As IAs que o André usa fora da Livia. "outra" cobre o resto; o nome livre
+# dela vai no texto. A chave curta é o que aparece no padrão e na cor da lua.
+IAS = {"claude": "Claude", "gemini": "Gemini", "gpt": "ChatGPT", "outra": "outra IA"}
+
+
+def _ia(valor: object) -> str:
+    v = str(valor or "").strip().lower()
+    apelidos = {"chatgpt": "gpt", "openai": "gpt", "gpt-4": "gpt", "gpt4": "gpt", "anthropic": "claude",
+                "bard": "gemini", "google": "gemini", "geminiani": "gemini"}
+    v = apelidos.get(v, v)
+    return v if v in IAS else ("outra" if v else "")
+
+
+def notas(id_: int) -> list[dict[str, object]]:
+    with db._connect() as conn:
+        linhas = conn.execute(
+            "SELECT id, texto, origem, tipo, ia, link, criado_em, atualizado_em FROM ideia_notas "
+            "WHERE ideia_id = ? ORDER BY id", (int(id_),),
+        ).fetchall()
+    saida = []
+    for l in linhas:
+        d = dict(l)
+        d["ia_nome"] = IAS.get(d["ia"], "") if d["tipo"] == "relatorio" else ""
+        saida.append(d)
+    return saida
+
+
+def adicionar_nota(
+    id_: object, texto: str, *, origem: str = "manual", conversa: int | None = None,
+    tipo: str = "nota", ia: str = "", link: str = "",
+) -> dict[str, object]:
+    """Uma lua nova. tipo="relatorio" é o registro de uma sessão de trabalho
+    com outra IA: qual foi (ia), onde ficou a conversa (link) e o que saiu."""
     linha = _exigir(id_)
     texto = (texto or "").strip()
     if not texto:
-        raise NebulosaError("Nada para anotar.")
-    atual = (linha["conteudo"] or "").rstrip()
-    return editar(linha["id"], conteudo=f"{atual}\n\n{texto}" if atual else texto, conversa=conversa)
+        raise NebulosaError("Nota vazia.")
+    tipo = "relatorio" if tipo == "relatorio" else "nota"
+    ia = _ia(ia) if tipo == "relatorio" else ""
+    if tipo == "relatorio" and not ia:
+        raise NebulosaError("Relatório precisa dizer qual IA: claude, gemini, gpt ou outra.")
+    link = (link or "").strip()[:500] if tipo == "relatorio" else ""
+    if link and not link.startswith(("http://", "https://")):
+        raise NebulosaError("O link precisa começar com http:// ou https://.")
+    agora = _iso()
+    with db._connect() as conn:
+        cur = conn.execute(
+            "INSERT INTO ideia_notas (ideia_id, texto, origem, tipo, ia, link, criado_em, atualizado_em) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (linha["id"], texto[:8000], origem, tipo, ia, link, agora, agora),
+        )
+        nota = int(cur.lastrowid)
+        _evento(conn, int(linha["id"]), tipo,
+                {"nota": nota, "origem": origem, **({"ia": ia} if ia else {})}, conversa)
+    return {"id": nota, "ideia_id": int(linha["id"]), "texto": texto[:8000], "origem": origem,
+            "tipo": tipo, "ia": ia, "ia_nome": IAS.get(ia, ""), "link": link,
+            "criado_em": agora, "atualizado_em": agora}
+
+
+async def resumir_relatorio(texto: str, *, titulo: str = "") -> dict[str, object]:
+    """Condensa uma conversa colada (com Claude, Gemini, GPT…) num relatório curto.
+
+    Não grava nada: devolve o rascunho para o André revisar antes de salvar.
+    Se nenhum modelo responder, devolve o próprio texto cortado — o botão
+    não pode simplesmente sumir com o que ele colou.
+    """
+    from . import brain
+
+    texto = (texto or "").strip()
+    if not texto:
+        raise NebulosaError("Cole a conversa ou escreva o que foi feito.")
+    esquema = {"type": "object", "properties": {
+        "feito": {"type": "string"}, "decisoes": {"type": "array", "items": {"type": "string"}},
+        "proximos": {"type": "array", "items": {"type": "string"}},
+        "ia": {"type": "string", "description": "claude, gemini, gpt, outra ou vazio se não der pra saber"},
+    }, "required": ["feito"]}
+    sistema = (
+        "Você resume sessões de trabalho que o André teve com outra IA sobre uma ideia dele. "
+        "Em português, direto, sem floreio. 'feito': 1 a 3 frases do que foi produzido de concreto. "
+        "'decisoes': o que ficou decidido. 'proximos': próximos passos que apareceram. "
+        "Não invente nada que não esteja no texto."
+    )
+    r = await brain.structured(sistema, f"IDEIA: {titulo}\n\nCONVERSA:\n{texto[:24000]}", esquema)
+    if not isinstance(r, dict) or not str(r.get("feito") or "").strip():
+        return {"texto": texto[:4000], "ia": "", "resumido": False}
+    partes = [str(r["feito"]).strip()]
+    if r.get("decisoes"):
+        partes.append("Decidido:\n" + "\n".join(f"- {d}" for d in r["decisoes"][:8]))
+    if r.get("proximos"):
+        partes.append("Próximos passos:\n" + "\n".join(f"- {d}" for d in r["proximos"][:8]))
+    return {"texto": "\n\n".join(partes), "ia": _ia(r.get("ia")), "resumido": True}
+
+
+def editar_nota(nota_id: int, texto: str) -> dict[str, object]:
+    texto = (texto or "").strip()
+    if not texto:
+        raise NebulosaError("Nota vazia — para tirar, apague.")
+    with db._connect() as conn:
+        n = conn.execute("SELECT ideia_id FROM ideia_notas WHERE id = ?", (int(nota_id),)).fetchone()
+        if n is None:
+            raise NebulosaError("Nota não encontrada.")
+        conn.execute("UPDATE ideia_notas SET texto = ?, atualizado_em = ? WHERE id = ?",
+                     (texto[:8000], _iso(), int(nota_id)))
+        _evento(conn, int(n["ideia_id"]), "editar", {"nota": int(nota_id)})
+    return {"id": int(nota_id), "ideia_id": int(n["ideia_id"]), "texto": texto[:8000]}
+
+
+def apagar_nota(nota_id: int) -> bool:
+    with db._connect() as conn:
+        return conn.execute("DELETE FROM ideia_notas WHERE id = ?", (int(nota_id),)).rowcount > 0
+
+
+# --------------------------------------------------------------------------
+# Sistemas solares (as categorias)
+# --------------------------------------------------------------------------
+
+
+def sistemas() -> list[dict[str, object]]:
+    """Cada sistema com seus planetas e o brilho do sol.
+
+    O sol brilha com a média das três ideias mais quentes dele: um sistema
+    com uma ideia em brasa e dez apagadas ainda está vivo; um sistema todo
+    morno não finge estar pegando fogo.
+    """
+    with db._connect() as conn:
+        linhas = conn.execute("SELECT * FROM sistemas ORDER BY id").fetchall()
+        membros = conn.execute(
+            "SELECT id, sistema_id FROM ideias WHERE sistema_id IS NOT NULL "
+            "AND estagio != 'arquivada' AND proposta = 0"
+        ).fetchall()
+    agora = _agora()
+    por_sistema: dict[int, list[int]] = {}
+    for m in membros:
+        por_sistema.setdefault(int(m["sistema_id"]), []).append(int(m["id"]))
+    calores = {int(l["id"]): calor_agora(l, agora) for l in _linhas("WHERE sistema_id IS NOT NULL")}
+    saida = []
+    for l in linhas:
+        ids = por_sistema.get(int(l["id"]), [])
+        quentes = sorted((calores.get(i, 0.0) for i in ids), reverse=True)[:3]
+        calor = sum(quentes) / len(quentes) if quentes else 0.0
+        saida.append({
+            "id": int(l["id"]), "nome": l["nome"], "descricao": l["descricao"],
+            "x": l["pos_x"], "y": l["pos_y"], "origem": l["origem"],
+            "membros": ids, "calor": round(calor, 1), "faixa": faixa(calor),
+        })
+    return saida
+
+
+def obter_sistema(id_: object) -> dict[str, object]:
+    try:
+        numero = int(str(id_).lstrip("#"))
+    except (TypeError, ValueError):
+        numero = None
+    with db._connect() as conn:
+        if numero is not None:
+            l = conn.execute("SELECT id FROM sistemas WHERE id = ?", (numero,)).fetchone()
+        else:
+            l = conn.execute("SELECT id FROM sistemas WHERE lower(nome) = lower(?)",
+                             (str(id_).strip(),)).fetchone()
+    if l is None:
+        raise NebulosaError(f"Não existe o sistema '{id_}'.")
+    return next(s for s in sistemas() if s["id"] == int(l["id"]))
+
+
+def criar_sistema(
+    nome: str, *, descricao: str = "", x: float | None = None, y: float | None = None,
+    ideias: list[object] | tuple = (), origem: str = "manual", conversa: int | None = None,
+) -> dict[str, object]:
+    nome = (nome or "").strip()[:60]
+    if not nome:
+        raise NebulosaError("Um sistema precisa de nome.")
+    membros = [_exigir(i) for i in ideias]
+    if x is None or y is None:
+        posicoes = [(float(m["pos_x"] or 0), float(m["pos_y"] or 0)) for m in membros]
+        if posicoes:
+            x = sum(p[0] for p in posicoes) / len(posicoes)
+            y = sum(p[1] for p in posicoes) / len(posicoes)
+        else:
+            x, y = _lugar_livre()
+            x, y = x * 1.8, y * 1.8
+    agora = _iso()
+    with db._connect() as conn:
+        cur = conn.execute(
+            "INSERT INTO sistemas (nome, descricao, pos_x, pos_y, origem, criado_em, atualizado_em) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (nome, (descricao or "").strip()[:800], float(x), float(y), origem, agora, agora),
+        )
+        id_ = int(cur.lastrowid)
+    for m in membros:
+        colocar_no_sistema(m["id"], id_, conversa=conversa)
+    return obter_sistema(id_)
+
+
+def editar_sistema(id_: object, *, nome: str | None = None, descricao: str | None = None,
+                   x: float | None = None, y: float | None = None) -> dict[str, object]:
+    sist = obter_sistema(id_)
+    campos: dict[str, object] = {}
+    if nome is not None and nome.strip():
+        campos["nome"] = nome.strip()[:60]
+    if descricao is not None:
+        campos["descricao"] = descricao.strip()[:800]
+    if x is not None and y is not None:
+        campos["pos_x"], campos["pos_y"] = float(x), float(y)
+    if campos:
+        campos["atualizado_em"] = _iso()
+        with db._connect() as conn:
+            conn.execute(f"UPDATE sistemas SET {', '.join(f'{c} = ?' for c in campos)} WHERE id = ?",
+                         [*campos.values(), sist["id"]])
+    return obter_sistema(sist["id"])
+
+
+def apagar_sistema(id_: object) -> bool:
+    """O sistema some; as ideias, não. Elas ficam soltas em volta de onde o sol estava."""
+    sist = obter_sistema(id_)
+    with db._connect() as conn:
+        for k, ideia in enumerate(sist["membros"]):
+            ang = k * 2.39996
+            conn.execute(
+                "UPDATE ideias SET sistema_id = NULL, pos_x = ?, pos_y = ? WHERE id = ?",
+                (sist["x"] + math.cos(ang) * 260, sist["y"] + math.sin(ang) * 260, ideia),
+            )
+        return conn.execute("DELETE FROM sistemas WHERE id = ?", (sist["id"],)).rowcount > 0
+
+
+def colocar_no_sistema(
+    ideia: object, sistema: object | None, *, x: float | None = None, y: float | None = None,
+    conversa: int | None = None,
+) -> dict[str, object]:
+    """Põe a ideia em órbita de um sistema, ou (sistema=None) solta ela no céu."""
+    linha = _exigir(ideia)
+    alvo = None if sistema in (None, "", 0, "nenhum") else obter_sistema(sistema)
+    with db._connect() as conn:
+        if alvo is None:
+            if x is not None and y is not None:
+                conn.execute("UPDATE ideias SET sistema_id = NULL, pos_x = ?, pos_y = ? WHERE id = ?",
+                             (float(x), float(y), linha["id"]))
+            else:
+                conn.execute("UPDATE ideias SET sistema_id = NULL WHERE id = ?", (linha["id"],))
+            if linha.get("sistema_id"):
+                _evento(conn, int(linha["id"]), "sistema", {"saiu": int(linha["sistema_id"])}, conversa)
+        else:
+            if linha.get("sistema_id") == alvo["id"]:
+                return publico(linha)
+            # A fase da órbita é sorteada uma vez e fica: a ideia volta sempre
+            # para o mesmo trecho do caminho, e o olho aprende onde ela mora.
+            fase = linha.get("orbita_fase")
+            if fase is None:
+                fase = (int(linha["id"]) * 2.39996) % (2 * math.pi)
+            conn.execute("UPDATE ideias SET sistema_id = ?, orbita_fase = ? WHERE id = ?",
+                         (alvo["id"], float(fase), linha["id"]))
+            _evento(conn, int(linha["id"]), "sistema", {"entrou": alvo["id"], "nome": alvo["nome"]}, conversa)
+    return publico(obter(int(linha["id"])))
 
 
 def mover_varias(posicoes: list[dict[str, object]]) -> int:
@@ -595,6 +900,7 @@ def detalhar(id_: object) -> dict[str, object]:
         (l["b"] if l["a"] == linha["id"] else l["a"]) for l in ligacoes()
         if linha["id"] in (l["a"], l["b"])
     ]
+    saida["notas"] = notas(int(linha["id"]))
     return saida
 
 
@@ -766,7 +1072,9 @@ def juntar(manter: object, absorver: object, *, conversa: int | None = None) -> 
     if fica["id"] == sai["id"]:
         raise NebulosaError("Não dá para juntar uma ideia com ela mesma.")
     texto = f"— de #{sai['id']} «{sai['titulo']}»:\n{sai['conteudo'] or sai['titulo']}"
-    anotar(fica["id"], texto, conversa=conversa)
+    anotar(fica["id"], texto, conversa=conversa, origem=f"juntada:{sai['id']}")
+    with db._connect() as conn:
+        conn.execute("UPDATE ideia_notas SET ideia_id = ? WHERE ideia_id = ?", (fica["id"], sai["id"]))
     resp_sai, resp_fica = respostas(int(sai["id"])), respostas(int(fica["id"]))
     for gate, valor in resp_sai.items():
         if gate not in resp_fica:
@@ -829,8 +1137,18 @@ def desfazer_layout() -> list[dict[str, object]] | None:
 # --------------------------------------------------------------------------
 
 
-def _texto_vetor(linha: dict[str, object]) -> str:
-    return f"{linha.get('titulo') or ''}\n{linha.get('conteudo') or ''}".strip()
+def _texto_vetor(linha: dict[str, object], notas_txt: str = "") -> str:
+    base = f"{linha.get('titulo') or ''}\n{linha.get('conteudo') or ''}".strip()
+    return f"{base}\n{notas_txt}".strip()[:6000] if notas_txt else base
+
+
+def _notas_por_ideia() -> dict[int, str]:
+    with db._connect() as conn:
+        linhas = conn.execute("SELECT ideia_id, texto FROM ideia_notas ORDER BY id").fetchall()
+    saida: dict[int, list[str]] = {}
+    for l in linhas:
+        saida.setdefault(int(l["ideia_id"]), []).append(l["texto"])
+    return {k: "\n".join(v) for k, v in saida.items()}
 
 
 async def indexar() -> int:
@@ -846,8 +1164,9 @@ async def indexar() -> int:
     atual = embeddings.assinatura()
     pendentes: dict[str, str] = {}
     hashes: dict[str, str] = {}
+    das_notas = _notas_por_ideia()
     for linha in _linhas():
-        texto = _texto_vetor(linha)
+        texto = _texto_vetor(linha, das_notas.get(int(linha["id"]), ""))
         digest = embeddings.hash_conteudo(texto)
         if (
             linha["vetor"] is not None
@@ -1172,7 +1491,7 @@ async def ponte(
 # --------------------------------------------------------------------------
 
 
-TIPOS_SUGESTAO = ("promover", "arquivar", "juntar", "ligar", "reviver")
+TIPOS_SUGESTAO = ("promover", "arquivar", "juntar", "ligar", "reviver", "sistema")
 
 
 def sugestoes(situacao: str = "pendente") -> list[dict[str, object]]:
@@ -1183,11 +1502,20 @@ def sugestoes(situacao: str = "pendente") -> list[dict[str, object]]:
             "WHERE s.situacao = ? ORDER BY s.id DESC",
             (situacao,),
         ).fetchall()
-    return [dict(l) for l in linhas]
+    saida = []
+    for l in linhas:
+        d = dict(l)
+        try:
+            d["dados"] = json.loads(d.get("dados") or "{}") or {}
+        except ValueError:
+            d["dados"] = {}
+        saida.append(d)
+    return saida
 
 
 def sugerir(
-    tipo: str, ideia: object, *, outra: object | None = None, motivo: str = "", origem: str = "livia"
+    tipo: str, ideia: object, *, outra: object | None = None, motivo: str = "", origem: str = "livia",
+    dados: dict[str, object] | None = None,
 ) -> dict[str, object] | None:
     """Registra uma sugestão pendente. Repetida ou recusada há pouco, não entra.
 
@@ -1214,9 +1542,10 @@ def sugerir(
             if repetida:
                 return None
         cur = conn.execute(
-            "INSERT INTO ideia_sugestoes (tipo, ideia_id, outra_id, motivo, origem, criado_em) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (tipo, ia, ib, (motivo or "").strip()[:400], origem, _iso()),
+            "INSERT INTO ideia_sugestoes (tipo, ideia_id, outra_id, motivo, origem, criado_em, dados) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (tipo, ia, ib, (motivo or "").strip()[:400], origem, _iso(),
+             json.dumps(dados, ensure_ascii=False) if dados else ""),
         )
         id_ = int(cur.lastrowid)
     return next((s for s in sugestoes() if s["id"] == id_), None)
@@ -1286,6 +1615,21 @@ async def gerar_sugestoes(*, forcar: bool = False) -> list[dict[str, object]]:
                             and not velha["motivo_arquivo"].startswith("juntada")):
                         sugerir("reviver", velha["id"], outra=nova["id"], origem="regra",
                                 motivo=f"Tem a ver com «{nova['titulo']}», que está quente agora.")
+
+    # Constelação de ideias SOLTAS (nenhuma em sistema ainda) com três ou
+    # mais: parece uma categoria. Ela sugere; o nome é o da constelação, e o
+    # André troca se quiser, depois de aceitar.
+    try:
+        g = await gravidade(0.35)
+    except Exception:
+        g = {"constelacoes": []}
+    soltas = {i["id"] for i in vivas if not i.get("sistema_id")}
+    for c in g.get("constelacoes", []):
+        membros = [m for m in c["membros"] if m in soltas]
+        if len(membros) >= 3 and len(membros) == len(c["membros"]):
+            sugerir("sistema", membros[0], origem="regra",
+                    motivo=f"{len(membros)} ideias soltas que falam da mesma coisa. Viram um sistema?",
+                    dados={"nome": c["nome"], "membros": membros})
     return sugestoes()
 
 
@@ -1324,6 +1668,12 @@ def decidir_sugestao(id_: int, aceitar: bool, *, conversa: int | None = None) ->
             resultado = reviver(ideia["id"], conversa=conversa)
             if s["outra_id"]:
                 ligar(ideia["id"], s["outra_id"], origem="sugestao")
+        elif s["tipo"] == "sistema":
+            dados = json.loads(s.get("dados") or "{}") or {}
+            vivos = [m for m in dados.get("membros", []) if obter(int(m))]
+            sistema = criar_sistema(str(dados.get("nome") or "Sistema"), ideias=vivos,
+                                    origem="livia:sugestao", conversa=conversa)
+            resultado = {"sistema": sistema}
 
     with db._connect() as conn:
         conn.execute(
@@ -1536,7 +1886,30 @@ def padroes() -> list[dict[str, object]]:
             len(tempos), 0.6,
         )
 
-    # 5) Por que as ideias vão para o arquivo.
+    # 5) Com qual IA as ideias andam. Compara quem chegou a Validada entre
+    #    as ideias trabalhadas com cada IA e as que nunca tiveram relatório.
+    with db._connect() as conn:
+        rel = conn.execute(
+            "SELECT DISTINCT ideia_id, ia FROM ideia_notas WHERE tipo = 'relatorio'").fetchall()
+    por_ia: dict[str, set[int]] = {}
+    for r in rel:
+        por_ia.setdefault(r["ia"], set()).add(int(r["ideia_id"]))
+    com_rel = set().union(*por_ia.values()) if por_ia else set()
+    sem_rel = [h for i, h in hist.items() if i not in com_rel]
+    base_sem = sum(_chegou(h, "validada") for h in sem_rel) / len(sem_rel) if len(sem_rel) >= minimo else None
+    for ia, ids in sorted(por_ia.items(), key=lambda kv: -len(kv[1])):
+        hs = [hist[i] for i in ids if i in hist]
+        if len(hs) < minimo:
+            continue
+        taxa = sum(_chegou(h, "validada") for h in hs) / len(hs)
+        comparado = (f", contra {round(base_sem * 100)}% das que você não levou pra IA nenhuma"
+                     if base_sem is not None else "")
+        add(f"ia-{ia}", f"Trabalhando com {IAS.get(ia, ia)}",
+            f"Das {len(hs)} ideias que você trabalhou com {IAS.get(ia, ia)}, "
+            f"{round(taxa * 100)}% chegaram a Validada{comparado}.",
+            len(hs), abs(taxa - (base_sem if base_sem is not None else 0.5)))
+
+    # 6) Por que as ideias vão para o arquivo.
     motivos: dict[str, int] = {}
     for h in hist.values():
         if h["atual"] == "arquivada" and h["motivo"] and not h["motivo"].startswith("juntada"):
@@ -1616,6 +1989,12 @@ resposta de gate.
 - Quando a conversa tocar numa ideia que existe, use o que está escrito nela. \
 Se ela estiver esfriando, pode lembrar disso em uma frase — sem sermão.
 - Você pode deixar sugestões pendentes (sugerir) para ele decidir depois.
+- Ideias podem morar em SISTEMAS (categorias que ele decide: "Jogos", \
+"Lifting"…); as ideias orbitam o sol do sistema e as notas de cada ideia são \
+as luas. Crie sistema ou mova ideia entre sistemas só quando ele pedir. \
+Pensamentos novos sobre uma ideia que já existe viram NOTA (anotar_ideia), \
+não ideia nova. Se ele contar que trabalhou na ideia com outra IA (Claude, \
+Gemini, ChatGPT), registre um RELATÓRIO (registrar_relatorio).
 """
 
 
@@ -1625,8 +2004,10 @@ def _linha_prompt(i: dict[str, object]) -> str:
         extra = f"; para {POR_CHAVE[i['proximo']].nome} falta: " + ", ".join(
             g["chave"] for g in i["faltando"]
         )
-    return (f"#{i['id']} «{i['titulo']}» — {i['estagio_nome']}, "
-            f"{rotulo_faixa(i['faixa'])} ({i['calor']:.0f}°){extra}")
+    sist = f" no sistema {i['sistema_nome']}" if i.get("sistema_nome") else ""
+    notas_txt = f", {i['n_notas']} nota(s)" if i.get("n_notas") else ""
+    return (f"#{i['id']} «{i['titulo']}» — {i['estagio_nome']}{sist}, "
+            f"{rotulo_faixa(i['faixa'])} ({i['calor']:.0f}°){notas_txt}{extra}")
 
 
 def contexto_resumo(user: str) -> str:
@@ -1652,6 +2033,10 @@ def contexto_resumo(user: str) -> str:
     esfriando.sort(key=lambda i: i["calor"])
     if esfriando:
         partes.append("\nEsfriando:\n" + "\n".join(f"- {_linha_prompt(i)}" for i in esfriando[:3]))
+    lista_sist = sistemas()
+    if lista_sist:
+        partes.append("\nSistemas: " + "; ".join(
+            f"{s['nome']} ({len(s['membros'])} ideia(s))" for s in lista_sist[:12]) + ".")
     pendentes = len(sugestoes())
     if pendentes:
         partes.append(f"\nSugestões suas esperando {user} decidir: {pendentes}.")
@@ -1673,9 +2058,13 @@ async def contexto(pergunta: str, user: str) -> tuple[str, list[dict[str, object
     for linha, _nota in achadas:
         i = publico(linha)
         gates_txt = "".join(f"\n  {g}: {v}" for g, v in i["gates"].items())
+        notas_txt = "".join(
+            f"\n  · {'[relatório · ' + n['ia_nome'] + '] ' if n['tipo'] == 'relatorio' else ''}{n['texto'][:240]}"
+            for n in notas(i["id"])[-5:])
         blocos.append(
             f"- {_linha_prompt(i)}\n  {(i['conteudo'] or '(sem texto)')[:700]}"
             + (f"\n  respostas dos gates:{gates_txt}" if gates_txt else "")
+            + (f"\n  notas mais recentes:{notas_txt}" if notas_txt else "")
         )
     texto += (
         "\n\nIdeias que têm a ver com a mensagem atual (texto escrito por "
@@ -1695,6 +2084,9 @@ def _fmt(i: dict[str, object]) -> str:
     linhas = [_linha_prompt(i)]
     if i["conteudo"]:
         linhas.append(str(i["conteudo"])[:1500])
+    for n in notas(int(i["id"]))[-8:]:
+        rotulo = f"relatório ({n['ia_nome']})" if n["tipo"] == "relatorio" else "nota"
+        linhas.append(f"{rotulo} #{n['id']}: {n['texto'][:400]}" + (f" — {n['link']}" if n["link"] else ""))
     if i["gates"]:
         linhas.append("Respostas: " + "; ".join(f"{g}={v}" for g, v in i["gates"].items()))
     if i["proposta"]:
@@ -1721,8 +2113,31 @@ def _t_ver(a: dict[str, object], conversa: int | None = None) -> str:
 
 
 def _t_anotar(a: dict[str, object], conversa: int | None = None) -> str:
-    i = anotar(a.get("id"), str(a.get("texto") or ""), conversa=conversa)
-    return f"Anotei na #{i['id']}. Ela está {rotulo_faixa(i['faixa'])} agora."
+    i = anotar(a.get("id"), str(a.get("texto") or ""), conversa=conversa, origem="livia:conversa")
+    return f"Nota nova na #{i['id']} (agora são {i['n_notas']}). Ela está {rotulo_faixa(i['faixa'])}."
+
+
+def _t_relatorio(a: dict[str, object], conversa: int | None = None) -> str:
+    n = adicionar_nota(a.get("id"), str(a.get("texto") or ""), origem="livia:conversa", conversa=conversa,
+                       tipo="relatorio", ia=str(a.get("ia") or ""), link=str(a.get("link") or ""))
+    return f"Relatório ({n['ia_nome']}) registrado na #{n['ideia_id']}."
+
+
+def _t_criar_sistema(a: dict[str, object], conversa: int | None = None) -> str:
+    ids = a.get("ideias") or []
+    if isinstance(ids, (str, int)):
+        ids = [x for x in re.split(r"[,\s#]+", str(ids)) if x]
+    sist = criar_sistema(str(a.get("nome") or ""), descricao=str(a.get("descricao") or ""),
+                         ideias=list(ids), origem="livia:conversa", conversa=conversa)
+    return f"Criei o sistema «{sist['nome']}» com {len(sist['membros'])} ideia(s) em órbita."
+
+
+def _t_colocar(a: dict[str, object], conversa: int | None = None) -> str:
+    alvo = a.get("sistema")
+    i = colocar_no_sistema(a.get("id"), None if str(alvo).strip().lower() in ("", "nenhum", "none", "0") else alvo,
+                           conversa=conversa)
+    return (f"#{i['id']} agora orbita o sistema {i['sistema_nome']}." if i["sistema_nome"]
+            else f"#{i['id']} está solta no céu, fora de sistema.")
 
 
 def _t_gate(a: dict[str, object], conversa: int | None = None) -> str:
@@ -1783,7 +2198,10 @@ CATALOGO: list[dict[str, object]] = [
     },
     {
         "name": "anotar_ideia",
-        "description": "Acrescenta um parágrafo ao fim de uma ideia (sem apagar o que existe).",
+        "description": (
+            "Acrescenta uma NOTA a uma ideia que já existe (vira uma lua do planeta). "
+            "Use para pensamentos novos sobre a ideia, em vez de criar outra."
+        ),
         "parameters": {"type": "object", "properties": {"id": _ID, "texto": {"type": "string"}},
                        "required": ["id", "texto"]},
     },
@@ -1827,6 +2245,42 @@ CATALOGO: list[dict[str, object]] = [
         }, "required": ["tipo", "id", "motivo"]},
     },
     {
+        "name": "registrar_relatorio",
+        "description": (
+            "Registra numa ideia um RELATÓRIO de trabalho feito com outra IA (Claude, Gemini, "
+            "ChatGPT…): o que foi feito, qual IA e, se ele deu, o link da conversa. Use quando "
+            "o André contar que trabalhou numa ideia em outro lugar."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "id": _ID,
+            "ia": {"type": "string", "enum": ["claude", "gemini", "gpt", "outra"]},
+            "texto": {"type": "string", "description": "O que foi feito, decidido e o próximo passo."},
+            "link": {"type": "string"},
+        }, "required": ["id", "ia", "texto"]},
+    },
+    {
+        "name": "criar_sistema",
+        "description": (
+            "Cria um sistema solar (uma categoria) e põe ideias em órbita. SÓ quando o "
+            "André pedir para agrupar ou criar a categoria."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "nome": {"type": "string", "description": "Nome curto da categoria, nas palavras dele."},
+            "descricao": {"type": "string"},
+            "ideias": {"type": "array", "items": {"type": "integer"}, "description": "Números das ideias."},
+        }, "required": ["nome"]},
+    },
+    {
+        "name": "colocar_no_sistema",
+        "description": (
+            "Põe uma ideia em órbita de um sistema (pelo nome ou número), ou tira dela "
+            "(sistema = 'nenhum'). SÓ quando o André pedir."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "id": _ID, "sistema": {"type": "string"},
+        }, "required": ["id", "sistema"]},
+    },
+    {
         "name": "resumo_nebulosa",
         "description": "Lista as ideias da Nebulosa por estágio e temperatura.",
         "parameters": {"type": "object", "properties": {"incluir_arquivadas": {"type": "boolean"}}},
@@ -1843,6 +2297,9 @@ EXECUTORES = {
     "ligar_ideias": _t_ligar,
     "sugerir_na_nebulosa": _t_sugerir,
     "resumo_nebulosa": _t_resumo,
+    "criar_sistema": _t_criar_sistema,
+    "colocar_no_sistema": _t_colocar,
+    "registrar_relatorio": _t_relatorio,
 }
 
 
@@ -1864,6 +2321,9 @@ def resumir(nome: str, argumentos: dict[str, object]) -> str | None:
         "ligar_ideias": lambda a: f"ligando #{a.get('a')} e #{a.get('b')}",
         "sugerir_na_nebulosa": lambda a: f"sugerindo {a.get('tipo')} para a #{a.get('id')}",
         "resumo_nebulosa": lambda a: "olhando a Nebulosa",
+        "criar_sistema": lambda a: f"criando o sistema «{a.get('nome')}»",
+        "registrar_relatorio": lambda a: f"registrando relatório ({a.get('ia')}) na #{a.get('id')}",
+        "colocar_no_sistema": lambda a: f"movendo a ideia #{a.get('id')} para {a.get('sistema')}",
     }
     f = rotulos.get(nome)
     return f(argumentos) if f else None
@@ -1881,7 +2341,8 @@ AJUDA = """\
 - `/ideias` — o céu inteiro, por estágio e temperatura.
 - `/esfriando` — o que está quase indo para a borda escura.
 - `/promover <nº>` — sobe a ideia, ou diz o que falta responder.
-- `/padroes` — o que o seu funil revela sobre o seu jeito de tocar ideia.\
+- `/padroes` — o que o seu funil revela sobre o seu jeito de tocar ideia.
+- `/sistemas` — as categorias (sistemas solares) e o que orbita cada uma.\
 """
 
 
@@ -1937,6 +2398,19 @@ async def comando(comando: str, argumento: str, conversa: int = 0) -> str | None
             return (f"Para «{linha['titulo']}» ir a **{POR_CHAVE[destino].nome}**, falta responder:\n\n"
                     f"{perguntas}\n\nResponda aqui que eu gravo, ou preencha no painel da ideia.")
         return f"**#{i['id']}** subiu para **{i['estagio_nome']}**. 🔥"
+
+    if comando == "/sistemas":
+        lista = sistemas()
+        if not lista:
+            return "Nenhum sistema ainda. No céu, clique em **☉ Sistema** ou peça: \"cria um sistema Jogos com a #3 e a #8\"."
+        por_id = {i["id"]: i for i in listar(incluir_arquivadas=False)}
+        blocos = []
+        for s_ in lista:
+            membros = [por_id[m] for m in s_["membros"] if m in por_id]
+            membros.sort(key=lambda i: -i["calor"])
+            blocos.append(f"**☉ {s_['nome']}** — {rotulo_faixa(s_['faixa'])}\n" + ("\n".join(
+                f"- #{i['id']} {i['titulo']} ({i['calor']:.0f}°)" for i in membros) or "- (vazio)"))
+        return "\n\n".join(blocos)
 
     if comando == "/padroes":
         lista = padroes()

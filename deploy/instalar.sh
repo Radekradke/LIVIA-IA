@@ -48,7 +48,11 @@ else
 fi
 
 echo
-if ! grep -q '^GEMINI_API_KEY=.\+' .env && ! grep -q '^GROQ_API_KEY=.\+' .env; then
+# O .env.example vem com "cole_sua_chave_aqui" no lugar da chave do Gemini.
+# Sem descontar isso, o placeholder passava como chave de verdade e o script
+# subia uma Livia que não consegue responder nada.
+tem_chave() { grep -E "^$1=.+" .env | grep -qv 'cole_sua_chave_aqui'; }
+if ! tem_chave GEMINI_API_KEY && ! tem_chave GROQ_API_KEY; then
   alerta "Falta a chave de API. Edite o .env antes de continuar:"
   alerta "    nano .env"
   alerta "Preencha GEMINI_API_KEY (e GROQ_API_KEY, se tiver)."
