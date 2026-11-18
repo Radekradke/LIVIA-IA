@@ -525,6 +525,14 @@ alguém em silêncio passaria a ter uma agenda que não é a dele.
 | 📌 ancorar | a ideia não se move e puxa as parecidas para perto |
 | clicar em duas constelações | **✦ Nó-ponte**: a Livia sugere uma pergunta que liga os dois assuntos |
 
+O fundo do céu é uma **galáxia desenhada na GPU** (`web/galaxia.js`, um shader
+WebGL): gás em ruído fractal deformado, braços espirais em volta do centro onde
+as ideias moram, três camadas de estrelas com paralaxe e o horizonte escuro na
+borda. O pulso de gravidade solta uma onda que entorta o espaço ao passar. Cada
+ideia é uma estrela, e a temperatura é a cor de estrela de verdade: apagada é
+cinza, esfriando é anã vermelha, morna é amarela, em brasa é branco-azulada.
+Sem WebGL, o céu volta a ser o degradê em CSS e nada mais muda.
+
 A **Esteira** é o funil em colunas (arrastar entre colunas promove, ou abre as
 perguntas que faltam) e tem a matriz **esforço × impacto**. A **Fogueira** é a
 revisão rápida: sugestões, propostas, e as ideias da mais quente à apagada.

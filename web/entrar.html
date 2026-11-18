@@ -7,17 +7,17 @@
 <link rel="icon" href="data:,">
 <style>
   :root[data-theme="dark"] {
-    --fundo: #0d0707; --painel: rgba(46,22,25,.72); --sunk: rgba(18,9,11,.7);
-    --linha: rgba(179,23,62,.22); --linha-forte: rgba(179,23,62,.45);
-    --texto: #f1e2d0; --suave: #c9a99a; --fraco: #8f6f66;
-    --rubi: #b3173e; --brilho: #e95a7a; --dourado: #c08a4a; --creme: #f1e2d0;
-    --luz-topo: inset 0 1px 0 rgba(255,190,190,.10);
+    --fundo: #07080f; --painel: rgba(22,24,44,.72); --sunk: rgba(8,9,18,.7);
+    --linha: rgba(140,146,217,.22); --linha-forte: rgba(140,146,217,.45);
+    --texto: #e6e8f5; --suave: #a7abc6; --fraco: #6d7192;
+    --rubi: #8c92d9; --brilho: #b9bdf7; --dourado: #cdbb93; --creme: #e6e8f5;
+    --luz-topo: inset 0 1px 0 rgba(200,205,255,.10);
   }
   :root[data-theme="light"] {
-    --fundo: #f7efe6; --painel: rgba(255,252,249,.9); --sunk: rgba(226,210,199,.5);
-    --linha: rgba(142,15,42,.18); --linha-forte: rgba(142,15,42,.36);
-    --texto: #33191a; --suave: #7a5750; --fraco: #a98d84;
-    --rubi: #a01235; --brilho: #c93a5c; --dourado: #a4703a; --creme: #3a1c18;
+    --fundo: #eef0f6; --painel: rgba(251,251,254,.9); --sunk: rgba(214,217,232,.5);
+    --linha: rgba(86,92,176,.18); --linha-forte: rgba(86,92,176,.36);
+    --texto: #1e2036; --suave: #5a5e7d; --fraco: #9094ad;
+    --rubi: #4f55a8; --brilho: #6a70c4; --dourado: #8f7a4e; --creme: #1d1f3a;
     --luz-topo: inset 0 1px 0 rgba(255,255,255,.85);
   }
   * { box-sizing: border-box; }
@@ -30,18 +30,18 @@
   body::before {
     content: ""; position: fixed; inset: 0; pointer-events: none;
     background:
-      radial-gradient(900px 640px at 20% -10%, rgba(179,23,62,.22), transparent 62%),
-      radial-gradient(760px 560px at 82% 110%, rgba(166,101,58,.16), transparent 60%);
+      radial-gradient(900px 640px at 20% -10%, rgba(140,146,217,.22), transparent 62%),
+      radial-gradient(760px 560px at 82% 110%, rgba(143,127,166,.16), transparent 60%);
   }
   .cartao {
     position: relative; width: 100%; max-width: 392px;
-    background: linear-gradient(165deg, var(--painel), rgba(18,9,11,.5));
+    background: linear-gradient(165deg, var(--painel), rgba(8,9,18,.5));
     border: 1px solid var(--linha-forte); border-radius: 20px; padding: 38px 34px 32px;
-    box-shadow: var(--luz-topo), 0 24px 64px rgba(0,0,0,.5), 0 0 44px rgba(142,15,42,.16);
+    box-shadow: var(--luz-topo), 0 24px 64px rgba(0,0,0,.5), 0 0 44px rgba(86,92,176,.16);
     text-align: center;
   }
   .gema { width: 62px; height: 62px; margin: 0 auto 16px; display: block;
-          filter: drop-shadow(0 0 18px rgba(179,23,62,.6)); }
+          filter: drop-shadow(0 0 18px rgba(140,146,217,.6)); }
   h1 {
     font-size: 27px; font-weight: 600; letter-spacing: .2em; margin: 0 0 4px;
     background: linear-gradient(100deg, var(--creme) 8%, var(--brilho) 50%, var(--dourado));
@@ -56,12 +56,12 @@
     box-shadow: inset 0 1px 4px rgba(0,0,0,.3); transition: border-color .18s, box-shadow .18s;
   }
   input::placeholder { color: var(--fraco); letter-spacing: .02em; }
-  input:focus { border-color: var(--rubi); box-shadow: inset 0 1px 4px rgba(0,0,0,.3), 0 0 20px rgba(179,23,62,.28); }
+  input:focus { border-color: var(--rubi); box-shadow: inset 0 1px 4px rgba(0,0,0,.3), 0 0 20px rgba(140,146,217,.28); }
   button {
-    width: 100%; margin-top: 11px; padding: 13px; border: 1px solid rgba(233,90,122,.4);
+    width: 100%; margin-top: 11px; padding: 13px; border: 1px solid rgba(185,189,247,.4);
     border-radius: 12px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
-    color: #fff; background: linear-gradient(160deg, #d4285a, #b3173e 40%, #8e0f2a);
-    box-shadow: var(--luz-topo), 0 6px 22px rgba(142,15,42,.45);
+    color: #fff; background: linear-gradient(160deg, #7a80d4, #5d63b8 42%, #3a3f8a);
+    box-shadow: var(--luz-topo), 0 6px 22px rgba(86,92,176,.45);
     transition: transform .16s, filter .16s;
   }
   button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.12); }
@@ -72,23 +72,29 @@
 <body>
   <div class="cartao">
     <svg class="gema" viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
-        </linearGradient>
-        <linearGradient id="b" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
-        </linearGradient>
-        <radialGradient id="c" cx=".5" cy=".42" r=".5">
-          <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
-          <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#b)"/>
-      <path d="M14 7h20l8 11H6z" fill="url(#a)"/>
-      <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".3"/>
-      <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
-      <circle cx="24" cy="20" r="10" fill="url(#c)"/>
+  <defs>
+    <radialGradient id="lCorona" cx=".5" cy=".5" r=".5">
+      <stop offset=".52" stop-color="#b9bdf7" stop-opacity="0"/>
+      <stop offset=".63" stop-color="#b9bdf7" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#b9bdf7" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lLuz" x1=".15" y1=".9" x2=".85" y2=".1">
+      <stop offset="0" stop-color="#f3f4ff"/>
+      <stop offset=".45" stop-color="#a6abef"/>
+      <stop offset="1" stop-color="#2b2d5e"/>
+    </linearGradient>
+    <radialGradient id="lSombra" cx=".62" cy=".36" r=".62">
+      <stop offset="0" stop-color="#0d0f1f"/>
+      <stop offset="1" stop-color="#07080f"/>
+    </radialGradient>
+  </defs>
+  <circle cx="24" cy="24" r="22" fill="url(#lCorona)"/>
+  <circle cx="24" cy="24" r="13.4" fill="url(#lLuz)"/>
+  <circle cx="26.9" cy="21.6" r="12.9" fill="url(#lSombra)"/>
+  <ellipse cx="24" cy="24" rx="21" ry="6.2" transform="rotate(-22 24 24)"
+           fill="none" stroke="#b9bdf7" stroke-opacity=".5" stroke-width=".8"/>
+  <circle cx="40.10" cy="14.36" r="1.5" fill="#f1ead8"/>
+  <circle cx="40.10" cy="14.36" r="3.2" fill="#f1ead8" opacity=".16"/>
     </svg>
     <h1 id="titulo">LIVIA</h1>
     <p class="sub">acesso restrito</p>

@@ -102,6 +102,7 @@
     <div class="neb-corpo">
       <div class="neb-vista ativa" data-vista="ceu">
         <div class="ceu" id="ceu" tabindex="0" aria-label="Céu de ideias">
+          <canvas class="galaxia" id="galaxia" aria-hidden="true"></canvas>
           <div class="mundo" id="mundo">
             <div class="borda-escura" id="borda"></div>
             <div class="borda-rotulo" id="bordaRotulo">borda escura</div>
@@ -118,6 +119,12 @@
           </div>
         </div>
         <div class="livia-sugere" id="liviaSugere"></div>
+        <div class="legenda-temp" aria-hidden="true">
+          <span style="--c:var(--t-apagada)"><i></i>apagada</span>
+          <span style="--c:var(--t-esfriando)"><i></i>esfriando</span>
+          <span style="--c:var(--t-morna)"><i></i>morna</span>
+          <span style="--c:var(--t-brasa)"><i></i>em brasa</span>
+        </div>
         <div class="ceu-ajuda">duplo clique cria · arraste o fundo · roda dá zoom · <kbd>G</kbd> gravidade</div>
         <div class="ceu-zoom">
           <button data-zoom="-1" title="afastar">−</button>
@@ -138,6 +145,17 @@
   const camadaEstrelas = $n("#estrelas");
   const camadaConst = $n("#constelacoes");
   const gaveta = $n("#gaveta");
+
+  // A galáxia de fundo. Sem WebGL (ou se o shader falhar), fica o céu em
+  // CSS de antes e nada mais muda: ela é cenário, não dependência.
+  const galaxia = window.Galaxia ? window.Galaxia.criar($n("#galaxia")) : null;
+  if (galaxia) {
+    ceu.classList.add("webgl");
+    galaxia.quandoVisivel(() =>
+      N.vista === "ceu" && !document.body.classList.contains("modo-conversa"));
+  } else {
+    $n("#galaxia").remove();
+  }
 
   // ───────────────────────── avisos ─────────────────────────
 
@@ -277,6 +295,7 @@
     mundo.style.transform = `translate(${N.cam.x}px, ${N.cam.y}px) scale(${N.cam.s})`;
     ceu.classList.toggle("lod-longe", N.cam.s < 0.42);
     ceu.classList.toggle("lod-medio", N.cam.s >= 0.42 && N.cam.s < 0.8);
+    if (galaxia) galaxia.camera(N.cam, N.estado ? raioBorda() : 0);
   }
 
   function centrar() {
@@ -406,6 +425,8 @@
       if (el.classList.contains("aquecendo")) classes.push("aquecendo");
       el.className = classes.join(" ");
       el.style.setProperty("--g", (Math.min(100, i.calor) / 100).toFixed(2));
+      // Cada estrela cintila no seu tempo; o número da ideia dá a fase.
+      el.style.setProperty("--d", `${-((i.id * 1.618) % 6).toFixed(2)}s`);
       el.title = `${i.titulo} — ${i.estagio_nome}, ${FAIXA_NOME[i.faixa]} (${Math.round(i.calor)}°)`;
       const html = htmlEstrela(i);
       if (el._html !== html) { el.innerHTML = html; el._html = html; }
@@ -419,6 +440,7 @@
     const rot = $n("#bordaRotulo");
     rot.style.left = "0px";
     rot.style.top = `${R * 0.9}px`;
+    if (galaxia) galaxia.camera(N.cam, R);
 
     desenharFios();
     desenharConstelacoes();
@@ -664,6 +686,9 @@
     }
     N.grav = g;
     if (g.aviso) aviso(esc(g.aviso));
+    // A onda sai do centro junto com o primeiro quadro da física: o espaço
+    // entorta, e as ideias começam a cair umas nas outras.
+    if (galaxia) galaxia.pulso();
     simular(g);
   }
 
@@ -1375,12 +1400,22 @@
 
   function modo(m) {
     if (window.innerWidth < 1080 && m === "lado") m = "conversa";
+    // Trocar de modo muda a largura do céu. Sem compensar, as ideias
+    // escorregariam para o canto; com isto, o centro do que você via
+    // continua no centro.
+    const antes = ceu.getBoundingClientRect();
     document.body.classList.remove("modo-conversa", "modo-lado", "modo-nebulosa");
     document.body.classList.add(`modo-${m}`);
     localStorage.setItem("livia-modo", m);
     document.querySelectorAll(".modos [data-modo]").forEach((b) => b.classList.toggle("ativo", b.dataset.modo === m));
     if (m !== "conversa") requestAnimationFrame(() => {
       if (!N.cameraPronta) { enquadrar(); N.cameraPronta = true; }
+      else if (antes.width && antes.height) {
+        const depois = ceu.getBoundingClientRect();
+        N.cam.x += (depois.width - antes.width) / 2;
+        N.cam.y += (depois.height - antes.height) / 2;
+        aplicarCamera();
+      }
       renderizar();
     });
   }
@@ -1430,6 +1465,8 @@
   });
 
   window.addEventListener("resize", () => { if (N.vista === "ceu") aplicarCamera(); });
+  new MutationObserver(() => galaxia && galaxia.redesenhar())
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   // A temperatura muda com o tempo mesmo sem ninguém mexer: um retrato
   // novo a cada dois minutos mantém o céu honesto.

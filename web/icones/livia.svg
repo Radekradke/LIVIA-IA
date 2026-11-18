@@ -1,22 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-  <!-- A mesma gema do cabeçalho. Serve de ícone porque é a identidade do app
-       e não depende do nome: quem trocar LIVIA_NAME continua reconhecendo. -->
+  <!-- Eclipse: uma esfera quase toda na sombra, só a borda acesa, cortada por
+       uma órbita fina com uma estrela pequena. É a identidade da Livia e não
+       depende do nome — quem trocar LIVIA_NAME continua reconhecendo. -->
   <defs>
-    <linearGradient id="gTopo" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e95a7a"/><stop offset="1" stop-color="#b3173e"/>
+    <radialGradient id="lCorona" cx=".5" cy=".5" r=".5">
+      <stop offset=".52" stop-color="#b9bdf7" stop-opacity="0"/>
+      <stop offset=".63" stop-color="#b9bdf7" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#b9bdf7" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lLuz" x1=".15" y1=".9" x2=".85" y2=".1">
+      <stop offset="0" stop-color="#f3f4ff"/>
+      <stop offset=".45" stop-color="#a6abef"/>
+      <stop offset="1" stop-color="#2b2d5e"/>
     </linearGradient>
-    <linearGradient id="gBaixo" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#b3173e"/><stop offset="1" stop-color="#5a0d1a"/>
-    </linearGradient>
-    <radialGradient id="gNucleo" cx=".5" cy=".42" r=".5">
-      <stop offset="0" stop-color="#ffd9df" stop-opacity=".95"/>
-      <stop offset="1" stop-color="#e95a7a" stop-opacity="0"/>
+    <radialGradient id="lSombra" cx=".62" cy=".36" r=".62">
+      <stop offset="0" stop-color="#0d0f1f"/>
+      <stop offset="1" stop-color="#07080f"/>
     </radialGradient>
   </defs>
-  <path d="M14 7h20l8 11-18 23L6 18z" fill="url(#gBaixo)"/>
-  <path d="M14 7h20l8 11H6z" fill="url(#gTopo)"/>
-  <path d="M14 7l4 11-6 0zM34 7l-4 11 6 0z" fill="#ffd9df" opacity=".30"/>
-  <path d="M18 18h12l-6 23z" fill="#e95a7a" opacity=".38"/>
-  <circle cx="24" cy="20" r="10" fill="url(#gNucleo)"/>
-  <path d="M6 18h36" stroke="#ffd9df" stroke-opacity=".45" stroke-width=".8"/>
+  <circle cx="24" cy="24" r="22" fill="url(#lCorona)"/>
+  <circle cx="24" cy="24" r="13.4" fill="url(#lLuz)"/>
+  <circle cx="26.9" cy="21.6" r="12.9" fill="url(#lSombra)"/>
+  <ellipse cx="24" cy="24" rx="21" ry="6.2" transform="rotate(-22 24 24)"
+           fill="none" stroke="#b9bdf7" stroke-opacity=".5" stroke-width=".8"/>
+  <circle cx="40.10" cy="14.36" r="1.5" fill="#f1ead8"/>
+  <circle cx="40.10" cy="14.36" r="3.2" fill="#f1ead8" opacity=".16"/>
 </svg>
