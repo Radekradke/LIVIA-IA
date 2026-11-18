@@ -147,6 +147,108 @@ CREATE TABLE IF NOT EXISTS knowledge_jobs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_situacao ON knowledge_jobs(situacao, id);
+
+-- Nebulosa: as ideias do André. Aqui o banco É a fonte da verdade, ao
+-- contrário da memória — uma ideia muda de posição dezenas de vezes por
+-- sessão e acumula eventos, e isso em Markdown viraria um arquivo reescrito
+-- a cada arrasto. O backup leva o livia.db junto (ver backup.py), e o
+-- `/ideias` lista tudo em texto a qualquer momento.
+--
+-- `calor` é um RETRATO: o valor no instante `calor_em`. A temperatura de
+-- agora é calculada na leitura, decaindo a partir do retrato pela meia-vida
+-- do estágio. Assim não existe cron nenhum resfriando linha por linha.
+CREATE TABLE IF NOT EXISTS ideias (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo        TEXT NOT NULL,
+    conteudo      TEXT NOT NULL DEFAULT '',
+    fonte         TEXT NOT NULL DEFAULT '',
+    estagio       TEXT NOT NULL DEFAULT 'faisca',
+    estagio_em    TEXT NOT NULL DEFAULT '',
+    estagio_antes TEXT NOT NULL DEFAULT '',
+    motivo_arquivo TEXT NOT NULL DEFAULT '',
+    pos_x         REAL,
+    pos_y         REAL,
+    ancorada      INTEGER NOT NULL DEFAULT 0,
+    proposta      INTEGER NOT NULL DEFAULT 0,
+    origem        TEXT NOT NULL DEFAULT 'manual',
+    conversa      INTEGER,
+    calor         REAL NOT NULL DEFAULT 0,
+    calor_em      TEXT NOT NULL DEFAULT '',
+    mexida_em     TEXT NOT NULL DEFAULT '',
+    criado_em     TEXT NOT NULL DEFAULT '',
+    atualizado_em TEXT NOT NULL DEFAULT '',
+    hash          TEXT NOT NULL DEFAULT '',
+    assinatura    TEXT NOT NULL DEFAULT '',
+    vetor         BLOB
+);
+
+CREATE INDEX IF NOT EXISTS idx_ideias_estagio ON ideias(estagio);
+
+-- Tudo que aconteceu com cada ideia. É a evidência dos padrões do funil:
+-- "ideias que você conversou com a Livia chegam mais longe" só pode ser
+-- dito porque cada menção ficou registrada aqui.
+CREATE TABLE IF NOT EXISTS ideia_eventos (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    ideia_id  INTEGER NOT NULL REFERENCES ideias(id) ON DELETE CASCADE,
+    tipo      TEXT NOT NULL,
+    detalhe   TEXT NOT NULL DEFAULT '',
+    conversa  INTEGER,
+    criado_em TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ideia_eventos ON ideia_eventos(ideia_id, id);
+
+-- Respostas aos gates. Uma por pergunta, na palavra do André.
+CREATE TABLE IF NOT EXISTS ideia_gates (
+    ideia_id INTEGER NOT NULL REFERENCES ideias(id) ON DELETE CASCADE,
+    gate     TEXT NOT NULL,
+    valor    TEXT NOT NULL,
+    origem   TEXT NOT NULL DEFAULT 'manual',
+    feito_em TEXT NOT NULL,
+    PRIMARY KEY (ideia_id, gate)
+);
+
+-- Ligações feitas à mão (ou aceitas de uma sugestão). As semânticas não
+-- moram aqui: são recalculadas dos vetores, e guardar seria guardar velho.
+CREATE TABLE IF NOT EXISTS ideia_ligacoes (
+    a         INTEGER NOT NULL REFERENCES ideias(id) ON DELETE CASCADE,
+    b         INTEGER NOT NULL REFERENCES ideias(id) ON DELETE CASCADE,
+    origem    TEXT NOT NULL DEFAULT 'manual',
+    criado_em TEXT NOT NULL,
+    PRIMARY KEY (a, b)
+);
+
+-- O que a Livia sugere e ESPERA resposta. Mesma regra das skills
+-- candidatas: nada aqui muda uma ideia sozinho.
+CREATE TABLE IF NOT EXISTS ideia_sugestoes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo       TEXT NOT NULL,
+    ideia_id   INTEGER NOT NULL REFERENCES ideias(id) ON DELETE CASCADE,
+    outra_id   INTEGER REFERENCES ideias(id) ON DELETE CASCADE,
+    motivo     TEXT NOT NULL DEFAULT '',
+    origem     TEXT NOT NULL DEFAULT 'regra',
+    situacao   TEXT NOT NULL DEFAULT 'pendente',
+    criado_em  TEXT NOT NULL,
+    decidido_em TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_sugestoes_situacao ON ideia_sugestoes(situacao, id);
+
+-- Retratos do céu antes de cada pulso de gravidade. É o Ctrl+Z do layout:
+-- a gravidade reorganiza tudo, e perder a arrumação manual por um clique
+-- seria o tipo de coisa que faz a pessoa parar de usar o botão.
+CREATE TABLE IF NOT EXISTS ideia_layouts (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    posicoes  TEXT NOT NULL,
+    criado_em TEXT NOT NULL
+);
+
+-- Nomes das constelações, por composição. Puramente derivado.
+CREATE TABLE IF NOT EXISTS constelacao_nomes (
+    chave     TEXT PRIMARY KEY,
+    nome      TEXT NOT NULL,
+    criado_em TEXT NOT NULL
+);
 """
 
 

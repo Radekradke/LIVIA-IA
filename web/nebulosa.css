@@ -1,0 +1,577 @@
+/* ══════════════════════════════════════════════════════════════════
+   NEBULOSA — o céu de ideias, ao lado da conversa
+   Mesma joia do resto da Livia. A temperatura é a única cor nova:
+   cinza de cinza (apagada) → cobre → âmbar → rosa-branco em brasa.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --t-apagada:   #6f5c56;
+  --t-esfriando: #a6653a;
+  --t-morna:     #d99a4e;
+  --t-brasa:     #ff8fa3;
+  --t-brasa-nucleo: #ffe3e8;
+  --chat-w: 44%;
+}
+:root[data-theme="light"] {
+  --t-apagada:   #a8968f;
+  --t-esfriando: #9a5a2f;
+  --t-morna:     #b87a2c;
+  --t-brasa:     #d4285a;
+  --t-brasa-nucleo: #ffd0da;
+}
+
+/* ─────────────── troca de modo (conversa · lado a lado · nebulosa) ─────────────── */
+
+.modos {
+  display: flex; gap: 2px; padding: 3px; margin: 0 0 18px;
+  background: var(--sunk); border: 1px solid var(--linha); border-radius: 12px;
+}
+.modos button {
+  flex: 1; padding: 7px 4px; border-radius: 9px; white-space: nowrap;
+  font-size: 11.5px; font-weight: 600; letter-spacing: .02em; color: var(--texto-fraco);
+  transition: color .16s, background .16s;
+}
+.modos button:hover { color: var(--texto-suave); }
+.modos button.ativo {
+  color: var(--creme);
+  background: linear-gradient(100deg, rgba(179,23,62,.28), rgba(142,15,42,.10));
+  box-shadow: var(--luz-topo), 0 0 14px rgba(179,23,62,.18);
+}
+.modos .badge-neb {
+  display: inline-block; min-width: 14px; margin-left: 4px; padding: 0 4px;
+  font-family: var(--mono); font-size: 9px; line-height: 14px; border-radius: 999px;
+  background: var(--brilho); color: #fff;
+}
+
+/* Em tela estreita a barra lateral some; a troca vira pílula flutuante. */
+.modos-flutuante { display: none; }
+@media (max-width: 1080px) {
+  .modos-flutuante {
+    display: flex; position: fixed; z-index: 40; top: 10px; left: 50%; transform: translateX(-50%);
+    width: min(280px, 80vw); margin: 0;
+    background: var(--painel-alto); box-shadow: var(--sombra-alta);
+  }
+  .modos-flutuante [data-modo="lado"] { display: none; }
+  #thread { padding-top: 58px; }
+  .neb-topo { padding-top: 58px; }
+  .ceu-ajuda { display: none; }
+  .livia-sugere { white-space: nowrap; font-size: 12px; }
+}
+
+body.modo-nebulosa #main { display: none; }
+body.modo-conversa #nebulosa { display: none; }
+body.modo-lado #main { flex: 0 0 var(--chat-w); }
+body.modo-lado #main .wrap { padding: 0 26px; }
+body:not(.modo-lado) .divisor { display: none; }
+
+.divisor {
+  position: relative; z-index: 3; flex: 0 0 7px; cursor: col-resize;
+  background: linear-gradient(90deg, transparent 3px, var(--linha) 3px, var(--linha) 4px, transparent 4px);
+}
+.divisor:hover, .divisor.arrastando {
+  background: linear-gradient(90deg, transparent 2px, var(--rubi) 2px, var(--rubi) 5px, transparent 5px);
+}
+
+/* ─────────────── a seção ─────────────── */
+
+#nebulosa {
+  position: relative; z-index: 1; flex: 1; min-width: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+.neb-topo {
+  position: relative; z-index: 5;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--linha);
+  background: linear-gradient(180deg, rgba(18,9,11,.55), rgba(18,9,11,.15));
+}
+:root[data-theme="light"] .neb-topo { background: linear-gradient(180deg, rgba(255,252,249,.85), rgba(255,252,249,.4)); }
+
+.neb-marca { display: flex; align-items: baseline; gap: 10px; }
+.neb-marca h2 {
+  margin: 0; font-family: var(--serif); font-weight: 400; font-size: 21px; letter-spacing: .01em;
+  background: linear-gradient(100deg, var(--creme) 10%, var(--brilho) 60%, var(--dourado));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.neb-marca small { font-size: 11.5px; color: var(--texto-fraco); }
+
+.neb-vistas { display: flex; gap: 2px; }
+.neb-vistas button {
+  position: relative; padding: 6px 11px; border-radius: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--texto-fraco); transition: color .16s;
+}
+.neb-vistas button:hover { color: var(--texto-suave); }
+.neb-vistas button.ativa { color: var(--creme); }
+.neb-vistas button.ativa::after {
+  content: ""; position: absolute; left: 18%; right: 18%; bottom: -3px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--rubi), var(--brilho), var(--dourado)); box-shadow: 0 0 10px var(--rubi);
+}
+.neb-vistas .contador {
+  display: inline-block; min-width: 15px; margin-left: 4px; padding: 0 4px;
+  font-family: var(--mono); font-size: 9.5px; line-height: 15px;
+  border-radius: 999px; background: var(--brilho); color: #fff;
+}
+
+.neb-acoes { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.neb-btn.icone { padding: 7px 9px; min-width: 32px; }
+.neb-btn.icone.ligado { color: var(--creme); border-color: var(--linha-forte); background: rgba(179,23,62,.16); }
+.neb-btn {
+  padding: 7px 13px; border-radius: 10px; font-size: 12.5px; font-weight: 600;
+  color: var(--texto-suave); background: var(--sunk); border: 1px solid var(--linha);
+  transition: color .16s, border-color .16s, box-shadow .16s, transform .16s;
+  white-space: nowrap;
+}
+.neb-btn:hover { color: var(--creme); border-color: var(--linha-forte); }
+.neb-btn:disabled { opacity: .4; cursor: default; }
+.neb-btn.gema {
+  color: #fff; background: var(--gema); border-color: rgba(233,90,122,.38);
+  box-shadow: var(--luz-topo), 0 4px 16px rgba(142,15,42,.38);
+}
+.neb-btn.gema:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.neb-btn kbd {
+  font-family: var(--mono); font-size: 10px; opacity: .7; margin-left: 5px;
+  padding: 0 4px; border: 1px solid currentColor; border-radius: 4px;
+}
+.neb-btn.puxando { animation: puxar 1s ease-in-out infinite; }
+@keyframes puxar { 50% { box-shadow: var(--luz-topo), 0 0 26px rgba(233,90,122,.7); } }
+
+.neb-intensidade {
+  display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--texto-fraco);
+}
+.neb-intensidade input { width: 72px; accent-color: var(--rubi); }
+
+.neb-corpo { position: relative; flex: 1; min-height: 0; display: flex; }
+.neb-vista { position: relative; flex: 1; min-width: 0; overflow: hidden; display: none; }
+.neb-vista.ativa { display: block; }
+
+/* ─────────────── céu ─────────────── */
+
+.ceu {
+  position: absolute; inset: 0; overflow: hidden; cursor: grab;
+  touch-action: none; user-select: none;
+  background:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,208,216,.55), transparent 60%),
+    radial-gradient(1px 1px at 68% 34%, rgba(255,208,216,.40), transparent 60%),
+    radial-gradient(1.4px 1.4px at 42% 76%, rgba(255,224,207,.45), transparent 60%),
+    radial-gradient(1px 1px at 86% 82%, rgba(255,208,216,.35), transparent 60%),
+    radial-gradient(1px 1px at 24% 58%, rgba(255,208,216,.30), transparent 60%),
+    radial-gradient(900px 600px at 50% 45%, rgba(142,15,42,.16), transparent 70%);
+}
+:root[data-theme="light"] .ceu {
+  background: radial-gradient(900px 600px at 50% 45%, rgba(179,23,62,.07), transparent 70%);
+}
+.ceu.panning { cursor: grabbing; }
+.ceu:focus { outline: none; }
+.ceu:focus-visible { outline: 2px solid var(--linha-forte); outline-offset: -2px; }
+
+.mundo { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+
+/* A borda escura: onde as ideias apagadas vão parar. Um anel, não um muro —
+   continua dando para arrastar uma ideia de volta para o centro. */
+.borda-escura {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, transparent 84%, rgba(0,0,0,.36) 93%, rgba(0,0,0,.6) 100%);
+  border: 1px dashed rgba(143,111,102,.22);
+}
+:root[data-theme="light"] .borda-escura {
+  background: radial-gradient(closest-side, transparent 84%, rgba(90,13,26,.06) 93%, rgba(90,13,26,.12) 100%);
+}
+.borda-rotulo {
+  position: absolute; transform: translate(-50%, 0); pointer-events: none;
+  font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--texto-fraco); opacity: .6;
+  white-space: nowrap;
+}
+
+.fios { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.fios line { stroke-linecap: round; }
+.fio-manual { stroke: var(--dourado); stroke-opacity: .55; stroke-width: 1.6; }
+.fio-semantico { stroke: var(--brilho); stroke-opacity: .16; stroke-width: 1; stroke-dasharray: 3 6; }
+.fio-ponte { stroke: var(--brilho); stroke-opacity: .5; stroke-width: 1.2; stroke-dasharray: 6 5; }
+
+.constelacao {
+  position: absolute; transform: translate(-50%, -100%);
+  font-family: var(--serif); font-size: 15px; font-style: italic; white-space: nowrap;
+  color: var(--texto-suave); opacity: .85; cursor: pointer; padding: 2px 10px; border-radius: 999px;
+  border: 1px solid transparent; transition: opacity .3s, border-color .16s, background .16s;
+  text-shadow: 0 0 12px rgba(0,0,0,.7);
+}
+:root[data-theme="light"] .constelacao { text-shadow: none; }
+.constelacao::before { content: "✦ "; color: var(--brilho); font-style: normal; font-size: .8em; }
+.constelacao:hover { border-color: var(--linha-forte); }
+.constelacao.selecionada { border-color: var(--brilho); background: rgba(179,23,62,.18); color: var(--creme); }
+.constelacao.provisoria { opacity: .55; }
+
+/* As ideias no céu. A classe é .astro, e não .estrela, de propósito: o
+   index já usa .estrela nas estrelinhas do fundo, com animação de cintilar —
+   reaproveitar o nome fazia as ideias piscarem até quase sumir.
+   --c é a cor da temperatura; --g (0–1), a intensidade do brilho. */
+.astro {
+  --c: var(--t-morna); --g: .5;
+  position: absolute; left: 0; top: 0;
+  width: 200px; padding: 10px 13px 11px;
+  border-radius: 14px; cursor: pointer;
+  background: linear-gradient(160deg, var(--painel-alto), var(--painel));
+  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+  box-shadow:
+    var(--luz-topo),
+    0 0 calc(6px + 30px * var(--g)) color-mix(in srgb, var(--c) calc(18% + 50% * var(--g)), transparent),
+    var(--sombra-baixa);
+  transition: box-shadow .4s, border-color .4s, opacity .4s, width .2s;
+  will-change: transform;
+}
+.astro:hover { border-color: var(--c); z-index: 4; }
+.astro.selecionada { border-color: var(--brilho); outline: 2px solid color-mix(in srgb, var(--brilho) 40%, transparent); outline-offset: 3px; z-index: 5; }
+.astro.arrastando { cursor: grabbing; z-index: 6; transition: none; }
+
+.astro.f-brasa    { --c: var(--t-brasa); }
+.astro.f-morna    { --c: var(--t-morna); }
+.astro.f-esfriando{ --c: var(--t-esfriando); }
+.astro.f-apagada  { --c: var(--t-apagada); opacity: .58; }
+
+.astro.e-faisca   { width: 172px; border-radius: 18px; }
+.astro.e-rascunho { width: 204px; }
+.astro.e-validada { width: 228px; border-width: 1.5px; }
+.astro.e-execucao {
+  width: 248px; border-width: 2px;
+  box-shadow:
+    var(--luz-topo),
+    0 0 0 4px color-mix(in srgb, var(--c) 16%, transparent),
+    0 0 calc(14px + 40px * var(--g)) color-mix(in srgb, var(--c) calc(24% + 50% * var(--g)), transparent);
+}
+.astro.e-arquivada { opacity: .45; filter: grayscale(.6); }
+.astro.proposta {
+  border-style: dashed; border-color: var(--brilho);
+  background: linear-gradient(160deg, rgba(179,23,62,.14), rgba(18,9,11,.4));
+}
+:root[data-theme="light"] .astro.proposta { background: linear-gradient(160deg, rgba(179,23,62,.08), rgba(255,252,249,.7)); }
+
+.estrela-topo {
+  display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px;
+  color: var(--texto-fraco); letter-spacing: .03em; line-height: 1.4;
+}
+.estrela-topo .num { color: var(--c); font-weight: 700; }
+.estrela-topo .graus { margin-left: auto; color: var(--c); }
+.estrela-topo .pino { font-size: 10px; opacity: .85; }
+.nucleo {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle, var(--t-brasa-nucleo) 0, var(--c) 55%, transparent 72%);
+  box-shadow: 0 0 calc(4px + 10px * var(--g)) var(--c);
+}
+.estrela-titulo {
+  margin-top: 5px; font-size: 13.5px; line-height: 1.38; color: var(--texto); font-weight: 600;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.estrela-texto {
+  margin-top: 5px; font-size: 12px; line-height: 1.45; color: var(--texto-suave);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.estrela-pe { margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .04em; text-transform: uppercase;
+  padding: 1px 7px; border-radius: 999px; border: 1px solid var(--linha-forte); color: var(--texto-fraco);
+  white-space: nowrap;
+}
+.chip.livia { color: var(--brilho); border-color: rgba(233,90,122,.45); }
+.chip.falta { color: var(--dourado); border-color: color-mix(in srgb, var(--dourado) 45%, transparent); }
+
+/* Aquecida pela conversa: um pulso só, para o olho achar no céu. */
+.astro.aquecendo { animation: aquecer 1.6s ease-out 2; }
+@keyframes aquecer {
+  0%   { box-shadow: var(--luz-topo), 0 0 0 0 color-mix(in srgb, var(--t-brasa) 70%, transparent); }
+  60%  { box-shadow: var(--luz-topo), 0 0 0 18px transparent, 0 0 50px var(--t-brasa); }
+  100% { box-shadow: var(--luz-topo), 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .astro.aquecendo { animation: none; outline: 2px solid var(--t-brasa); } }
+
+/* Nível de detalhe pelo zoom. Longe: pontos de luz. Meio: só o título. */
+.ceu.lod-medio .estrela-texto, .ceu.lod-medio .estrela-pe { display: none; }
+/* No meio do caminho só o título fica — então ele cresce, para continuar
+   legível com o mundo encolhido. */
+.ceu.lod-medio .estrela-titulo { font-size: 17px; line-height: 1.3; -webkit-line-clamp: 2; }
+.ceu.lod-medio .estrela-topo { font-size: 12px; }
+.ceu.lod-longe .astro {
+  width: 22px !important; height: 22px; padding: 0; border-radius: 50%;
+  background: radial-gradient(circle, var(--t-brasa-nucleo) 0, var(--c) 45%, transparent 72%);
+  border: none; transform-origin: center;
+}
+.ceu.lod-longe .astro.e-execucao { width: 38px !important; height: 38px; }
+.ceu.lod-longe .astro.e-validada { width: 30px !important; height: 30px; }
+.ceu.lod-longe .astro > * { display: none; }
+.ceu.lod-longe .constelacao { font-size: 26px; }
+
+.ceu-vazio[hidden] { display: none; }
+.ceu-vazio {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; text-align: center;
+}
+.ceu-vazio div { max-width: 360px; color: var(--texto-suave); font-size: 14px; line-height: 1.7; }
+.ceu-vazio h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; color: var(--creme); margin: 0 0 8px; }
+.ceu-vazio kbd, .ceu-ajuda kbd {
+  font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 5px;
+  border: 1px solid var(--linha-forte); color: var(--texto);
+}
+
+.ceu-ajuda {
+  position: absolute; left: 14px; bottom: 12px; z-index: 3;
+  font-size: 11px; color: var(--texto-fraco); pointer-events: none;
+}
+.ceu-zoom {
+  position: absolute; right: 14px; bottom: 12px; z-index: 3; display: flex; gap: 4px;
+}
+.ceu-zoom button {
+  width: 30px; height: 30px; border-radius: 8px; font-size: 15px; color: var(--texto-suave);
+  background: var(--painel-alto); border: 1px solid var(--linha);
+}
+.ceu-zoom button:hover { color: var(--creme); border-color: var(--linha-forte); }
+
+.livia-sugere {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 4;
+  display: none; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: 999px; font-size: 12.5px; color: var(--texto-suave);
+  background: linear-gradient(100deg, rgba(179,23,62,.26), rgba(166,101,58,.12));
+  border: 1px solid var(--linha-forte); box-shadow: var(--luz-topo), 0 0 18px rgba(179,23,62,.18);
+  cursor: pointer;
+}
+.livia-sugere.mostra { display: flex; }
+.livia-sugere b { color: var(--creme); font-weight: 600; }
+
+/* Rascunho rápido (duplo clique no céu). */
+.rascunho-rapido {
+  position: absolute; z-index: 8; width: 260px; transform: translate(-50%, -50%);
+  padding: 10px; border-radius: 14px; background: var(--painel-alto);
+  border: 1px solid var(--rubi); box-shadow: var(--sombra-alta), 0 0 30px rgba(179,23,62,.3);
+}
+.rascunho-rapido textarea {
+  width: 100%; min-height: 74px; resize: none; border: none; outline: none; background: none;
+  color: var(--texto); font-family: var(--sans); font-size: 14px; line-height: 1.5;
+}
+.rascunho-rapido small { display: block; font-size: 10.5px; color: var(--texto-fraco); }
+
+/* ─────────────── esteira (kanban) ─────────────── */
+
+.esteira { position: absolute; inset: 0; display: flex; gap: 12px; padding: 16px; overflow-x: auto; }
+.coluna {
+  flex: 1 0 210px; max-width: 320px; display: flex; flex-direction: column; min-height: 0;
+  border-radius: var(--raio); background: var(--sunk); border: 1px solid var(--linha);
+  transition: border-color .16s, background .16s;
+}
+.coluna.alvo { border-color: var(--brilho); background: rgba(179,23,62,.12); }
+.coluna.recolhida { flex: 0 0 150px; opacity: .8; }
+.coluna-topo {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 12px 14px 8px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--texto-fraco); font-weight: 700;
+}
+.coluna-topo span:last-child { font-family: var(--mono); letter-spacing: 0; }
+.coluna-lista { flex: 1; overflow-y: auto; padding: 0 10px 12px; }
+.coluna .meia-vida { padding: 0 14px 8px; font-size: 10.5px; color: var(--texto-fraco); }
+
+.cartao {
+  --c: var(--t-morna);
+  margin-bottom: 8px; padding: 10px 12px; border-radius: var(--raio-p); cursor: grab;
+  background: linear-gradient(160deg, var(--painel-alto), var(--painel));
+  border: 1px solid var(--linha); border-left: 3px solid var(--c);
+  box-shadow: var(--luz-topo), var(--sombra-baixa); transition: transform .16s, border-color .16s;
+}
+.cartao:hover { transform: translateY(-1px); border-color: var(--linha-forte); border-left-color: var(--c); }
+.cartao.f-brasa { --c: var(--t-brasa); }
+.cartao.f-esfriando { --c: var(--t-esfriando); }
+.cartao.f-apagada { --c: var(--t-apagada); opacity: .7; }
+.cartao.proposta { border-style: dashed; }
+.cartao-titulo { font-size: 13px; font-weight: 600; line-height: 1.4; }
+.termometro { margin-top: 7px; height: 3px; border-radius: 3px; background: var(--linha); overflow: hidden; }
+.termometro i { display: block; height: 100%; background: linear-gradient(90deg, var(--t-esfriando), var(--c)); border-radius: 3px; }
+.cartao-meta { margin-top: 6px; display: flex; gap: 8px; font-size: 10.5px; color: var(--texto-fraco); font-family: var(--mono); }
+
+/* Matriz esforço × impacto */
+.matriz { position: absolute; inset: 0; padding: 18px 24px 40px 56px; overflow: auto; }
+.matriz-grade {
+  position: relative; width: 100%; height: 100%; min-height: 320px;
+  border-left: 1px solid var(--linha-forte); border-bottom: 1px solid var(--linha-forte);
+  background:
+    linear-gradient(90deg, transparent 49.8%, var(--linha) 50%, transparent 50.2%),
+    linear-gradient(0deg, transparent 49.8%, var(--linha) 50%, transparent 50.2%);
+}
+.matriz-quadrante { position: absolute; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--texto-fraco); opacity: .7; }
+.matriz-eixo { position: absolute; font-size: 11px; color: var(--texto-fraco); }
+.ponto {
+  --c: var(--t-morna);
+  position: absolute; transform: translate(-50%, 50%); border-radius: 50%; cursor: pointer;
+  background: radial-gradient(circle, var(--t-brasa-nucleo) 0, var(--c) 50%, transparent 74%);
+  box-shadow: 0 0 14px var(--c);
+}
+.ponto span {
+  position: absolute; left: 100%; top: 50%; transform: translate(6px, -50%);
+  font-size: 11.5px; white-space: nowrap; color: var(--texto); pointer-events: none;
+}
+.ponto.f-brasa { --c: var(--t-brasa); } .ponto.f-esfriando { --c: var(--t-esfriando); } .ponto.f-apagada { --c: var(--t-apagada); }
+
+/* ─────────────── fogueira e padrões (listas) ─────────────── */
+
+.lista-vista { position: absolute; inset: 0; overflow-y: auto; padding: 18px 22px 30px; }
+.lista-vista .bloco { max-width: 760px; margin: 0 auto 26px; }
+.bloco h4 {
+  margin: 0 0 10px; font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--texto-fraco); font-weight: 700; display: flex; align-items: center; gap: 8px;
+}
+.bloco h4 i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--brilho)); box-shadow: 0 0 10px var(--c, var(--brilho)); }
+.linha-ideia {
+  --c: var(--t-morna);
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin-bottom: 6px;
+  border-radius: var(--raio-p); background: linear-gradient(160deg, var(--painel-alto), var(--painel));
+  border: 1px solid var(--linha); cursor: pointer; transition: border-color .16s, transform .16s;
+}
+.linha-ideia:hover { border-color: var(--linha-forte); transform: translateX(2px); }
+.linha-ideia.f-brasa { --c: var(--t-brasa); } .linha-ideia.f-esfriando { --c: var(--t-esfriando); } .linha-ideia.f-apagada { --c: var(--t-apagada); }
+.linha-ideia .chama {
+  width: 34px; height: 34px; flex: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; color: var(--c);
+  border: 1px solid color-mix(in srgb, var(--c) 50%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--c) 35%, transparent);
+}
+.linha-ideia .meio { flex: 1; min-width: 0; }
+.linha-ideia .t { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linha-ideia .s { font-size: 11.5px; color: var(--texto-fraco); }
+.linha-ideia .botoes { display: flex; gap: 6px; flex: none; }
+
+.sugestao {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; margin-bottom: 8px;
+  border-radius: var(--raio-p);
+  background: linear-gradient(100deg, rgba(179,23,62,.16), rgba(166,101,58,.06));
+  border: 1px solid var(--linha-forte);
+}
+.sugestao .icone { font-size: 16px; line-height: 1.4; }
+.sugestao .meio { flex: 1; font-size: 13px; line-height: 1.55; }
+.sugestao .meio b { color: var(--creme); font-weight: 600; }
+.sugestao .meio small { display: block; color: var(--texto-fraco); font-size: 11.5px; margin-top: 2px; }
+.sugestao .botoes { display: flex; gap: 6px; flex: none; }
+
+.padrao {
+  padding: 14px 16px; margin-bottom: 10px; border-radius: var(--raio-p);
+  background: linear-gradient(160deg, var(--painel-alto), var(--painel)); border: 1px solid var(--linha);
+}
+.padrao .t { font-weight: 600; font-size: 14px; color: var(--creme); }
+.padrao .d { margin-top: 4px; font-size: 13px; color: var(--texto-suave); line-height: 1.6; }
+.padrao .m { margin-top: 8px; display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--texto-fraco); }
+.barra-conf { width: 70px; height: 3px; border-radius: 3px; background: var(--linha); overflow: hidden; }
+.barra-conf i { display: block; height: 100%; background: linear-gradient(90deg, var(--cobre), var(--brilho)); }
+
+/* ─────────────── gaveta da ideia ─────────────── */
+
+.gaveta {
+  position: absolute; z-index: 10; top: 0; right: 0; bottom: 0; width: min(400px, 100%);
+  display: flex; flex-direction: column; transform: translateX(102%);
+  transition: transform .26s cubic-bezier(.2,.8,.2,1);
+  background: linear-gradient(190deg, rgba(46,22,25,.97), rgba(18,9,11,.97));
+  border-left: 1px solid var(--linha-forte); box-shadow: -18px 0 48px rgba(0,0,0,.5);
+}
+:root[data-theme="light"] .gaveta { background: linear-gradient(190deg, #fffdfb, #f7efe6); }
+.gaveta.aberta { transform: none; }
+@media (prefers-reduced-motion: reduce) { .gaveta { transition: none; } }
+
+.gaveta-topo { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 1px solid var(--linha); }
+.gaveta-topo .num { font-family: var(--mono); font-size: 12px; color: var(--brilho); }
+.gaveta-topo .x { margin-left: auto; font-size: 20px; line-height: 1; color: var(--texto-fraco); }
+.gaveta-topo .x:hover { color: var(--brilho); }
+.gaveta-corpo { flex: 1; overflow-y: auto; padding: 14px 16px 22px; }
+
+.gaveta input.titulo, .gaveta textarea, .gaveta input.campo {
+  width: 100%; padding: 9px 12px; border-radius: var(--raio-p);
+  font-family: var(--sans); font-size: 13.5px; color: var(--texto);
+  background: var(--sunk); border: 1px solid var(--linha); outline: none;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.25); transition: border-color .16s, box-shadow .16s;
+}
+.gaveta input.titulo { font-size: 16px; font-weight: 600; }
+.gaveta textarea { resize: vertical; min-height: 110px; line-height: 1.55; }
+.gaveta input:focus, .gaveta textarea:focus { border-color: var(--rubi); box-shadow: inset 0 1px 3px rgba(0,0,0,.25), 0 0 14px rgba(179,23,62,.2); }
+.gaveta .rot {
+  margin: 16px 0 7px; font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--texto-fraco); font-weight: 700; display: flex; justify-content: space-between; align-items: center;
+}
+
+.temperatura {
+  --c: var(--t-morna);
+  display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin-top: 12px;
+  border-radius: var(--raio-p); background: var(--sunk); border: 1px solid var(--linha);
+}
+.temperatura.f-brasa { --c: var(--t-brasa); } .temperatura.f-esfriando { --c: var(--t-esfriando); } .temperatura.f-apagada { --c: var(--t-apagada); }
+.temperatura .graus { font-family: var(--mono); font-size: 22px; color: var(--c); text-shadow: 0 0 14px var(--c); }
+.temperatura .txt { font-size: 12px; color: var(--texto-suave); line-height: 1.5; }
+.temperatura .txt b { color: var(--creme); }
+
+.trilha { display: flex; gap: 3px; margin-top: 12px; }
+.trilha span {
+  flex: 1; text-align: center; padding: 6px 2px; font-size: 10.5px; font-weight: 600; border-radius: 7px;
+  color: var(--texto-fraco); background: var(--sunk); border: 1px solid var(--linha);
+}
+.trilha span.passou { color: var(--texto-suave); border-color: var(--linha-forte); }
+.trilha span.aqui { color: #fff; background: var(--gema); border-color: rgba(233,90,122,.4); box-shadow: 0 0 14px rgba(179,23,62,.35); }
+
+.gate { margin-bottom: 10px; }
+.respondidas { margin-top: 6px; }
+.respondidas summary {
+  cursor: pointer; font-size: 11.5px; color: var(--texto-fraco); padding: 4px 0 10px; list-style: none;
+}
+.respondidas summary::before { content: "▸ "; color: var(--brilho); }
+.respondidas[open] summary::before { content: "▾ "; }
+.gate label { display: block; font-size: 12.5px; color: var(--texto-suave); margin-bottom: 5px; }
+.gate label .ok { color: var(--verde); margin-left: 4px; }
+.gate textarea { min-height: 54px; }
+.notas { display: flex; gap: 4px; }
+.notas button {
+  flex: 1; padding: 6px 0; border-radius: 7px; font-family: var(--mono); font-size: 12.5px;
+  color: var(--texto-suave); background: var(--sunk); border: 1px solid var(--linha);
+}
+.notas button.sel { color: #fff; background: var(--gema); border-color: rgba(233,90,122,.4); }
+
+.botoes-linha { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.botoes-linha .neb-btn { flex: 1 1 auto; text-align: center; }
+.neb-btn.perigo:hover { color: var(--brilho); border-color: var(--brilho); }
+
+.livia-faixa {
+  margin-top: 16px; padding: 12px 13px; border-radius: var(--raio-p);
+  background: linear-gradient(100deg, rgba(179,23,62,.18), rgba(166,101,58,.08));
+  border: 1px solid var(--linha-forte); font-size: 12.5px; color: var(--texto-suave); line-height: 1.55;
+}
+.livia-faixa b { color: var(--creme); }
+
+.ligadas { display: flex; flex-wrap: wrap; gap: 6px; }
+.ligadas button {
+  font-size: 12px; padding: 4px 10px; border-radius: 999px; color: var(--texto-suave);
+  background: var(--sunk); border: 1px solid var(--linha);
+}
+.ligadas button:hover { color: var(--creme); border-color: var(--linha-forte); }
+
+.eventos { list-style: none; margin: 0; padding: 0; font-size: 11.5px; color: var(--texto-fraco); }
+.eventos li { display: flex; gap: 8px; padding: 3px 0; }
+.eventos li span:first-child { width: 58px; flex: none; font-family: var(--mono); }
+
+/* ─────────────── aviso flutuante ─────────────── */
+
+.neb-toast {
+  position: absolute; z-index: 20; left: 50%; bottom: 18px; transform: translate(-50%, 20px);
+  padding: 9px 16px; border-radius: 999px; font-size: 13px; color: var(--texto);
+  background: var(--painel-alto); border: 1px solid var(--linha-forte); box-shadow: var(--sombra-alta);
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  display: flex; gap: 10px; align-items: center; white-space: nowrap; max-width: 92%;
+}
+.neb-toast.mostra { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.neb-toast button { color: var(--brilho); font-weight: 600; font-size: 12.5px; }
+
+/* ─────────────── na conversa ─────────────── */
+
+.neb-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.neb-chip {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--texto-suave);
+  padding: 5px 13px; border-radius: 999px; cursor: pointer;
+  background: linear-gradient(100deg, rgba(255,143,163,.14), rgba(217,154,78,.08));
+  border: 1px solid color-mix(in srgb, var(--t-brasa) 40%, transparent);
+  transition: border-color .16s, color .16s;
+}
+.neb-chip:hover { color: var(--creme); border-color: var(--t-brasa); }
+.neb-chip b { color: var(--creme); font-weight: 600; }
+.neb-chip.pescada { border-style: dashed; border-color: var(--brilho); }
+.neb-chip .mini { margin-left: 2px; }

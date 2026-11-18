@@ -35,7 +35,7 @@ próxima (`Brazil East (São Paulo)` ou `Brazil Southeast (Vitória)`).
 | Campo | O que escolher |
 |---|---|
 | Imagem | **Canonical Ubuntu** (24.04 ou mais novo) |
-| Forma (shape) | `VM.Standard.A1.Flex` — ARM, 1 OCPU, 6 GB. Se der erro de capacidade, use `VM.Standard.E2.1.Micro` |
+| Forma (shape) | `VM.Standard.A1.Flex` — ARM, **2 OCPU, 12 GB** (o teto grátis desde 15/06/2026; tutoriais antigos dizem 4/24 — isso agora gera cobrança). Se der erro de capacidade, use `VM.Standard.E2.1.Micro` |
 | Chave SSH | **Baixe a chave privada** e guarde. Sem ela você não entra |
 
 > **Sobre "out of capacity" no ARM:** é comum e não é erro seu. A forma
@@ -66,7 +66,7 @@ Windows.
 Já dentro da VM:
 
 ```bash
-git clone SEU_REPOSITORIO livia && cd livia
+git clone https://github.com/Radekradke/LIVIA-IA.git livia && cd livia
 bash deploy/instalar.sh
 ```
 

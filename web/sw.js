@@ -32,7 +32,7 @@
  * chama respondWith, e o navegador faz o de sempre.
  */
 
-const VERSAO = "livia-v1";
+const VERSAO = "livia-v2";
 const CASCA = `${VERSAO}-casca`;
 const DADOS = `${VERSAO}-dados`;
 
@@ -43,6 +43,8 @@ const ARQUIVOS_DA_CASCA = [
   "/icones/icone-192.png",
   "/icones/icone-512.png",
   "/manifest.webmanifest",
+  "/assets/nebulosa.js",
+  "/assets/nebulosa.css",
 ];
 
 // GETs cujo conteúdo vale guardar para ler sem servidor. São leituras do que
@@ -56,6 +58,7 @@ const LEITURAS = [
   "/api/status",
   "/api/persona",
   "/api/biblioteca",
+  "/api/nebulosa",
 ];
 
 // Nunca tocadas pelo worker. Autenticação e chat têm que falar com o servidor

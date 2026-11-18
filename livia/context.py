@@ -173,7 +173,18 @@ def build_system_prompt() -> str:
         partes.append("\n\n# O que a experiência te ensinou\n\n")
         partes.append(texto_licoes)
 
+    partes.append(_nebulosa_resumo(user))
     return "".join(partes)
+
+
+def _nebulosa_resumo(user: str) -> str:
+    """O panorama do céu de ideias. Falhar aqui não pode tirar a memória."""
+    try:
+        from . import nebulosa
+
+        return nebulosa.contexto_resumo(user)
+    except Exception:
+        return ""
 
 
 # --------------------------------------------------------------------------
@@ -269,6 +280,17 @@ async def montar(
         {"id": e["id"], "tarefa": e["tarefa"], "sucesso": e["sucesso"], "nota": e["nota"]}
         for e in experiencias
     ]
+
+    # A Nebulosa entra por último: é o que o André quer FAZER, e lê melhor
+    # depois do que ela sabe sobre ele.
+    try:
+        from . import nebulosa
+
+        texto_nebulosa, ideias = await nebulosa.contexto(pergunta, user)
+    except Exception:
+        texto_nebulosa, ideias = _nebulosa_resumo(user), []
+    partes.append(texto_nebulosa)
+    procedencia["ideias"] = ideias
 
     log.debug(
         "[context] memory=%d lessons=%d skills=%d experience=%d escopo=%s",

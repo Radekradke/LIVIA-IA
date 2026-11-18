@@ -46,7 +46,7 @@ from . import config
 
 # Só o que é seu. O banco entra inteiro; os .md entram um a um.
 _PASTAS = ("memory", "skills", "lessons")
-_ARQUIVOS = ("personalidade.md", "livia.db")
+_ARQUIVOS = ("personalidade.md", "livia.db", "nebulosa.json")
 
 # Da biblioteca, só o que não dá para recalcular. Ver o cabeçalho.
 _BIBLIOTECA_ARQUIVOS = ("meta.json", "trechos.jsonl")
@@ -125,6 +125,10 @@ def importar(dados: bytes) -> dict[str, int]:
             elif item == "livia.db":
                 destino = config.DATA_DIR / item
                 contagem["conversas"] = 1
+            elif item == "nebulosa.json":
+                # Os gates personalizados da Nebulosa. As ideias em si vêm
+                # dentro do livia.db.
+                destino = config.DATA_DIR / item
             elif item.startswith("memory/") and item.endswith(".md"):
                 destino = config.DATA_DIR / item
                 contagem["memorias"] += 1

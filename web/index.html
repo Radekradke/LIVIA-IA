@@ -16,6 +16,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Livia">
+<link rel="stylesheet" href="/assets/nebulosa.css">
 <style>
 /* ══════════════════════════════════════════════════════════════════
    LIVIA — tema rubi
@@ -671,6 +672,13 @@ body.sem-servidor #input { opacity: .5; }
   </div>
 
   <button class="btn-new" onclick="novaConversa()">＋&nbsp;&nbsp;Nova conversa</button>
+  <!-- A conversa e a Nebulosa dividem a tela. "Lado a lado" é o padrão em
+       tela larga: falar de uma ideia aquece ela no céu ali do lado. -->
+  <div class="modos" role="tablist" aria-label="O que mostrar">
+    <button data-modo="conversa">Conversa</button>
+    <button data-modo="lado">Lado a lado</button>
+    <button data-modo="nebulosa">Nebulosa</button>
+  </div>
   <div class="secao">Conversas</div>
   <div id="convos"></div>
 
@@ -765,6 +773,14 @@ body.sem-servidor #input { opacity: .5; }
     </div>
   </div>
 </main>
+
+<div class="divisor" id="divisor" title="arraste para dividir a tela"></div>
+<section id="nebulosa" aria-label="Nebulosa — suas ideias"></section>
+<div class="modos modos-flutuante" aria-label="O que mostrar">
+  <button data-modo="conversa">Conversa</button>
+  <button data-modo="lado">Lado a lado</button>
+  <button data-modo="nebulosa">Nebulosa</button>
+</div>
 
 <aside id="panel" class="hidden">
   <div class="tabs">
@@ -969,6 +985,9 @@ function vazio() {
       <p>Eu lembro do que você me contar — preferências, decisões de projeto,
          correções que você fizer em mim. Isso vai virando memória sozinho,
          conversa após conversa.</p>
+      <p>Ao lado fica a <b>Nebulosa</b>, o céu das suas ideias. Conte uma
+         ("tive uma ideia: …") que eu pesco; fale de uma que já existe e ela
+         esquenta. Quem decide o que sobe, desce ou vai pro arquivo é você.</p>
       <p>Pode colar um link, mandar um livro em PDF, ou só começar a falar.
          <code>/ajuda</code> lista os comandos; o painel à direita mostra tudo
          que eu já sei.</p>
@@ -1066,10 +1085,16 @@ async function enviar() {
             : `✓ memorizei <b>${escapar(nomes)}</b>`;
           bolha.appendChild(tag);
           carregarDocs();
+        } else if (evt.type === "nebulosa") {
+          // Falou de uma ideia, pescou uma ideia, ou mexeu no céu por
+          // ferramenta: a Nebulosa ali do lado reage na hora.
+          if (window.Nebulosa) Nebulosa.evento(evt, bolha);
         } else if (evt.type === "done") {
           conversaAtual = evt.conversation_id;
           if (evt.stats) mostrarStats(evt.stats);
           carregarConversas();
+          // Comandos como /ideia e /promover mexem no céu sem evento próprio.
+          if (window.Nebulosa) Nebulosa.recarregar();
         } else if (evt.type === "error") {
           corpo.innerHTML = `<div class="error">${escapar(evt.message)}</div>`;
         }
@@ -1092,6 +1117,24 @@ async function enviar() {
     descer();
   }
 }
+
+/* ---------- a porta que a Nebulosa usa para falar com a conversa ---------- */
+window.LiviaChat = {
+  // Põe o texto na caixa e deixa o André completar.
+  rascunhar(texto) {
+    const input = $("input");
+    input.value = texto;
+    input.dispatchEvent(new Event("input"));
+    input.focus();
+    input.setSelectionRange(texto.length, texto.length);
+  },
+  // Manda direto, como se ele tivesse digitado.
+  perguntar(texto) {
+    if (ocupado) { this.rascunhar(texto); return; }
+    $("input").value = texto;
+    enviar();
+  },
+};
 
 /* ---------- conversas ---------- */
 function quando(iso) {
@@ -1931,5 +1974,6 @@ $("input").addEventListener("input", (e) => {
   $("input").focus();
 })();
 </script>
+<script src="/assets/nebulosa.js"></script>
 </body>
 </html>

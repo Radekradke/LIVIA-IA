@@ -104,6 +104,7 @@ quanto mais aprende está quebrado por dentro.
 | **Lição** | O que ela concluiu das próprias tentativas | `data/lessons/*.md` |
 | **Experiência** | O que já foi tentado e como terminou | `livia.db` |
 | **Conhecimento** | Documentos e projetos que ela consulta | `data/biblioteca/` |
+| **Ideia** | O que você quer fazer — a Nebulosa | `livia.db` (+ `data/nebulosa.json`) |
 
 Misturar tudo num balaio só ("coisas que ela sabe") tornaria impossível
 responder à pergunta que mais importa quando algo sai errado: **isso veio de
@@ -469,6 +470,73 @@ poderia ser mentira).
 
 ---
 
+## A Nebulosa: as suas ideias, cuidadas a quatro mãos
+
+A sexta gaveta. As outras guardam o que a Livia **sabe**; esta guarda o que você
+**quer fazer**. É a primeira em que vocês dois mexem do mesmo jeito — por isso
+ela fica ao lado da conversa (modo **Lado a lado**, o padrão em tela larga), e
+não escondida no painel.
+
+Cada ideia tem três coisas, e elas conversam entre si:
+
+| | Pergunta que responde | Mecânica |
+|---|---|---|
+| **Temperatura** | ela ainda está viva? | esfria sozinha; esquenta quando você edita, liga, revive — ou **fala dela no chat** |
+| **Estágio** | até onde ela chegou? | Faísca → Rascunho → Validada → Em execução (ou Arquivada) |
+| **Posição** | com o que ela se parece? | no céu, as parecidas se atraem quando você aperta **Gravidade** |
+
+- **Temperatura vira massa.** No pulso de gravidade, a ideia quente pesa e vira
+  centro de constelação; a apagada perde massa e deriva para a **borda escura**.
+  O "cemitério" não é uma lista: é um lugar no mapa, e dá para arrastar de volta.
+- **O estágio decide a velocidade do esfriamento.** Faísca cai pela metade em 4
+  dias sem uso; Validada aguenta 3 semanas. Ou a faísca vira alguma coisa, ou
+  sai do caminho.
+- **Para subir, a ideia responde perguntas (gates).** "Que problema ela
+  resolve?" para virar Rascunho; público, MVP, esforço, impacto e empolgação
+  para Validada; próximo passo e prazo para Em execução. Dá para trocar as
+  perguntas em `data/nebulosa.json` (formato no topo de `livia/nebulosa.py`).
+- **Conversar aquece.** Se a mensagem tem a ver com uma ideia, ela esquenta e
+  pulsa no céu ali do lado. "Tive uma ideia: …" vira uma faísca **proposta**,
+  que você adota ou descarta.
+- **A Livia como jardineira.** Ela sugere promover o que está em brasa, arquivar
+  o que apagou, juntar duplicatas, ligar parecidas e reviver ideia antiga que
+  voltou ao assunto. Na conversa, ela pode criar faísca, anotar, e te
+  **entrevistar** para os gates — gravando a resposta **sua**, nunca uma inventada.
+- **O funil vira espelho.** Em **Padrões** aparece o que os números dizem sobre
+  você ("de cada 10 faíscas, 3 viram rascunho"; "ideias que você conversa comigo
+  chegam mais longe"). Um padrão só vira lição quando você aprova.
+
+### A regra de convivência
+
+Ela sugere; você decide. Promover, arquivar e juntar só acontecem por pedido
+seu — na interface ou dito na conversa. Tudo o que ela deduz sozinha (sugestões,
+ideias pescadas do chat, nós-ponte entre constelações) nasce **pendente**. É a
+mesma linha das skills candidatas: uma assistente que reorganiza os projetos de
+alguém em silêncio passaria a ter uma agenda que não é a dele.
+
+### No céu
+
+| Gesto | O que faz |
+|---|---|
+| duplo clique / <kbd>N</kbd> | cria uma faísca ali |
+| arrastar o fundo / roda | anda e dá zoom (longe: pontos de luz; perto: o texto todo) |
+| <kbd>G</kbd> / **Gravidade** | as parecidas se atraem; o **foco** ajusta de amplo a fino |
+| <kbd>Ctrl</kbd>+<kbd>Z</kbd> / ↶ | desfaz o último pulso (o céu de antes fica guardado) |
+| 📌 ancorar | a ideia não se move e puxa as parecidas para perto |
+| clicar em duas constelações | **✦ Nó-ponte**: a Livia sugere uma pergunta que liga os dois assuntos |
+
+A **Esteira** é o funil em colunas (arrastar entre colunas promove, ou abre as
+perguntas que faltam) e tem a matriz **esforço × impacto**. A **Fogueira** é a
+revisão rápida: sugestões, propostas, e as ideias da mais quente à apagada.
+
+Sem gerador de vetores, a gravidade e a menção funcionam por palavras em
+comum — pior, mas honesto. Com o Ollama (`nomic-embed-text`) ou o Gemini, é por
+significado, e com o mesmo cache por hash da memória.
+
+`LIVIA_NEBULOSA=0` desliga tudo isso, e a Livia volta a ser exatamente o que era.
+
+---
+
 ## Comandos no chat
 
 | Comando | O que faz |
@@ -482,6 +550,11 @@ poderia ser mentira).
 | `/porque` | De onde veio o que ela usou na última resposta |
 | `/manutencao-memoria` | Relata duplicatas e memória esquecida (`aplicar` para arrumar) |
 | `/buscar <termo>` | Força uma busca na web |
+| `/ideia <texto>` | Joga uma faísca na Nebulosa |
+| `/ideias` | O céu inteiro, por estágio e temperatura |
+| `/esfriando` | O que está quase indo para a borda escura |
+| `/promover <nº>` | Sobe a ideia, ou diz o que falta responder |
+| `/padroes` | O que o seu funil revela sobre o seu jeito de tocar ideia |
 | `/ajuda` | Mostra os comandos |
 
 ---
@@ -501,6 +574,8 @@ livia/
   context.py        monta o prompt a cada pergunta  <- o coração do truque
   memoria.py        busca semântica, duplicatas, contradições, escopo
   experiencia.py    o que foi tentado, e o que virou lição
+  nebulosa.py       as ideias: temperatura, funil, gravidade, sugestões, padrões
+  nebulosa_rotas.py rotas HTTP da Nebulosa
   embeddings.py     texto -> vetor (local ou nuvem)
   learner.py        decide o que virou memória depois de cada resposta
   biblioteca.py     documentos que ela consulta (RAG)
@@ -516,7 +591,9 @@ livia/
   knowledge_router.py  escolhe vetor, grafo ou os dois
   knowledge_ingest.py  ingestão dupla, fila e estado por documento
   server.py         rotas HTTP e streaming
-web/index.html      a interface inteira, num arquivo só
+web/index.html      a casca da interface: conversa, painel e a troca de modo
+web/nebulosa.js     a Nebulosa: céu, esteira, fogueira, padrões e a gaveta
+web/nebulosa.css    o visual da Nebulosa (a mesma joia, mais a cor da temperatura)
 web/sw.js           service worker: casca offline e cache honesto
 web/icones/         ícones do aplicativo instalável
 services/
