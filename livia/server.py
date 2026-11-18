@@ -1062,6 +1062,7 @@ _ASSETS = {
     "nebulosa.js": "application/javascript",
     "nebulosa.css": "text/css",
     "galaxia.js": "application/javascript",
+    "cosmos.js": "application/javascript",
 }
 
 

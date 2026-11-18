@@ -363,6 +363,7 @@ def test_estado_e_assets(logado):
     assert len(dados["ideias"]) == 1 and dados["estagios"][0]["chave"] == "faisca"
     assert logado.get("/assets/nebulosa.js").status_code == 200
     assert logado.get("/assets/galaxia.js").status_code == 200
+    assert logado.get("/assets/cosmos.js").status_code == 200
     assert logado.get("/assets/../.env").status_code == 404
 
 

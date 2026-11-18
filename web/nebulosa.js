@@ -146,15 +146,30 @@
   const camadaConst = $n("#constelacoes");
   const gaveta = $n("#gaveta");
 
-  // A galáxia de fundo. Sem WebGL (ou se o shader falhar), fica o céu em
-  // CSS de antes e nada mais muda: ela é cenário, não dependência.
-  const galaxia = window.Galaxia ? window.Galaxia.criar($n("#galaxia")) : null;
-  if (galaxia) {
+  // O fundo vivo do céu. Três degraus, do melhor para o mais simples:
+  //   1. cosmos.js  — galáxia 3D em Three.js (WebGL2), carregado como módulo;
+  //   2. galaxia.js — o shader 2D, para navegador sem WebGL2;
+  //   3. o degradê em CSS, se nem isso der.
+  // É cenário, não dependência: qualquer degrau que falhe, o céu continua.
+  let galaxia = null;
+  const telaCeu = $n("#galaxia");
+  function ligarFundo(fabrica) {
+    if (galaxia || !fabrica) return Boolean(galaxia);
+    try { galaxia = fabrica.criar(telaCeu); } catch (erro) { console.warn("[nebulosa] fundo:", erro); galaxia = null; }
+    if (!galaxia) return false;
     ceu.classList.add("webgl");
     galaxia.quandoVisivel(() =>
       N.vista === "ceu" && !document.body.classList.contains("modo-conversa"));
-  } else {
-    $n("#galaxia").remove();
+    aplicarCamera();
+    return true;
+  }
+  if (window.Cosmos) ligarFundo(window.Cosmos);
+  else {
+    window.addEventListener("cosmos-pronto", () => {
+      if (!ligarFundo(window.Cosmos)) ligarFundo(window.Galaxia);
+    }, { once: true });
+    // O módulo nem carregou (navegador antigo, rede ruim): vai o shader 2D.
+    setTimeout(() => { if (!galaxia) ligarFundo(window.Galaxia); }, 5000);
   }
 
   // ───────────────────────── avisos ─────────────────────────

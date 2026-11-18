@@ -525,10 +525,14 @@ alguém em silêncio passaria a ter uma agenda que não é a dele.
 | 📌 ancorar | a ideia não se move e puxa as parecidas para perto |
 | clicar em duas constelações | **✦ Nó-ponte**: a Livia sugere uma pergunta que liga os dois assuntos |
 
-O fundo do céu é uma **galáxia desenhada na GPU** (`web/galaxia.js`, um shader
-WebGL): gás em ruído fractal deformado, braços espirais em volta do centro onde
-as ideias moram, três camadas de estrelas com paralaxe e o horizonte escuro na
-borda. O pulso de gravidade solta uma onda que entorta o espaço ao passar. Cada
+O fundo do céu é uma **galáxia 3D em Three.js** (`web/cosmos/`, empacotada em
+`web/cosmos.js`): ~70 mil estrelas em braços espirais girando devagar, nuvens
+de gás luminoso, campo de estrelas com profundidade, poeira passando na frente,
+estrelas cadentes raras e bloom. A câmera é posicionada para que o plano das
+ideias coincida com o da galáxia, então dar zoom é voar para dentro do disco;
+o mouse inclina a galáxia de leve. O pulso de gravidade faz o disco ondular.
+Sem WebGL2, quem desenha é o shader 2D (`web/galaxia.js`); sem WebGL nenhum,
+um degradê em CSS. Cada
 ideia é uma estrela, e a temperatura é a cor de estrela de verdade: apagada é
 cinza, esfriando é anã vermelha, morna é amarela, em brasa é branco-azulada.
 Sem WebGL, o céu volta a ser o degradê em CSS e nada mais muda.
