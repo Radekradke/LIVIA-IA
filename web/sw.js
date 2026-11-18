@@ -32,7 +32,7 @@
  * chama respondWith, e o navegador faz o de sempre.
  */
 
-const VERSAO = "livia-v5";
+const VERSAO = "livia-v6";
 const CASCA = `${VERSAO}-casca`;
 const DADOS = `${VERSAO}-dados`;
 

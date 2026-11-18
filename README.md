@@ -567,7 +567,18 @@ significado, e com o mesmo cache por hash da memória.
 | `/esfriando` | O que está quase indo para a borda escura |
 | `/promover <nº>` | Sobe a ideia, ou diz o que falta responder |
 | `/padroes` | O que o seu funil revela sobre o seu jeito de tocar ideia |
+| `/sistemas` | As categorias (sistemas solares) e as ideias que orbitam cada uma |
 | `/ajuda` | Mostra os comandos |
+
+### Sistemas solares
+
+Categoria é um **sistema solar**: o sol é o nome ("Jogos", "Tatuagem", "Lifting"), as ideias são **planetas** em órbita e as notas de cada ideia são **luas** girando em volta do núcleo.
+
+- **☉ Sistema** no topo do céu acende um sol novo; solte uma ideia em cima dele para pôr em órbita, arraste para além do anel de fora para soltar. Arrastar o sol leva o sistema inteiro.
+- Os anéis seguem a temperatura: em brasa orbita perto do sol, apagada vai para o anel de fora. O sol brilha com as três ideias mais quentes dele.
+- A órbita para quando o mouse passa num planeta, quando a gaveta está aberta e com "reduzir movimento" ligado. A gravidade não mexe em planeta e desvia dos sistemas.
+- Notas: na gaveta da ideia, **☾ Nova lua**. Quando a Livia anota algo na conversa ("anota na #3 que…"), também vira nota, e ela entra no vetor da ideia.
+- A Livia **sugere** sistema quando acha uma constelação de 3+ ideias soltas falando da mesma coisa — aparece na Fogueira, e só vira sistema se você aceitar.
 
 ---
 

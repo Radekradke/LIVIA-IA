@@ -38,6 +38,8 @@
     padroes: null,
     matriz: false,
     ultimoAviso: null,
+    sistemas: [],            // sistemas solares (categorias)
+    selSist: null,
   };
 
   const $n = (sel) => raiz.querySelector(sel);
@@ -68,6 +70,7 @@
     criar: "nasceu", editar: "editada", abrir: "aberta", mencao: "falada no chat",
     ligar: "ligada", gate: "respondeu um gate", promover: "subiu", reviver: "revivida",
     estagio: "mudou de estágio", adotar: "adotada", rebaixar: "desceu",
+    nota: "ganhou uma nota", sistema: "mudou de sistema",
   };
 
   function relativo(iso) {
@@ -106,6 +109,7 @@
           <div class="mundo" id="mundo">
             <div class="borda-escura" id="borda"></div>
             <div class="borda-rotulo" id="bordaRotulo">borda escura</div>
+            <div id="sistemas"></div>
             <svg class="fios" id="fios" width="1" height="1"></svg>
             <div id="constelacoes"></div>
             <div id="estrelas"></div>
@@ -125,7 +129,7 @@
           <span style="--c:var(--t-morna)"><i></i>morna</span>
           <span style="--c:var(--t-brasa)"><i></i>em brasa</span>
         </div>
-        <div class="ceu-ajuda">duplo clique cria · arraste o fundo · roda dá zoom · <kbd>G</kbd> gravidade</div>
+        <div class="ceu-ajuda">duplo clique cria · solte uma ideia num sol pra pôr em órbita · roda dá zoom · <kbd>G</kbd> gravidade</div>
         <div class="ceu-zoom">
           <button data-zoom="-1" title="afastar">−</button>
           <button data-zoom="0" title="enquadrar tudo">◎</button>
@@ -144,6 +148,7 @@
   const fios = $n("#fios");
   const camadaEstrelas = $n("#estrelas");
   const camadaConst = $n("#constelacoes");
+  const camadaSist = $n("#sistemas");
   const gaveta = $n("#gaveta");
 
   // O fundo vivo do céu. Três degraus, do melhor para o mais simples:
@@ -208,8 +213,12 @@
     }
     for (const id of [...N.pos.keys()]) if (!N.ideias.has(id)) N.pos.delete(id);
     N.sugestoes = dados.sugestoes || [];
+    N.sistemas = dados.sistemas || [];
     pintarTopo();
     renderizar();
+    if (N.selSist && gaveta.classList.contains("aberta") && !gaveta.contains(document.activeElement)) {
+      if (N.sistemas.some((x) => x.id === N.selSist)) abrirSistema(N.selSist); else fecharGaveta();
+    }
     if (N.sel && N.ideias.has(N.sel) && gaveta.classList.contains("aberta")) {
       // Só redesenha a gaveta se o André não estiver digitando nela.
       if (!gaveta.contains(document.activeElement)) abrirGaveta(N.sel, { silencioso: true });
@@ -277,6 +286,7 @@
         </label>
         <button class="neb-btn icone ${N.arquivadas ? "ligado" : ""}" id="nbArq" title="${N.arquivadas ? "esconder" : "mostrar"} as arquivadas">◌</button>
         <button class="neb-btn icone" id="nbDesfazer" title="Desfazer o último pulso de gravidade (Ctrl+Z)">↶</button>
+        <button class="neb-btn" id="nbSistema" title="Novo sistema solar: uma categoria para as ideias orbitarem">☉ Sistema</button>
         <button class="neb-btn" id="nbNova" title="Nova faísca no centro (N)">＋ Faísca</button>
         <button class="neb-btn gema ${N.fisica ? "puxando" : ""}" id="nbGrav">Gravidade <kbd>G</kbd></button>`;
       $n("#nbIntensidade").oninput = (e) => {
@@ -286,6 +296,7 @@
       $n("#nbArq").onclick = () => { N.arquivadas = !N.arquivadas; renderizar(); };
       $n("#nbDesfazer").onclick = desfazer;
       $n("#nbNova").onclick = () => rascunhoRapido(centroTela());
+      $n("#nbSistema").onclick = novoSistema;
       $n("#nbGrav").onclick = gravidade;
       if (ponte) $n("#nbPonte").onclick = criarPonte;
     } else if (N.vista === "esteira") {
@@ -349,6 +360,11 @@
       x0 = Math.min(x0, p.x - 130); x1 = Math.max(x1, p.x + 130);
       y0 = Math.min(y0, p.y - 80); y1 = Math.max(y1, p.y + 80);
     }
+    for (const sist of N.sistemas) {
+      const ext = geometria(sist).ext;
+      x0 = Math.min(x0, sist.x - ext); x1 = Math.max(x1, sist.x + ext);
+      y0 = Math.min(y0, sist.y - ext); y1 = Math.max(y1, sist.y + ext);
+    }
     const r = ceu.getBoundingClientRect();
     const s = Math.min(1.1, Math.max(0.14, Math.min(r.width / (x1 - x0 + 80), r.height / (y1 - y0 + 80))));
     const alvo = { s, x: r.width / 2 - ((x0 + x1) / 2) * s, y: r.height / 2 - ((y0 + y1) / 2) * s };
@@ -406,9 +422,14 @@
     if (i.proposta) chips.push(`<span class="chip livia">a Livia propõe</span>`);
     if (i.faltando && i.faltando.length && i.proximo)
       chips.push(`<span class="chip falta">faltam ${i.faltando.length}</span>`);
+    if (i.n_notas) chips.push(`<span class="chip lua" title="${i.n_notas} nota(s)">☾ ${i.n_notas}</span>`);
+    // As notas são luas: pontinhos girando em volta do núcleo, cada uma no
+    // seu raio e no seu passo. Até seis; daí pra cima o chip conta.
+    const luas = Array.from({ length: Math.min(6, i.n_notas || 0) }, (_, k) =>
+      `<b style="--r:${15 + k * 6}px; --f:${(k * 137.5 + i.id * 40) % 360}deg; --v:${(7 + k * 3.1).toFixed(1)}s"></b>`).join("");
     return `
       <div class="estrela-topo">
-        <i class="nucleo"></i><span class="num">#${i.id}</span>
+        <i class="nucleo">${luas ? `<span class="luas">${luas}</span>` : ""}</i><span class="num">#${i.id}</span>
         <span title="${esc(i.estagio_nome)}">${GLIFO[i.estagio] || ""}</span>
         ${i.ancorada ? `<span class="pino" title="ancorada: a gravidade não move">📌</span>` : ""}
         <span class="graus">${Math.round(i.calor)}°</span>
@@ -436,6 +457,7 @@
       }
       const classes = ["astro", `e-${i.estagio}`, `f-${i.faixa}`];
       if (i.proposta) classes.push("proposta");
+      if (emSistema(i)) classes.push("planeta");
       if (N.sel === i.id) classes.push("selecionada");
       if (el.classList.contains("aquecendo")) classes.push("aquecendo");
       el.className = classes.join(" ");
@@ -457,8 +479,225 @@
     rot.style.top = `${R * 0.9}px`;
     if (galaxia) galaxia.camera(N.cam, R);
 
+    renderSistemas();
     desenharFios();
     desenharConstelacoes();
+  }
+
+  // ───────────────────────── sistemas solares ─────────────────────────
+  //
+  // Um sistema é uma categoria. O sol fica parado onde o André pôs; as
+  // ideias dele são planetas em órbita; as notas de cada ideia são as luas.
+  // Os anéis seguem a temperatura: em brasa gira perto do sol, apagada vai
+  // para o anel de fora. A posição de um planeta é calculada aqui, a cada
+  // quadro — não é salva, porque é consequência, não decisão.
+
+  const sisEl = new Map();       // id -> {el, t}
+  const ANEL = ["brasa", "morna", "esfriando", "apagada"];
+  const LARGURA_PLANETA = 290;
+
+  function sistemaDe(id) { return N.sistemas.find((x) => x.id === id) || null; }
+  function emSistema(i) { return Boolean(i && i.sistema_id && sistemaDe(i.sistema_id) && i.estagio !== "arquivada"); }
+
+  function geometria(sist) {
+    const membros = sist.membros.map((id) => N.ideias.get(id)).filter((i) => i && emSistema(i));
+    const aneis = [];
+    let r = 230;
+    for (const f of ANEL) {
+      const ids = membros.filter((i) => i.faixa === f).sort((a, b) => b.calor - a.calor).map((i) => i.id);
+      if (!ids.length) continue;
+      // O anel cresce até caberem os cartões lado a lado sem encostar.
+      r = Math.max(r, (ids.length * LARGURA_PLANETA) / (2 * Math.PI));
+      aneis.push({ r, ids, faixa: f });
+      r += 175;
+    }
+    const ext = aneis.length ? aneis[aneis.length - 1].r + 140 : 190;
+    return { aneis, ext };
+  }
+
+  function renderSistemas() {
+    const vivos = new Set(N.sistemas.map((x) => x.id));
+    for (const [id, reg] of sisEl) if (!vivos.has(id)) { reg.el.remove(); sisEl.delete(id); }
+    for (const sist of N.sistemas) {
+      let reg = sisEl.get(sist.id);
+      if (!reg) {
+        const el = document.createElement("div");
+        el.dataset.sistema = sist.id;
+        camadaSist.appendChild(el);
+        reg = { el, t: 0 };
+        sisEl.set(sist.id, reg);
+      }
+      const geo = geometria(sist);
+      reg.geo = geo;
+      reg.el.className = `sistema f-${sist.faixa} ${N.selSist === sist.id ? "selecionado" : ""}`;
+      reg.el.style.setProperty("--g", (Math.min(100, sist.calor) / 100).toFixed(2));
+      reg.el.style.transform = `translate(${sist.x}px, ${sist.y}px)`;
+      const html = `
+        <div class="halo" style="--R:${geo.ext}px"></div>
+        ${geo.aneis.map((a) => `<div class="anel f-${a.faixa}" style="--R:${a.r}px"></div>`).join("")}
+        <div class="sol" title="${esc(sist.nome)} — ${sist.membros.length} ideia(s). Clique para abrir; arraste para mover."></div>
+        <div class="sol-nome">${esc(sist.nome)}<small>${sist.membros.length} ${sist.membros.length === 1 ? "ideia" : "ideias"}</small></div>`;
+      if (reg.html !== html) { reg.el.innerHTML = html; reg.html = html; }
+    }
+    orbitar(0);
+  }
+
+  // Velocidade de Kepler, devagar de propósito: um giro do anel de dentro
+  // leva uns dois minutos. É para o céu respirar, não para distrair.
+  const omega = (r) => 0.045 * Math.pow(230 / r, 1.5);
+
+  function pausado(sist) {
+    if (gesto && (gesto.sid === sist.id || (gesto.id && sist.membros.includes(gesto.id)))) return true;
+    if (N.pairando && sist.membros.includes(N.pairando)) return true;
+    if (N.selSist === sist.id && gaveta.classList.contains("aberta")) return true;
+    return N.sel != null && sist.membros.includes(N.sel) && gaveta.classList.contains("aberta");
+  }
+
+  function orbitar(dt) {
+    let mexeu = false;
+    for (const sist of N.sistemas) {
+      const reg = sisEl.get(sist.id);
+      if (!reg || !reg.geo) continue;
+      if (dt && !pausado(sist)) reg.t += dt;
+      reg.geo.aneis.forEach((anel, k) => {
+        const base = sist.id * 1.7 + k * 0.9;
+        anel.ids.forEach((id, j) => {
+          const p = N.pos.get(id);
+          if (!p || p.arrastando) return;
+          const ang = base + (2 * Math.PI * j) / anel.ids.length + reg.t * omega(anel.r);
+          p.x = sist.x + Math.cos(ang) * anel.r;
+          p.y = sist.y + Math.sin(ang) * anel.r;
+          posicionar(id);
+          mexeu = true;
+        });
+      });
+    }
+    return mexeu;
+  }
+
+  let ultimoQuadro = 0, quadrosFios = 0;
+  const parado = window.matchMedia("(prefers-reduced-motion: reduce)");
+  function girar(t) {
+    const dt = ultimoQuadro ? Math.min(0.1, (t - ultimoQuadro) / 1000) : 0;
+    ultimoQuadro = t;
+    const visivel = N.vista === "ceu" && !document.hidden && !document.body.classList.contains("modo-conversa");
+    if (visivel && N.sistemas.length && !parado.matches && orbitar(dt)) {
+      // Fios e rótulos a cada dois quadros: o olho não vê a diferença.
+      if (++quadrosFios % 2 === 0) { desenharFios(); desenharConstelacoes(); }
+    }
+    requestAnimationFrame(girar);
+  }
+  requestAnimationFrame(girar);
+
+  function sistemaEmbaixo(m, ignorar) {
+    let melhor = null, dMin = Infinity;
+    for (const sist of N.sistemas) {
+      if (sist.id === ignorar) continue;
+      const reg = sisEl.get(sist.id);
+      const ext = reg?.geo?.ext ?? geometria(sist).ext;
+      const d = Math.hypot(m.x - sist.x, m.y - sist.y);
+      if (d < ext && d < dMin) { melhor = sist; dMin = d; }
+    }
+    return melhor;
+  }
+
+  function marcarAlvo(sist) {
+    for (const [id, reg] of sisEl) reg.el.classList.toggle("alvo", Boolean(sist) && id === sist.id);
+  }
+
+  async function novoSistema() {
+    try {
+      const c = centroTela();
+      const { sistema } = await api("/api/nebulosa/sistemas", {
+        method: "POST", body: { nome: "Novo sistema", x: Math.round(c.x), y: Math.round(c.y) },
+      });
+      await recarregar();
+      abrirSistema(sistema.id, { nomear: true });
+      aviso("Sol aceso. Dê um nome e arraste ideias pra dentro dele.");
+    } catch (err) { falha(err); }
+  }
+
+  function abrirSistema(sid, opcoes = {}) {
+    const sist = sistemaDe(sid);
+    if (!sist) return;
+    N.sel = null;
+    N.selSist = sid;
+    elementos.forEach((el) => el.classList.remove("selecionada"));
+    const membros = sist.membros.map((id) => N.ideias.get(id)).filter(Boolean).sort((a, b) => b.calor - a.calor);
+    gaveta.innerHTML = `
+      <div class="gaveta-topo">
+        <span class="num">☉</span>
+        <span class="chip">sistema · ${FAIXA_NOME[sist.faixa] || ""}</span>
+        ${sist.origem && sist.origem.startsWith("livia") ? `<span class="chip livia">a Livia sugeriu</span>` : ""}
+        <button class="x" id="gvFechar" title="fechar (Esc)">×</button>
+      </div>
+      <div class="gaveta-corpo">
+        <input class="titulo" id="gsNome" value="${esc(sist.nome)}" placeholder="Nome da categoria">
+        <div class="rot">Do que é este sistema</div>
+        <textarea id="gsDesc" placeholder="Uma linha pra lembrar o que mora aqui (opcional)">${esc(sist.descricao)}</textarea>
+        <div class="temperatura f-${sist.faixa}">
+          <span class="graus">${Math.round(sist.calor)}°</span>
+          <span class="txt">O sol brilha com as três ideias mais quentes dele. Em brasa orbita perto; apagada vai para o anel de fora.</span>
+        </div>
+        <div class="rot"><span>Planetas</span><span>${membros.length}</span></div>
+        <div class="lista-sistema">
+          ${membros.length ? membros.map((i) => linhaIdeia(i, `<button class="mini" data-soltar="${i.id}" title="tirar do sistema">soltar</button>`)).join("")
+            : `<p class="hint">Vazio. No céu, arraste uma ideia e solte em cima deste sol.</p>`}
+        </div>
+        <div class="rot">Ações</div>
+        <div class="botoes-linha">
+          <button class="neb-btn" id="gsVer">◎ Ver no céu</button>
+          <button class="neb-btn" id="gsConversar">💬 Conversar sobre o sistema</button>
+          <button class="neb-btn perigo" id="gsApagar">Apagar sistema</button>
+        </div>
+        <p class="hint">Apagar o sistema não apaga ideia nenhuma: elas ficam soltas em volta de onde o sol estava.</p>
+      </div>`;
+    gaveta.classList.add("aberta");
+    renderSistemas();
+    const g = (q) => gaveta.querySelector(q);
+    g("#gvFechar").onclick = fecharGaveta;
+    const salvar = async () => {
+      const nome = g("#gsNome").value.trim(), descricao = g("#gsDesc").value.trim();
+      if (!nome || (nome === sist.nome && descricao === (sist.descricao || ""))) return;
+      try { await api(`/api/nebulosa/sistemas/${sid}`, { method: "PATCH", body: { nome, descricao } }); await recarregar(); }
+      catch (err) { falha(err); }
+    };
+    g("#gsNome").addEventListener("blur", salvar);
+    g("#gsDesc").addEventListener("blur", salvar);
+    g("#gsNome").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
+    if (opcoes.nomear) { g("#gsNome").focus(); g("#gsNome").select(); }
+    gaveta.querySelectorAll(".linha-ideia").forEach((l) => {
+      l.onclick = (e) => { if (!e.target.closest("button")) abrirGaveta(+l.dataset.id); };
+    });
+    gaveta.querySelectorAll("[data-soltar]").forEach((b) => {
+      b.onclick = () => moverParaSistema(+b.dataset.soltar, null);
+    });
+    g("#gsVer").onclick = () => {
+      if (N.vista !== "ceu") trocarVista("ceu");
+      const ext = sisEl.get(sid)?.geo?.ext || 400;
+      const r = ceu.getBoundingClientRect();
+      N.cam.s = Math.min(1.1, Math.max(0.18, Math.min(r.width - 380, r.height) / (ext * 2.2)));
+      N.cam.x = r.width / 2 - sist.x * N.cam.s - 180;
+      N.cam.y = r.height / 2 - sist.y * N.cam.s;
+      aplicarCamera();
+    };
+    g("#gsConversar").onclick = () => falarComLivia(
+      `Sobre o sistema «${sist.nome}» (${membros.map((i) => `#${i.id}`).join(", ") || "vazio"}): `, false);
+    g("#gsApagar").onclick = async () => {
+      if (!confirm(`Apagar o sistema «${sist.nome}»? As ideias ficam, soltas no céu.`)) return;
+      try { await api(`/api/nebulosa/sistemas/${sid}`, { method: "DELETE" }); fecharGaveta(); await recarregar(); aviso("Sistema desfeito. As ideias continuam no céu."); }
+      catch (err) { falha(err); }
+    };
+  }
+
+  async function moverParaSistema(id, sid, ponto) {
+    try {
+      const corpo = { sistema: sid };
+      if (sid == null && ponto) { corpo.x = Math.round(ponto.x); corpo.y = Math.round(ponto.y); }
+      const { ideia } = await api(`/api/nebulosa/ideias/${id}/sistema`, { method: "POST", body: corpo });
+      await recarregar();
+      aviso(ideia.sistema_nome ? `#${id} entrou em órbita de <b>${esc(ideia.sistema_nome)}</b>.` : `#${id} está solta no céu.`);
+    } catch (err) { falha(err); }
   }
 
   function posicionar(id) {
@@ -526,10 +765,16 @@
     if (e.button !== 0) return;
     const estrela = e.target.closest(".astro");
     const constel = e.target.closest(".constelacao");
+    const sol = e.target.closest(".sol, .sol-nome");
     fecharRascunho(true);
     if (constel) { escolherConstelacao(constel.dataset.chave); return; }
     ceu.setPointerCapture(e.pointerId);
-    if (estrela) {
+    if (sol && !estrela) {
+      const sid = +sol.closest(".sistema").dataset.sistema;
+      const sist = sistemaDe(sid);
+      const m = telaParaMundo(e.clientX, e.clientY);
+      gesto = { tipo: "sol", sid, dx: m.x - sist.x, dy: m.y - sist.y, x0: e.clientX, y0: e.clientY, moveu: false };
+    } else if (estrela) {
       const id = +estrela.dataset.id;
       const p = N.pos.get(id);
       const m = telaParaMundo(e.clientX, e.clientY);
@@ -550,11 +795,22 @@
     }
     if (!gesto.moveu && Math.hypot(e.clientX - gesto.x0, e.clientY - gesto.y0) < 4) return;
     if (N.fisica) return;  // durante o pulso a física manda
+    if (gesto.tipo === "sol") {
+      gesto.moveu = true;
+      const sist = sistemaDe(gesto.sid);
+      const m = telaParaMundo(e.clientX, e.clientY);
+      sist.x = m.x - gesto.dx; sist.y = m.y - gesto.dy;
+      sisEl.get(sist.id).el.style.transform = `translate(${sist.x}px, ${sist.y}px)`;
+      orbitar(0); desenharFios(); desenharConstelacoes();
+      return;
+    }
     gesto.moveu = true;
     gesto.el.classList.add("arrastando");
     const m = telaParaMundo(e.clientX, e.clientY);
     const p = N.pos.get(gesto.id);
     p.x = m.x - gesto.dx; p.y = m.y - gesto.dy; p.arrastando = true;
+    const ideia = N.ideias.get(gesto.id);
+    marcarAlvo(sistemaEmbaixo(p, emSistema(ideia) ? ideia.sistema_id : null));
     posicionar(gesto.id);
     desenharFios();
     desenharConstelacoes();
@@ -564,11 +820,30 @@
     const g = gesto;
     gesto = null;
     ceu.classList.remove("panning");
+    if (g && g.tipo === "sol") {
+      const sist = sistemaDe(g.sid);
+      if (!g.moveu) { abrirSistema(g.sid); return; }
+      try { await api(`/api/nebulosa/sistemas/${g.sid}`, { method: "PATCH", body: { x: Math.round(sist.x), y: Math.round(sist.y) } }); }
+      catch (err) { falha(err); }
+      return;
+    }
     if (!g || g.tipo !== "estrela") return;
     g.el.classList.remove("arrastando");
+    marcarAlvo(null);
     const p = N.pos.get(g.id);
     if (p) p.arrastando = false;
     if (g.moveu) {
+      // Soltou num sol: entra em órbita. Era planeta e saiu para além do
+      // anel de fora: fica solta onde caiu. Dentro do próprio sistema:
+      // volta para a órbita, sem gravar nada.
+      const ideia = N.ideias.get(g.id);
+      const atual = emSistema(ideia) ? sistemaDe(ideia.sistema_id) : null;
+      const alvo = sistemaEmbaixo(p, null);
+      if (alvo && (!atual || alvo.id !== atual.id)) { moverParaSistema(g.id, alvo.id); return; }
+      if (atual) {
+        if (!alvo) moverParaSistema(g.id, null, p);
+        return;
+      }
       try {
         await api(`/api/nebulosa/ideias/${g.id}`, { method: "PATCH", body: { x: Math.round(p.x), y: Math.round(p.y) } });
       } catch (err) { falha(err); }
@@ -588,11 +863,19 @@
     abrirGaveta(g.id);
   });
 
+  // Passar o mouse num planeta segura a órbita do sistema inteiro: ninguém
+  // consegue ler um cartão que está andando.
+  ceu.addEventListener("pointerover", (e) => {
+    const a = e.target.closest(".astro");
+    N.pairando = a ? +a.dataset.id : null;
+  });
+  ceu.addEventListener("pointerleave", () => { N.pairando = null; });
+
   ceu.addEventListener("dblclick", (e) => {
     // Com o ponteiro capturado, o alvo do evento vira o próprio céu; quem diz
     // o que está embaixo do cursor é o elementFromPoint.
     const embaixo = document.elementFromPoint(e.clientX, e.clientY);
-    if (embaixo && embaixo.closest(".astro, .constelacao, .rascunho-rapido")) return;
+    if (embaixo && embaixo.closest(".astro, .constelacao, .rascunho-rapido, .sol, .sol-nome")) return;
     rascunhoRapido(telaParaMundo(e.clientX, e.clientY));
   });
 
@@ -717,12 +1000,20 @@
   }
 
   function simular(g) {
-    const nos = visiveis().filter((i) => i.estagio !== "arquivada").map((i) => ({
+    // Planetas não entram: quem decide onde eles ficam é o sol. Os sóis
+    // entram como obstáculos fixos, do tamanho do anel de fora, para a
+    // gravidade não jogar ideia solta no meio de um sistema.
+    const nos = visiveis().filter((i) => i.estagio !== "arquivada" && !emSistema(i)).map((i) => ({
       i, p: N.pos.get(i.id),
       // Massa = temperatura. A quente pesa e vira centro; a fria é empurrada.
       m: i.ancorada ? Infinity : 1 + i.calor / 18,
       t: tamanho(i),
     }));
+    for (const sist of N.sistemas) {
+      const ext = geometria(sist).ext;
+      nos.push({ i: { id: `sol${sist.id}`, faixa: "brasa", calor: 100 }, p: { x: sist.x, y: sist.y, vx: 0, vy: 0 },
+                 m: Infinity, t: { w: ext * 1.7, h: ext * 1.7 }, sol: true });
+    }
     const indice = new Map(nos.map((n, k) => [n.i.id, k]));
     const molas = (g.arestas || [])
       .filter((e) => indice.has(e.a) && indice.has(e.b))
@@ -821,7 +1112,7 @@
       try {
         await api("/api/nebulosa/layout", {
           method: "POST",
-          body: { posicoes: nos.map((n) => ({ id: n.i.id, x: Math.round(n.p.x), y: Math.round(n.p.y) })) },
+          body: { posicoes: nos.filter((n) => !n.sol).map((n) => ({ id: n.i.id, x: Math.round(n.p.x), y: Math.round(n.p.y) })) },
         });
       } catch (err) { falha(err); }
       const nc = (g.constelacoes || []).length;
@@ -888,6 +1179,8 @@
                   <span>#${i.id}</span><span>${Math.round(i.calor)}°</span>
                   ${i.faltando?.length && i.proximo ? `<span>faltam ${i.faltando.length}</span>` : ""}
                   ${i.proposta ? "<span>proposta</span>" : ""}
+                  ${i.sistema_nome ? `<span class="sist">☉ ${esc(i.sistema_nome)}</span>` : ""}
+                  ${i.n_notas ? `<span>☾ ${i.n_notas}</span>` : ""}
                 </div>
               </div>`).join("")}
           </div>
@@ -978,6 +1271,11 @@
     juntar: (s) => ["🔗", `Juntar <b>#${s.outra_id} ${esc(s.outra_titulo)}</b> dentro de <b>#${s.ideia_id} ${esc(s.titulo)}</b>?`],
     ligar: (s) => ["✦", `Ligar <b>#${s.ideia_id} ${esc(s.titulo)}</b> com <b>#${s.outra_id} ${esc(s.outra_titulo)}</b>?`],
     reviver: (s) => ["♻", `Reviver <b>#${s.ideia_id} ${esc(s.titulo)}</b>?`],
+    sistema: (s) => {
+      const membros = (s.dados?.membros || []).map((id) => N.ideias.get(id)).filter(Boolean);
+      return ["☉", `Criar o sistema <b>${esc(s.dados?.nome || "novo")}</b> com ${membros.map((i) =>
+        `<b>#${i.id}</b> ${esc(i.titulo.slice(0, 28))}`).join(", ")}?`];
+    },
   };
 
   function linhaIdeia(i, botoes = "") {
@@ -986,7 +1284,8 @@
       : `${esc(i.estagio_nome)} · ${FAIXA_NOME[i.faixa]}` +
         (i.dias_sem_mexer != null
           ? (i.dias_sem_mexer < 1 ? " · mexida hoje" : ` · ${Math.floor(i.dias_sem_mexer)}d sem mexer`) : "") +
-        (i.dias_ate_apagar && i.faixa !== "apagada" ? ` · apaga em ~${Math.ceil(i.dias_ate_apagar)}d` : "");
+        (i.dias_ate_apagar && i.faixa !== "apagada" ? ` · apaga em ~${Math.ceil(i.dias_ate_apagar)}d` : "") +
+        (i.sistema_nome ? ` · ☉ ${esc(i.sistema_nome)}` : "") + (i.n_notas ? ` · ☾ ${i.n_notas}` : "");
     return `<div class="linha-ideia f-${i.faixa}" data-id="${i.id}">
       <div class="chama">${Math.round(i.calor)}°</div>
       <div class="meio"><div class="t">#${i.id} ${esc(i.titulo)}</div><div class="s">${sub}</div></div>
@@ -1147,6 +1446,7 @@
       ({ ideia } = await api(`/api/nebulosa/ideias/${id}${opcoes.silencioso ? "" : "?abrir=1"}`));
     } catch (err) { falha(err); return; }
     N.sel = id;
+    N.selSist = null;
     N.ideias.set(id, { ...(N.ideias.get(id) || {}), ...ideia });
     elementos.forEach((el, k) => el.classList.toggle("selecionada", k === id));
     pintarGaveta(ideia, opcoes.destino);
@@ -1157,6 +1457,7 @@
   function fecharGaveta() {
     gaveta.classList.remove("aberta");
     N.sel = null;
+    if (N.selSist) { N.selSist = null; renderSistemas(); }
     elementos.forEach((el) => el.classList.remove("selecionada"));
   }
 
@@ -1224,6 +1525,13 @@
         <div class="rot">A ideia</div>
         <textarea id="gvConteudo" placeholder="Escreva à vontade…">${esc(i.conteudo)}</textarea>
         <input class="campo" id="gvFonte" value="${esc(i.fonte)}" placeholder="link de referência (opcional)" style="margin-top:8px">
+        <label class="campo-sistema">☉ Sistema
+          <select id="gvSistema">
+            <option value="">— solta no céu —</option>
+            ${N.sistemas.map((x) => `<option value="${x.id}" ${x.id === i.sistema_id ? "selected" : ""}>${esc(x.nome)}</option>`).join("")}
+          </select>
+          ${i.sistema_id ? `<button class="mini" id="gvVerSistema">abrir</button>` : ""}
+        </label>
 
         <div class="temperatura f-${i.faixa}">
           <span class="graus">${Math.round(i.calor)}°</span>
@@ -1231,6 +1539,19 @@
         </div>
 
         <div class="trilha">${trilha}</div>
+
+        <div class="rot"><span>Notas · as luas</span><span>${(i.notas || []).length || ""}</span></div>
+        <div class="notas-lista">
+          ${(i.notas || []).map((n) => `<div class="nota" data-nota="${n.id}">
+              <p tabindex="0" title="clique para editar">${esc(n.texto)}</p>
+              <small>${relativo(n.criado_em)}${n.origem && n.origem !== "manual" ? ` · ${esc(n.origem.startsWith("livia") ? "da conversa" : n.origem.startsWith("juntada") ? "veio de uma junção" : n.origem)}` : ""}</small>
+              <button class="x" data-apagar-nota="${n.id}" title="apagar nota">×</button>
+            </div>`).join("")}
+        </div>
+        <div class="nova-nota">
+          <textarea id="gvNovaNota" rows="2" placeholder="Um pensamento sobre esta ideia… (Ctrl+Enter)"></textarea>
+          <button class="neb-btn" id="gvAddNota">☾ Nova lua</button>
+        </div>
 
         ${gs.length ? `
           <div class="rot"><span>${destino ? `Para ir a ${esc(nomeEstagio(destino))}` : "Respostas"}</span>
@@ -1315,6 +1636,47 @@
       `Me entrevista pra levar a ideia #${i.id} «${i.titulo}» para ${nomeEstagio(destino)}. ` +
       `Faz as perguntas que faltam, uma de cada vez, e grava as minhas respostas.`, true);
     gaveta.querySelectorAll("[data-abrir]").forEach((b) => { b.onclick = () => abrirGaveta(+b.dataset.abrir); });
+
+    g("#gvSistema").onchange = (e) => moverParaSistema(i.id, e.target.value ? +e.target.value : null);
+    if (g("#gvVerSistema")) g("#gvVerSistema").onclick = (e) => { e.preventDefault(); abrirSistema(i.sistema_id); };
+    const addNota = async () => {
+      const texto = g("#gvNovaNota").value.trim();
+      if (!texto) return;
+      try {
+        await api(`/api/nebulosa/ideias/${i.id}/notas`, { method: "POST", body: { texto } });
+        await recarregar();
+        await abrirGaveta(i.id, { silencioso: true });
+        pulsar([i.id]);
+      } catch (err) { falha(err); }
+    };
+    g("#gvAddNota").onclick = addNota;
+    g("#gvNovaNota").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addNota(); } });
+    gaveta.querySelectorAll(".nota p").forEach((par) => {
+      const editar = () => {
+        if (par.isContentEditable) return;
+        const antes = par.textContent;
+        par.contentEditable = "true";
+        par.focus();
+        par.onblur = async () => {
+          par.contentEditable = "false";
+          const texto = par.textContent.trim();
+          if (!texto || texto === antes) { par.textContent = antes; return; }
+          try { await api(`/api/nebulosa/notas/${par.parentElement.dataset.nota}`, { method: "PATCH", body: { texto } }); }
+          catch (err) { par.textContent = antes; falha(err); }
+        };
+      };
+      par.onclick = editar;
+      par.onkeydown = (e) => { if (e.key === "Enter" && !par.isContentEditable) { e.preventDefault(); editar(); } };
+    });
+    gaveta.querySelectorAll("[data-apagar-nota]").forEach((b) => {
+      b.onclick = async () => {
+        try {
+          await api(`/api/nebulosa/notas/${b.dataset.apagarNota}`, { method: "DELETE" });
+          await recarregar();
+          abrirGaveta(i.id, { silencioso: true });
+        } catch (err) { falha(err); }
+      };
+    });
   }
 
   function rotuloEvento(e) {
@@ -1324,6 +1686,7 @@
       if (e.tipo === "estagio" && d.para) extra = ` → ${nomeEstagio(d.para)}`;
       if (e.tipo === "gate" && d.gate) extra = `: ${d.gate}${d.origem === "livia:conversa" ? " (na conversa)" : ""}`;
       if (e.tipo === "criar" && d.origem && d.origem !== "manual") extra = ` (${d.origem.replace("livia:", "livia · ")})`;
+      if (e.tipo === "sistema") extra = d.nome ? ` → ☉ ${d.nome}` : " → solta no céu";
     } catch { /* detalhe livre */ }
     return (EVENTO_NOME[e.tipo] || e.tipo) + extra;
   }

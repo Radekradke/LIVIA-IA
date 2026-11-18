@@ -639,3 +639,121 @@ body:not(.modo-lado) .divisor { display: none; }
 .neb-chip b { color: var(--creme); font-weight: 600; }
 .neb-chip.pescada { border-style: dashed; border-color: var(--brilho); }
 .neb-chip .mini { margin-left: 2px; }
+
+/* ─────────────── sistemas solares ───────────────
+   O sol é a categoria. Fica atrás das ideias (a camada vem antes no DOM),
+   com os anéis tracejados de cada temperatura e um halo bem fraco
+   marcando até onde o sistema vai — soltar uma ideia ali dentro põe ela
+   em órbita. */
+#sistemas { position: absolute; left: 0; top: 0; }
+.sistema {
+  --c: var(--t-morna); --g: .5;
+  position: absolute; left: 0; top: 0; width: 0; height: 0;
+}
+.sistema.f-brasa     { --c: var(--t-brasa); }
+.sistema.f-esfriando { --c: var(--t-esfriando); }
+.sistema.f-apagada   { --c: var(--t-apagada); }
+.sistema > .halo, .sistema > .anel {
+  position: absolute; left: calc(var(--R) * -1); top: calc(var(--R) * -1);
+  width: calc(var(--R) * 2); height: calc(var(--R) * 2); border-radius: 50%;
+  pointer-events: none;
+}
+.sistema > .halo {
+  background: radial-gradient(circle, color-mix(in srgb, var(--c) calc(5% + 7% * var(--g)), transparent) 0,
+              transparent 68%);
+  border: 1px solid color-mix(in srgb, var(--c) 7%, transparent);
+  transition: border-color .2s, background .3s;
+}
+.sistema.alvo > .halo {
+  border: 1px dashed color-mix(in srgb, var(--brilho) 70%, transparent);
+  background: radial-gradient(circle, rgba(140,146,217,.16) 0, transparent 70%);
+}
+.sistema > .anel { border: 1px dashed color-mix(in srgb, var(--c) 22%, transparent); }
+.sistema > .anel.f-brasa     { border-color: color-mix(in srgb, var(--t-brasa) 34%, transparent); }
+.sistema > .anel.f-morna     { border-color: color-mix(in srgb, var(--t-morna) 24%, transparent); }
+.sistema > .anel.f-esfriando { border-color: color-mix(in srgb, var(--t-esfriando) 20%, transparent); }
+.sistema > .anel.f-apagada   { border-color: color-mix(in srgb, var(--t-apagada) 26%, transparent); border-style: dotted; }
+
+.sol {
+  position: absolute; left: -46px; top: -46px; width: 92px; height: 92px; border-radius: 50%;
+  cursor: grab; touch-action: none;
+  background:
+    radial-gradient(circle at 42% 38%, #fbf6ea 0, color-mix(in srgb, var(--c) 70%, #fff) 20%, var(--c) 46%,
+                    color-mix(in srgb, var(--c) 30%, transparent) 64%, transparent 72%);
+  box-shadow: 0 0 calc(30px + 60px * var(--g)) color-mix(in srgb, var(--c) calc(25% + 35% * var(--g)), transparent),
+              0 0 calc(80px + 160px * var(--g)) color-mix(in srgb, var(--c) calc(8% + 14% * var(--g)), transparent);
+  animation: respirar-sol 9s ease-in-out infinite;
+}
+.sol::before {          /* coroa: um anel de luz girando bem devagar */
+  content: ""; position: absolute; inset: -22px; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, color-mix(in srgb, var(--c) 40%, transparent),
+              transparent 30%, color-mix(in srgb, var(--c) 25%, transparent) 55%, transparent 70%);
+  filter: blur(8px); opacity: calc(.35 + .5 * var(--g));
+  animation: girar-coroa 60s linear infinite; pointer-events: none;
+}
+@keyframes respirar-sol { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes girar-coroa { to { transform: rotate(360deg); } }
+.sistema.selecionado .sol { outline: 1px solid color-mix(in srgb, var(--brilho) 60%, transparent); outline-offset: 10px; }
+.sol-nome {
+  position: absolute; left: 0; top: 62px; transform: translateX(-50%);
+  font-family: var(--serif); font-size: 22px; font-style: italic; letter-spacing: .1em;
+  color: var(--creme); white-space: nowrap; text-align: center; cursor: pointer;
+  text-shadow: 0 0 20px rgba(5,6,12,.95), 0 0 6px rgba(5,6,12,.9);
+}
+.sol-nome small {
+  display: block; font-family: var(--mono); font-style: normal; font-size: 10px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--texto-fraco); margin-top: 2px;
+}
+:root[data-theme="light"] .sol-nome { color: #2b2d5e; text-shadow: 0 0 12px rgba(238,240,246,.95); }
+.ceu.lod-longe .sol-nome { font-size: 46px; top: 90px; }
+.ceu.lod-longe .sol-nome small { font-size: 18px; }
+.ceu.lod-longe .sol { transform: scale(1.6); animation: none; }
+@media (prefers-reduced-motion: reduce) { .sol, .sol::before { animation: none; } }
+
+/* Planeta: a mesma legenda de vidro, um pouco mais leve, que anda. */
+.astro.planeta { transition: box-shadow .4s, border-color .4s, opacity .4s, width .2s; }
+
+/* Luas = notas. Cada uma gira no seu raio (--r), na sua fase (--f) e no
+   seu passo (--v), em volta do núcleo. */
+.nucleo .luas { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.nucleo .luas b {
+  position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #cfcde4 60%, #8f8daa);
+  box-shadow: 0 0 6px rgba(232,230,244,.9), 0 0 12px rgba(185,189,247,.45);
+  transform: rotate(var(--f)) translateX(var(--r));
+  animation: lua var(--v) linear infinite;
+}
+@keyframes lua {
+  from { transform: rotate(var(--f)) translateX(var(--r)); }
+  to   { transform: rotate(calc(var(--f) + 360deg)) translateX(var(--r)); }
+}
+@media (prefers-reduced-motion: reduce) { .nucleo .luas b { animation: none; } }
+.chip.lua { color: #d9d7ea; border-color: rgba(217,215,234,.3); }
+:root[data-theme="light"] .nucleo .luas b { background: #5d63b8; box-shadow: none; }
+
+/* Gaveta: sistema e notas */
+.campo-sistema {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  font-size: 12px; color: var(--texto-fraco); font-family: var(--mono);
+}
+.campo-sistema select {
+  flex: 1; background: var(--fundo-2, rgba(255,255,255,.03)); color: var(--texto);
+  border: 1px solid var(--linha); border-radius: 8px; padding: 6px 8px; font: inherit; font-family: var(--sans, inherit);
+}
+.notas-lista { display: flex; flex-direction: column; gap: 6px; }
+.nota {
+  position: relative; padding: 8px 30px 7px 12px; border-radius: 10px;
+  border: 1px solid var(--linha); background: rgba(232,230,244,.03);
+  border-left: 2px solid rgba(217,215,234,.45);
+}
+.nota p { margin: 0; font-size: 13px; line-height: 1.5; white-space: pre-wrap; cursor: text; outline: none; }
+.nota p[contenteditable="true"] { background: rgba(140,146,217,.08); border-radius: 4px; }
+.nota small { display: block; margin-top: 3px; font-size: 10.5px; color: var(--texto-fraco); font-family: var(--mono); }
+.nota .x { position: absolute; right: 6px; top: 5px; opacity: .5; background: none; border: 0; color: var(--texto-fraco); font-size: 16px; cursor: pointer; }
+.nota:hover .x { opacity: 1; }
+.nova-nota { display: flex; gap: 8px; align-items: flex-end; margin-top: 8px; }
+.nova-nota textarea { flex: 1; min-height: 44px; }
+.lista-sistema { display: flex; flex-direction: column; gap: 6px; }
+.cartao-meta .sist { color: var(--brilho); }
+.gaveta .nova-nota textarea { min-height: 52px; }
+.gaveta #gsDesc { min-height: 64px; }
