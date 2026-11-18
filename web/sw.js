@@ -32,7 +32,7 @@
  * chama respondWith, e o navegador faz o de sempre.
  */
 
-const VERSAO = "livia-v3";
+const VERSAO = "livia-v4";
 const CASCA = `${VERSAO}-casca`;
 const DADOS = `${VERSAO}-dados`;
 
@@ -126,6 +126,16 @@ self.addEventListener("fetch", (evento) => {
     return;
   }
 
+  // O código da interface (/assets/) vai pela REDE primeiro. Com casca-
+  // primeiro, o HTML novo chegava antes do CSS e do JS novos, e a tela
+  // abria meio de uma versão, meio de outra — a galáxia sumia e o céu
+  // ficava com a cor antiga. Online, sempre o código do servidor; sem
+  // servidor, a cópia guardada.
+  if (url.pathname.startsWith("/assets/")) {
+    evento.respondWith(redePrimeiro(pedido, CASCA));
+    return;
+  }
+
   // Ícones, manifesto e o que mais for estático.
   evento.respondWith(cascaPrimeiro(pedido));
 });
@@ -165,8 +175,8 @@ async function cascaPrimeiro(pedido) {
   );
 }
 
-async function redePrimeiro(pedido) {
-  const cache = await caches.open(DADOS);
+async function redePrimeiro(pedido, nomeCache = DADOS) {
+  const cache = await caches.open(nomeCache);
   try {
     const resposta = await fetch(pedido);
     if (resposta && resposta.status === 200) {
