@@ -41,6 +41,7 @@ from __future__ import annotations
 import io
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 from . import config
 
@@ -52,6 +53,22 @@ _ARQUIVOS = ("personalidade.md", "livia.db", "nebulosa.json")
 _BIBLIOTECA_ARQUIVOS = ("meta.json", "trechos.jsonl")
 
 
+def _retrato_banco(caminho: Path) -> bytes:
+    import sqlite3
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as pasta:
+        alvo = Path(pasta) / "livia.db"
+        origem = sqlite3.connect(caminho, timeout=10.0)
+        destino = sqlite3.connect(alvo)
+        try:
+            origem.backup(destino)
+        finally:
+            destino.close()
+            origem.close()
+        return alvo.read_bytes()
+
+
 def exportar() -> tuple[bytes, str]:
     """Devolve (conteúdo do zip, nome sugerido do arquivo)."""
     buffer = io.BytesIO()
@@ -59,7 +76,14 @@ def exportar() -> tuple[bytes, str]:
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for nome in _ARQUIVOS:
             caminho = config.DATA_DIR / nome
-            if caminho.exists():
+            if not caminho.exists():
+                continue
+            if nome == "livia.db":
+                # Com o banco em WAL, as escritas recentes moram no arquivo
+                # -wal até o próximo checkpoint. Copiar só o .db perderia
+                # elas. A API de backup do SQLite tira um retrato consistente.
+                zf.writestr(nome, _retrato_banco(caminho))
+            else:
                 zf.write(caminho, nome)
 
         for pasta in _PASTAS:
@@ -148,6 +172,10 @@ def importar(dados: bytes) -> dict[str, int]:
                 continue  # LEIA-ME.txt e qualquer coisa inesperada
 
             destino.parent.mkdir(parents=True, exist_ok=True)
+            if item == "livia.db":
+                # -wal e -shm velhos ao lado de um .db novo = banco corrompido.
+                for sobra in ("livia.db-wal", "livia.db-shm"):
+                    (config.DATA_DIR / sobra).unlink(missing_ok=True)
             destino.write_bytes(zf.read(item))
 
     # O índice acompanha os arquivos restaurados. Sem isto, uma memória

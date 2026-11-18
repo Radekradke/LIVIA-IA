@@ -503,3 +503,31 @@ def test_rotas_de_sistema_e_nota(logado):
     assert logado.get(f"/api/nebulosa/ideias/{i['id']}").json()["ideia"]["notas"][0]["id"] == n["id"]
     assert logado.post(f"/api/nebulosa/ideias/{i['id']}/sistema", json={"sistema": None, "x": 1, "y": 2}).status_code == 200
     assert logado.delete(f"/api/nebulosa/sistemas/{s['id']}").json()["ok"]
+
+
+# ── robustez: WAL, backup, prefixo do nomic ───────────────────────────────
+
+
+def test_banco_em_wal_e_backup_leva_o_que_esta_no_wal():
+    import io, sqlite3, zipfile
+    from livia import backup, db
+
+    nebulosa.criar("ideia que só existe no -wal")
+    with db._connect() as conn:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    dados, _ = backup.exportar()
+    with zipfile.ZipFile(io.BytesIO(dados)) as zf, open("/tmp/_retrato.db", "wb") as f:
+        f.write(zf.read("livia.db"))
+    titulos = [r[0] for r in sqlite3.connect("/tmp/_retrato.db").execute("SELECT titulo FROM ideias")]
+    assert "ideia que só existe no -wal" in titulos
+
+
+def test_nomic_ganha_prefixo_de_tarefa_e_muda_a_assinatura(monkeypatch):
+    from livia import config, embeddings
+
+    monkeypatch.setattr(config, "OLLAMA_EMBED_MODEL", "nomic-embed-text")
+    assert embeddings._preparar_ollama("oi", embeddings.PERGUNTA) == "search_query: oi"
+    assert embeddings._preparar_ollama("oi", embeddings.DOCUMENTO) == "search_document: oi"
+    assert embeddings.chave_cache("ollama").endswith("+prefixo")
+    monkeypatch.setattr(config, "OLLAMA_EMBED_MODEL", "mxbai-embed-large")
+    assert embeddings._preparar_ollama("oi", embeddings.PERGUNTA) == "oi"

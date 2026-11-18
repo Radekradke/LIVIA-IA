@@ -314,11 +314,17 @@ def _connect() -> Iterator[sqlite3.Connection]:
     """
     global _criado
     config.DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.DB_PATH)
+    # timeout: espera até 10 s por um lock em vez de estourar "database is
+    # locked" na hora — o learner e a Nebulosa escrevem em segundo plano
+    # enquanto o chat também escreve.
+    conn = sqlite3.connect(config.DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         if not _criado:
+            # WAL deixa leitura e escrita acontecerem juntas. É persistente
+            # (fica gravado no arquivo), então basta uma vez por processo.
+            conn.execute("PRAGMA journal_mode = WAL")
             conn.executescript(_SCHEMA)
             _migrar(conn)
             _criado = True
