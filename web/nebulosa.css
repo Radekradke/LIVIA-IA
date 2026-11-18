@@ -788,3 +788,15 @@ body:not(.modo-lado) .divisor { display: none; }
 .rel-campos .ias button.sel { background: color-mix(in srgb, var(--ia) 18%, transparent); border-color: var(--ia); color: var(--creme); }
 .nova-nota-botoes { display: flex; flex-direction: column; gap: 6px; }
 .nova-nota-botoes [hidden] { display: none; }
+
+/* Opacidade da galáxia: um slider que abre ao lado do ◐ */
+.ceu-zoom { align-items: center; }
+.opac-galaxia {
+  display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px;
+  border-radius: 8px; background: var(--painel-alto); border: 1px solid var(--linha);
+  font-size: 11px; font-family: var(--mono); color: var(--texto-fraco); letter-spacing: .04em;
+}
+.opac-galaxia[hidden] { display: none; }
+.opac-galaxia input { width: 110px; accent-color: var(--brilho); }
+.opac-galaxia b { min-width: 34px; text-align: right; font-weight: 500; color: var(--texto-suave); }
+#opacGalBtn[aria-expanded="true"] { color: var(--creme); border-color: var(--brilho); }

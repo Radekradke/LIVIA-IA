@@ -131,6 +131,12 @@
         </div>
         <div class="ceu-ajuda">duplo clique cria · solte uma ideia num sol pra pôr em órbita · roda dá zoom · <kbd>G</kbd> gravidade</div>
         <div class="ceu-zoom">
+          <div class="opac-galaxia" id="opacGal" hidden>
+            <span>galáxia</span>
+            <input type="range" id="opacGalRange" min="0" max="100" step="5" aria-label="Opacidade da galáxia de fundo">
+            <b id="opacGalVal"></b>
+          </div>
+          <button id="opacGalBtn" title="Opacidade da galáxia de fundo" aria-expanded="false">◐</button>
           <button data-zoom="-1" title="afastar">−</button>
           <button data-zoom="0" title="enquadrar tudo">◎</button>
           <button data-zoom="1" title="aproximar">+</button>
@@ -158,13 +164,43 @@
   // É cenário, não dependência: qualquer degrau que falhe, o céu continua.
   let galaxia = null;
   const telaCeu = $n("#galaxia");
+
+  // Opacidade da galáxia de fundo, escolhida pelo André e lembrada no navegador.
+  let opacidadeGalaxia = (() => {
+    try { const v = parseInt(localStorage.getItem("neb-opac-galaxia"), 10); return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 100; }
+    catch { return 100; }
+  })();
+  function aplicarOpacidade() {
+    telaCeu.style.opacity = String(opacidadeGalaxia / 100);
+    // Sem galáxia nenhuma, volta o céu em CSS (com a borda escura desenhada).
+    ceu.classList.toggle("webgl", Boolean(galaxia) && opacidadeGalaxia > 0);
+    $n("#opacGalRange").value = String(opacidadeGalaxia);
+    $n("#opacGalVal").textContent = `${opacidadeGalaxia}%`;
+    if (galaxia && opacidadeGalaxia > 0 && galaxia.redesenhar) galaxia.redesenhar();
+  }
+  $n("#opacGalBtn").onclick = (e) => {
+    e.stopPropagation();
+    const caixa = $n("#opacGal");
+    caixa.hidden = !caixa.hidden;
+    $n("#opacGalBtn").setAttribute("aria-expanded", String(!caixa.hidden));
+  };
+  $n("#opacGalRange").oninput = (e) => {
+    opacidadeGalaxia = parseInt(e.target.value, 10);
+    try { localStorage.setItem("neb-opac-galaxia", String(opacidadeGalaxia)); } catch { /* modo privado */ }
+    aplicarOpacidade();
+  };
+  // O controle mora dentro do céu: sem isto, arrastar o slider arrastaria o céu junto.
+  ["pointerdown", "wheel", "dblclick"].forEach((ev) =>
+    $n(".ceu-zoom").addEventListener(ev, (e) => e.stopPropagation()));
   function ligarFundo(fabrica) {
     if (galaxia || !fabrica) return Boolean(galaxia);
     try { galaxia = fabrica.criar(telaCeu); } catch (erro) { console.warn("[nebulosa] fundo:", erro); galaxia = null; }
     if (!galaxia) return false;
     ceu.classList.add("webgl");
+    // Em 0% de opacidade a galáxia nem desenha: não gasta GPU com o invisível.
     galaxia.quandoVisivel(() =>
-      N.vista === "ceu" && !document.body.classList.contains("modo-conversa"));
+      N.vista === "ceu" && opacidadeGalaxia > 0 && !document.body.classList.contains("modo-conversa"));
+    aplicarOpacidade();
     aplicarCamera();
     return true;
   }
