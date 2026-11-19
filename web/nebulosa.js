@@ -136,7 +136,13 @@
             <input type="range" id="opacGalRange" min="0" max="100" step="5" aria-label="Opacidade da galáxia de fundo">
             <b id="opacGalVal"></b>
           </div>
-          <button id="opacGalBtn" title="Opacidade da galáxia de fundo" aria-expanded="false">◐</button>
+          <button id="opacGalBtn" class="opac-btn" title="Transparência da galáxia de fundo" aria-expanded="false" aria-label="Transparência da galáxia de fundo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+              <ellipse cx="12" cy="12" rx="9.5" ry="4.2" transform="rotate(-20 12 12)"/>
+              <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/>
+              <path d="M5.5 16.5c2.2-.6 3.6-1.8 4.4-3.6M18.5 7.5c-2.2.6-3.6 1.8-4.4 3.6" opacity=".7"/>
+            </svg><span>galáxia</span>
+          </button>
           <button data-zoom="-1" title="afastar">−</button>
           <button data-zoom="0" title="enquadrar tudo">◎</button>
           <button data-zoom="1" title="aproximar">+</button>
