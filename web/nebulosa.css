@@ -835,3 +835,9 @@ body:not(.modo-lado) .divisor { display: none; }
   .livia-sugere { top: 8px; }
 }
 .trilha > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Lixeira no topo da gaveta: à mão, mas discreta até o mouse chegar. */
+.gaveta-topo .lixeira { margin-left: auto; font-size: 14px; opacity: .55; filter: grayscale(1); }
+.gaveta-topo .lixeira:hover, .gaveta-topo .lixeira:focus-visible { opacity: 1; filter: none; }
+.gaveta-topo .lixeira + .x { margin-left: 2px; }
+@media (hover: none) { .gaveta-topo .lixeira { opacity: .85; } }
