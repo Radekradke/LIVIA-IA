@@ -2017,7 +2017,7 @@
 
   // ───────────────────────── início ─────────────────────────
 
-  window.Nebulosa = { evento, recarregar, abrir: mostrar, modo, gravidade, aviso: (t) => aviso(esc(t)) };
+  window.Nebulosa = { evento, recarregar, abrir: mostrar, modo, gravidade, aviso: (t) => aviso(esc(t)), fundo: () => galaxia };
 
   const inicial = localStorage.getItem("livia-modo") || (window.innerWidth >= 1280 ? "lado" : "conversa");
   centrar();

@@ -51,6 +51,29 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 
 // ─────────────────────────────── gás de fundo ───────────────────────────────
 
+// Paletas: em vez de reescrever as cores de cada camada, gira o MATIZ de
+// tudo de uma vez (em YIQ, que separa brilho de cor) e ajusta a saturação.
+// Cinza e branco não têm cor, então as estrelas brancas continuam brancas —
+// só o gás, os braços e a fumaça mudam de tinta.
+const MATIZ = /* glsl */ `
+uniform vec2 uMatiz;   // x = giro do matiz (rad), y = saturação
+vec3 matiz(vec3 c) {
+  const mat3 paraYIQ = mat3(0.299, 0.596, 0.211, 0.587, -0.274, -0.523, 0.114, -0.322, 0.312);
+  const mat3 deYIQ = mat3(1.0, 1.0, 1.0, 0.956, -0.272, -1.106, 0.621, -0.647, 1.703);
+  vec3 yiq = paraYIQ * c;
+  float cs = cos(uMatiz.x), sn = sin(uMatiz.x);
+  yiq.yz = mat2(cs, sn, -sn, cs) * yiq.yz * uMatiz.y;
+  return max(deYIQ * yiq, 0.0);
+}`;
+
+// nome: [giro do matiz, saturação]
+const PALETAS = {
+  crepusculo: [0, 1],
+  magenta: [0, 1],
+  aurora: [0, 1],
+  brasa: [0, 1],
+};
+
 const GAS_VERT = /* glsl */ `
 void main() { gl_Position = vec4(position.xy, 1.0, 1.0); }`;
 
@@ -63,6 +86,7 @@ uniform float uTempo;
 uniform float uBorda;
 uniform vec2  uPulso;
 uniform float uClaro;
+${MATIZ}
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float ruido(vec2 p) {
@@ -137,6 +161,7 @@ void main() {
   vec2 v = uv - 0.5;
   cor *= 1.0 - dot(v, v) * 0.8;
   cor += (hash(gl_FragCoord.xy + fract(uTempo)) - 0.5) / 255.0 * 3.0;
+  cor = matiz(cor);
 
   if (uClaro > 0.5) {
     vec3 papel = vec3(0.930, 0.937, 0.965);
@@ -165,6 +190,7 @@ uniform float uSemente;
 uniform float uForca;
 uniform float uClaro;
 varying vec2 vP;
+${MATIZ}
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float ruido(vec2 p) {
@@ -199,6 +225,7 @@ void main() {
   vec3 cor = mix(vec3(0.46, 0.42, 0.88), vec3(0.34, 0.62, 0.80), smoothstep(0.3, 0.8, w.x));
   cor = mix(cor, vec3(0.78, 0.52, 0.76), smoothstep(0.62, 0.92, n) * 0.35);
   float a = dens * mascara * uForca;
+  cor = matiz(cor);
   if (uClaro > 0.5) { cor = vec3(0.30, 0.32, 0.62); a *= 0.45; }
   gl_FragColor = vec4(cor, a);
 }`;
@@ -208,6 +235,7 @@ void main() {
 const ESTRELA_FRAG = /* glsl */ `
 precision highp float;
 uniform float uClaro;
+${MATIZ}
 varying vec3 vCor;
 varying float vAlfa;
 void main() {
@@ -219,13 +247,14 @@ void main() {
   if (uClaro > 0.5) {
     gl_FragColor = vec4(mix(vec3(0.25, 0.27, 0.55), vCor * 0.5, 0.35), a * vAlfa * 0.55);
   } else {
-    gl_FragColor = vec4(vCor * a * vAlfa, a * vAlfa);
+    gl_FragColor = vec4(matiz(vCor) * a * vAlfa, a * vAlfa);
   }
 }`;
 
 const NUVEM_FRAG = /* glsl */ `
 precision highp float;
 uniform float uClaro;
+${MATIZ}
 varying vec3 vCor;
 varying float vAlfa;
 void main() {
@@ -234,7 +263,7 @@ void main() {
   if (d > 0.5) discard;
   float a = exp(-d * d * 9.0) * (1.0 - d * 2.0);
   if (uClaro > 0.5) gl_FragColor = vec4(vec3(0.34, 0.36, 0.66), a * vAlfa * 0.10);
-  else gl_FragColor = vec4(vCor * a * vAlfa * 0.11, a * vAlfa * 0.11);
+  else gl_FragColor = vec4(matiz(vCor) * a * vAlfa * 0.11, a * vAlfa * 0.11);
 }`;
 
 const GALAXIA_VERT = /* glsl */ `
@@ -471,6 +500,7 @@ function criar(canvas) {
   const uGas = {
     uRes: { value: new THREE.Vector2(1, 1) }, uEscala: { value: 1 }, uCam: { value: new THREE.Vector3(0, 0, 1) },
     uTempo: { value: 0 }, uBorda: { value: 1000 }, uPulso: { value: new THREE.Vector2(0, 0) }, uClaro: { value: 0 },
+    uMatiz: { value: new THREE.Vector2(0, 1) },
   };
   const triangulo = new THREE.BufferGeometry();
   triangulo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
@@ -481,7 +511,7 @@ function criar(canvas) {
   gas.renderOrder = -10;
   cena.add(gas);
 
-  const uComum = { uTempo: uGas.uTempo, uPx: { value: proporcao }, uClaro: uGas.uClaro };
+  const uComum = { uTempo: uGas.uTempo, uPx: { value: proporcao }, uClaro: uGas.uClaro, uMatiz: uGas.uMatiz };
   function materialPontos(vert, extras = {}, frag = ESTRELA_FRAG) {
     return new THREE.ShaderMaterial({
       vertexShader: vert, fragmentShader: frag,
@@ -514,7 +544,7 @@ function criar(canvas) {
     const m = new THREE.Mesh(placa, new THREE.ShaderMaterial({
       vertexShader: FUMACA_VERT,
       fragmentShader: FUMACA_FRAG.replace("OITAVAS", modesta ? "4" : "5"),
-      uniforms: { uTempo: uGas.uTempo, uClaro: uGas.uClaro, uSemente: { value: semente }, uForca: { value: forca } },
+      uniforms: { uTempo: uGas.uTempo, uClaro: uGas.uClaro, uMatiz: uGas.uMatiz, uSemente: { value: semente }, uForca: { value: forca } },
       transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     }));
     m.userData.z = z;
@@ -537,7 +567,7 @@ function criar(canvas) {
   composer.addPass(bloom);
 
   const reduzido = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const estado = { cam: { x: 0, y: 0, s: 1 }, borda: 1000, pulso: -1, sujo: true, visivel: () => true, mouse: { x: 0, y: 0 }, inclina: { x: 0, y: 0 } };
+  const estado = { paleta: [0, 1], cam: { x: 0, y: 0, s: 1 }, borda: 1000, pulso: -1, sujo: true, visivel: () => true, mouse: { x: 0, y: 0 }, inclina: { x: 0, y: 0 } };
   const t0 = performance.now();
   let ultimo = 0, lentos = 0, claroAtual = -1;
 
@@ -576,6 +606,11 @@ function criar(canvas) {
     aplicarTema();
     const tempo = reduzido.matches ? 0 : (agora - t0) / 1000;
     uGas.uTempo.value = tempo;
+    // a paleta muda devagar, como o céu mudando de hora
+    const m = uGas.uMatiz.value, alvo = estado.paleta;
+    const dh = alvo[0] - m.x, ds = alvo[1] - m.y;
+    if (reduzido.matches) m.set(alvo[0], alvo[1]);      // sem animação: troca na hora
+    else if (Math.abs(dh) > 0.002 || Math.abs(ds) > 0.002) { m.x += dh * 0.08; m.y += ds * 0.08; }
 
     // a câmera: plano z=0 da cena = mundo da Nebulosa, pixel a pixel
     const { x, y, s } = estado.cam;
@@ -655,6 +690,12 @@ function criar(canvas) {
     pulso() { estado.pulso = performance.now(); estado.sujo = true; },
     quandoVisivel(fn) { estado.visivel = fn; },
     redesenhar() { estado.sujo = true; },
+    paletas: Object.keys(PALETAS),
+    matiz(giro, saturacao) { estado.paleta = [giro, saturacao]; estado.sujo = true; },
+    cores(nome) {
+      estado.paleta = PALETAS[nome] || PALETAS.crepusculo;
+      estado.sujo = true;
+    },
   };
 }
 
