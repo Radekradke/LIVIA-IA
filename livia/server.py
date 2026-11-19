@@ -862,6 +862,36 @@ async def apagar_livro(request: Request) -> Response:
     return JSONResponse({"ok": ok})
 
 
+async def falar_voz(request: Request) -> Response:
+    """Texto → mp3, em streaming. O primeiro pedaço é puxado ANTES de
+    responder: se a Microsoft recusar, volta 502 limpo e o navegador cai pra
+    voz do aparelho, em vez de receber um áudio que morre no meio."""
+    from . import voz
+
+    try:
+        dados = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        return JSONResponse({"error": "corpo inválido"}, status_code=400)
+    gerador = voz.falar(str(dados.get("texto") or ""), str(dados.get("voz") or "francisca"),
+                        int(dados.get("velocidade") or 4))
+    try:
+        primeiro = await gerador.__anext__()
+    except StopAsyncIteration:
+        return JSONResponse({"error": "sem áudio"}, status_code=502)
+    except voz.VozError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=502)
+
+    async def corpo() -> AsyncIterator[bytes]:
+        yield primeiro
+        try:
+            async for pedaco in gerador:
+                yield pedaco
+        except voz.VozError:
+            return  # o que já foi tocado, foi; o resto o navegador refaz
+
+    return StreamingResponse(corpo(), media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
+
+
 async def sono_estado(request: Request) -> Response:
     from . import sono
 
@@ -1100,6 +1130,7 @@ async def status(request: Request) -> Response:
             "semantic": config.SEMANTIC_MEMORY and embeddings.disponivel(),
             "candidatas": len(experiencia.candidatas()),
             "voz": bool(config.GROQ_API_KEY),
+            "voz_edge": __import__("livia.voz", fromlist=["x"]).fala_disponivel(),
             **context.stats(),
         }
     )
@@ -1577,6 +1608,7 @@ routes = [
           methods=["POST"]),
     *nebulosa_rotas.routes,
     Route("/api/voz", transcrever_voz, methods=["POST"]),
+    Route("/api/voz/falar", falar_voz, methods=["POST"]),
     Route("/api/sono", sono_estado),
     Route("/api/sono/{acao:str}", sono_decidir, methods=["POST"]),
     Route("/mcp", ROTA_MCP, methods=["GET", "POST", "DELETE"]),

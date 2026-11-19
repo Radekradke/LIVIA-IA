@@ -707,12 +707,19 @@ revisar. O áudio não é guardado em lugar nenhum. Na Nebulosa, o 🎙 da barra
 de ações transforma o que você falar direto numa faísca.
 
 **Ela falando.** O 🔊 em cada resposta lê em voz alta. Se você mandou a
-mensagem por voz, ela já responde falando. Duas vozes, trocadas no rodapé da
-barra lateral:
+mensagem por voz, ela já responde falando. A voz troca no rodapé da barra
+lateral (cada toque toca uma amostra):
 
-- **aparelho** (padrão): a voz pt-BR que o sistema já tem. Sem download.
-- **neural**: o Piper (voz `faber`), rodando 100% no navegador. Baixa uns 80 MB
-  na primeira vez e guarda. Se falhar, volta pra voz do aparelho sozinha.
+- **Francisca** (padrão) e **Thalita**: vozes neurais do Microsoft Edge, geradas
+  pelo servidor via [edge-tts](https://github.com/rany2/edge-tts). As mais
+  naturais em pt-BR e de graça — mas é acesso **não oficial**: pode parar sem
+  aviso, e o texto passa pela Microsoft. Se falhar, ela fala com a voz do
+  aparelho e avisa uma vez. `LIVIA_VOZ_EDGE=0` desliga.
+  Há relatos de a Microsoft barrar IP de datacenter; se a VM for barrada, o
+  caminho é rodar a voz num PC de casa, como o Ollama.
+- **aparelho**: a voz pt-BR que o sistema já tem. Sem download.
+- **neural (masc.)**: o Piper (voz `faber`, masculina), 100% no navegador.
+  Baixa uns 80 MB na primeira vez.
 
 O Kokoro, que é o modelo de voz da moda, ficou de fora de propósito: a versão
 de navegador dele só pronuncia inglês.
