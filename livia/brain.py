@@ -116,6 +116,11 @@ def _classificar(provedor: str, status: int, payload: str, modelo: str):
         )
     if status == 429:
         return ProvedorIndisponivel(f"{provedor}: cota/limite atingido", "cota")
+    if status == 413:
+        # "Pedido grande demais pro limite por minuto". Não é modelo errado
+        # nem chave ruim: o próximo pedido, menor, passa. Tratar como quebra
+        # permanente (como era) tirava a Groq do ar até reiniciar a Livia.
+        return ProvedorIndisponivel(f"{provedor}: pedido grande demais pro limite da conta", "cota")
     if status >= 500:
         return ProvedorIndisponivel(f"{provedor}: servidor fora ({status})", "servidor")
 
@@ -294,6 +299,37 @@ async def _gemini_structured(
 # --------------------------------------------------------------------------
 
 
+def _tokens(mensagens: list[dict[str, object]]) -> int:
+    """Estimativa folgada: português dá ~3,5 caracteres por token; uso 3
+    pra errar pra cima, porque errar pra baixo é levar 413."""
+    return sum(len(json.dumps(m, ensure_ascii=False)) for m in mensagens) // 3
+
+
+def caber(mensagens: list[dict[str, object]], teto: int) -> list[dict[str, object]]:
+    """Corta o pedido até caber em `teto` tokens.
+
+    Ordem do corte, do que menos dói pro que mais dói:
+      1. conversa antiga (das mais velhas pras mais novas), sempre deixando
+         a pergunta atual e começando por uma fala do André, pra não sobrar
+         resultado de ferramenta sem o pedido que o gerou;
+      2. o fim do prompt de sistema — o começo é a personalidade e as regras;
+         o fim são memórias e skills de menor prioridade.
+    """
+    if _tokens(mensagens) <= teto:
+        return mensagens
+    sistema = [m for m in mensagens if m.get("role") == "system"]
+    resto = [m for m in mensagens if m.get("role") != "system"]
+    while len(resto) > 1 and _tokens(sistema + resto) > teto:
+        resto = resto[1:]
+        while len(resto) > 1 and resto[0].get("role") != "user":
+            resto = resto[1:]
+    if sistema and _tokens(sistema + resto) > teto:
+        sobra = max(1200, (teto - _tokens(resto)) * 3 - 200)
+        texto = str(sistema[0].get("content") or "")
+        sistema = [{**sistema[0], "content": texto[:sobra] + "\n\n[contexto cortado pra caber no limite do provedor]"}]
+    return sistema + resto
+
+
 def _groq_messages(
     system_prompt: str, messages: Iterable[dict[str, object]]
 ) -> list[dict[str, object]]:
@@ -354,9 +390,12 @@ async def _openai_compativel_stream(
     Duplicar isso seria pedir para as duas implementações divergirem com o
     tempo, e a que ninguém olha é a que quebra.
     """
+    mensagens = _groq_messages(system_prompt, messages)
+    if provedor == "groq":
+        mensagens = caber(mensagens, config.GROQ_MAX_ENTRADA)
     corpo = {
         "model": modelo,
-        "messages": _groq_messages(system_prompt, messages),
+        "messages": mensagens,
         "temperature": temperature,
         "stream": True,
     }
@@ -425,18 +464,18 @@ async def _groq_structured(
 ) -> object | None:
     # A Groq segue o formato da OpenAI: JSON garantido, mas sem schema tipado.
     # Descrevemos o formato no prompt e validamos o que voltar.
+    formato = (f"\n\nResponda SOMENTE com JSON válido "
+               f"neste formato:\n{json.dumps(schema, ensure_ascii=False)}")
+    # Corta o contexto ANTES de pôr o formato: o corte come o fim do prompt
+    # de sistema, e o fim aqui é justamente a instrução do JSON.
+    base = caber([
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt[:config.GROQ_MAX_ENTRADA * 2]},
+    ], config.GROQ_MAX_ENTRADA - len(formato) // 3)
+    base[0] = {**base[0], "content": str(base[0]["content"]) + formato}
     corpo = {
         "model": config.GROQ_FAST_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    f"{system_prompt}\n\nResponda SOMENTE com JSON válido "
-                    f"neste formato:\n{json.dumps(schema, ensure_ascii=False)}"
-                ),
-            },
-            {"role": "user", "content": user_prompt},
-        ],
+        "messages": base,
         "temperature": temperature,
         "response_format": {"type": "json_object"},
     }
@@ -896,7 +935,7 @@ async def com_ferramentas(
 async def _groq_ferramentas(system_prompt, messages, catalogo):
     corpo = {
         "model": config.GROQ_MODEL,
-        "messages": _groq_messages(system_prompt, messages),
+        "messages": caber(_groq_messages(system_prompt, messages), config.GROQ_MAX_ENTRADA),
         "temperature": 0.4,
         "tools": [{"type": "function", "function": f} for f in catalogo],
         "tool_choice": "auto",
