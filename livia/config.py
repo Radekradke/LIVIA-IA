@@ -54,6 +54,11 @@ FAST_MODEL = os.getenv("LIVIA_FAST_MODEL", "gemini-3.5-flash-lite").strip()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 GROQ_MODEL = os.getenv("LIVIA_GROQ_MODEL", "openai/gpt-oss-120b").strip()
 GROQ_FAST_MODEL = os.getenv("LIVIA_GROQ_FAST_MODEL", "openai/gpt-oss-20b").strip()
+# O plano grátis da Groq limita TOKENS POR MINUTO (8 mil no gpt-oss), e um
+# pedido maior que isso é recusado inteiro (erro 413). Entrada + resposta
+# contam juntas, então o pedido é cortado pra caber neste teto, deixando o
+# resto pra resposta. Plano pago: aumente (ex.: 60000).
+GROQ_MAX_ENTRADA = _int_env("LIVIA_GROQ_MAX_ENTRADA", 5500)
 
 # Terceiro provedor: OpenRouter. Só texto, de propósito — ele escolhe entre
 # dezenas de modelos gratuitos e nem todos honram ferramentas ou saída
