@@ -53,3 +53,17 @@ def test_rota_de_voz(monkeypatch):
         r = c.post("/api/voz", content=b"\x00" * 5000, headers={"Content-Type": "audio/webm"})
         assert r.json() == {"texto": "oi livia"}
         assert c.post("/api/voz", content=b"").status_code == 400
+
+
+async def test_ollama_desligado_nao_prende_os_vetores(monkeypatch):
+    """PC desligado: a conexão desiste rápido em vez de esperar o timeout inteiro."""
+    import time
+
+    from livia import embeddings
+
+    monkeypatch.setattr(config, "OLLAMA_BASE_URL", "http://10.255.255.1:11434")  # não roteável
+    monkeypatch.setattr(config, "OLLAMA_TIMEOUT", 300.0)
+    inicio = time.monotonic()
+    with pytest.raises(Exception):
+        await embeddings._ollama(["oi"], embeddings.DOCUMENTO)
+    assert time.monotonic() - inicio < 12

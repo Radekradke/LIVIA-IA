@@ -682,6 +682,23 @@ rola de lado, e o microfone pede permissão na primeira vez (se negar sem
 querer: Ajustes › Safari › Microfone). A galáxia roda numa versão mais leve em
 celular.
 
+### Ollama em outro computador (o PC que fica ligado)
+
+A VM não aguenta rodar modelo, mas pode usar o Ollama de um PC pela rede do
+Tailscale. No `.env` da VM:
+
+```
+LIVIA_OLLAMA=1
+LIVIA_OLLAMA_BASE_URL=http://100.x.y.z:11434   # IP do PC no Tailscale
+LIVIA_EMBED_PROVIDER=gemini                     # vetores SEMPRE no Gemini
+```
+
+A última linha é a que importa. Vetor do Ollama e vetor do Gemini não se
+comparam; deixando no automático, cada vez que o PC desligasse e ligasse a
+memória inteira seria re-vetorizada no outro provedor. Fixando o Gemini pros
+vetores, o PC cuida só da conversa — e, desligado, a Livia desiste dele em
+5 segundos e responde pelo Groq.
+
 ## Voz
 
 **Falar com ela.** O microfone ao lado do "Enviar" grava, manda pro Whisper do
