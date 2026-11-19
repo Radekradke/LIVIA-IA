@@ -72,6 +72,8 @@ async def criar(request: Request) -> Response:
             fonte=str(dados.get("fonte") or ""),
             x=_num(dados.get("x")),
             y=_num(dados.get("y")),
+            # Só "voz" é aceito de fora: o resto da origem é da Livia decidir.
+            origem="voz" if dados.get("origem") == "voz" else "manual",
         )
     except nebulosa.NebulosaError as exc:
         return _erro(exc)

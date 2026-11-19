@@ -16,7 +16,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Livia">
-<link rel="stylesheet" href="/assets/nebulosa.css?v=8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<!-- Tela de abertura do app no iPhone (sem isto ela pisca branca ao abrir).
+     828x1792 = XR e 11; 1242x2688 = XS Max e 11 Pro Max. -->
+<link rel="apple-touch-startup-image" href="/icones/abertura-828x1792.png"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="/icones/abertura-1242x2688.png"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="stylesheet" href="/assets/nebulosa.css?v=9">
 <style>
 /* ══════════════════════════════════════════════════════════════════
    LIVIA — tema crepúsculo
@@ -454,6 +462,56 @@ body.sem-servidor #input { opacity: .5; }
 #send:active:not(:disabled) { transform: translateY(0); }
 #send:disabled { opacity: .32; cursor: default; box-shadow: none; }
 
+/* ---------- sono da memória ---------- */
+.sono-aviso {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 10px 8px 14px;
+  border-radius: 12px; font-size: 13px; color: var(--texto-suave);
+  background: linear-gradient(90deg, rgba(93,99,184,.16), rgba(93,99,184,.05));
+  border: 1px solid rgba(185,189,247,.22);
+}
+.sono-aviso[hidden] { display: none; }
+.sono-aviso #sonoTexto { flex: 1; min-width: 0; }
+.sono-aviso .lua-sono { color: #cfd2ff; font-size: 15px; }
+.sono-aviso button {
+  flex: none; padding: 4px 10px; border-radius: 8px; font-size: 12.5px; color: var(--texto-suave);
+  background: none; border: 1px solid var(--linha);
+}
+.sono-aviso button.sim { color: #fff; background: var(--gema); border-color: rgba(185,189,247,.4); }
+.sono-aviso button:hover { color: var(--creme); }
+
+/* ---------- voz ---------- */
+.mic {
+  flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+  color: var(--texto-suave); background: transparent; border: 1px solid var(--linha);
+  transition: color .16s, border-color .16s, background .16s;
+}
+.mic:hover { color: var(--creme); border-color: var(--linha-forte); }
+.mic svg { width: 19px; height: 19px; }
+.mic[data-fase="ouvindo"] {
+  color: #fff; border-color: #e0707f; background: rgba(224,112,127,.22);
+  animation: mic-pulso 1.4s ease-in-out infinite;
+}
+.mic[data-fase="pensando"] { opacity: .6; cursor: progress; }
+@keyframes mic-pulso { 0%,100% { box-shadow: 0 0 0 0 rgba(224,112,127,.45); } 50% { box-shadow: 0 0 0 9px rgba(224,112,127,0); } }
+@media (prefers-reduced-motion: reduce) { .mic[data-fase="ouvindo"] { animation: none; } }
+.msg .who .falar {
+  margin-left: 8px; padding: 0 6px; height: 20px; border-radius: 6px; font-size: 12px; line-height: 1;
+  color: var(--texto-fraco); background: none; border: 1px solid transparent; vertical-align: 1px;
+  opacity: .55; transition: opacity .16s, color .16s, border-color .16s;
+}
+.msg:hover .who .falar, .msg .who .falar:focus-visible, .msg .who .falar[data-fase]:not([data-fase=""]) { opacity: 1; }
+.msg .who .falar:hover { color: var(--creme); border-color: var(--linha); }
+.msg .who .falar[data-fase="falando"] { color: var(--brilho); border-color: var(--brilho); }
+.msg .who .falar[data-fase="carregando"] { color: var(--brilho); animation: mic-pulso 1.4s infinite; }
+@media (hover: none) { .msg .who .falar { opacity: .85; } }
+.voz-aviso {
+  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translate(-50%, 12px);
+  max-width: min(90vw, 440px); padding: 9px 14px; border-radius: 12px; z-index: 60;
+  background: var(--painel-alto); border: 1px solid var(--linha-forte); color: var(--texto);
+  font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.voz-aviso.visivel { opacity: 1; transform: translate(-50%, 0); }
+
 .hint { font-size: 11.5px; color: var(--texto-fraco); margin-top: 11px; padding-left: 6px; }
 .hint code { font-family: var(--mono); color: var(--texto-suave); }
 
@@ -651,6 +709,30 @@ body.sem-servidor #input { opacity: .5; }
   #panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 30;
            box-shadow: -14px 0 48px rgba(0,0,0,.6); }
 }
+
+/* ---------- iPhone / celular ----------
+   Instalada na tela de início, a Livia ocupa a tela toda (status bar
+   translúcida): o notch e a barrinha de "home" comem as bordas. As
+   env(safe-area-inset-*) devolvem esse espaço. */
+html, body { height: 100%; height: 100dvh; }
+#composer { padding-bottom: calc(26px + env(safe-area-inset-bottom)); }
+@media (max-width: 1080px) {
+  #panel { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+}
+@media (max-width: 640px) {
+  #main .wrap { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  #composer { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  #composer .hint { display: none; }
+  #send { padding: 10px 16px; }
+  .box { gap: 6px; }
+  .empty h2 { font-size: 30px; }
+}
+/* Safari do iPhone dá zoom sozinho em campo com letra menor que 16px — e
+   não desfaz. Em tela de toque, todo campo fica com 16px. */
+@media (hover: none) and (pointer: coarse) {
+  input, textarea, select { font-size: 16px !important; }
+  button { -webkit-tap-highlight-color: transparent; }
+}
 </style>
 </head>
 <body>
@@ -705,6 +787,7 @@ body.sem-servidor #input { opacity: .5; }
     <span>
       <button onclick="trocarTema()" id="btnTema" title="claro / escuro">claro</button>
       <button onclick="togglePanel()">painel</button>
+      <button onclick="trocarVoz()" id="btnVoz" title="Como a Livia fala: voz do aparelho ou voz neural (baixa ~80 MB uma vez)">voz: aparelho</button>
     </span>
   </div>
 </aside>
@@ -802,8 +885,19 @@ body.sem-servidor #input { opacity: .5; }
 
   <div id="composer">
     <div class="wrap">
+      <div class="sono-aviso" id="sonoAviso" hidden role="status">
+        <span class="lua-sono" aria-hidden="true">☾</span>
+        <span id="sonoTexto"></span>
+        <button type="button" id="sonoVer">ver</button>
+        <button type="button" id="sonoAplicar" class="sim">aplicar</button>
+        <button type="button" id="sonoDispensar" aria-label="agora não">×</button>
+      </div>
       <div class="box">
         <textarea id="input" rows="1" placeholder="Escreva aqui…"></textarea>
+        <button id="mic" class="mic" type="button" hidden aria-label="Falar em vez de digitar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
         <button id="send" onclick="enviar()">Enviar</button>
       </div>
       <div class="hint">Enter envia · Shift+Enter quebra linha · <code>/ajuda</code> lista os comandos</div>
@@ -953,11 +1047,60 @@ function addMensagem(quem, texto) {
   const div = document.createElement("div");
   div.className = "msg " + quem;
   div.innerHTML =
-    `<div class="who">${quem === "user" ? "Você" : escapar(nomeAssistente)}</div>` +
+    `<div class="who">${quem === "user" ? "Você" : escapar(nomeAssistente)}` +
+    (quem !== "user" && window.LiviaVoz?.temFala()
+      ? `<button class="falar" type="button" title="Ouvir" aria-label="Ouvir esta resposta">🔊</button>` : "") +
+    `</div>` +
     `<div class="body">${renderizar(texto)}</div>`;
+  const falar = div.querySelector(".falar");
+  if (falar) falar.onclick = () => LiviaVoz.falar(div.querySelector(".body").innerText, falar);
   $("messages").appendChild(div);
   descer();
   return div;
+}
+
+// A revisão que ela fez de madrugada, esperando você decidir.
+async function verSono() {
+  try {
+    const r = await (await fetch("/api/sono")).json();
+    if (!r.pendente) return;
+    const c = r.contagem || {};
+    const partes = [];
+    if (c.repetidas) partes.push(`${c.repetidas} memória${c.repetidas > 1 ? "s" : ""} repetida${c.repetidas > 1 ? "s" : ""} pra juntar`);
+    if (c.esquecidas) partes.push(`${c.esquecidas} esquecida${c.esquecidas > 1 ? "s" : ""} pra arquivar`);
+    if (c.licoes) partes.push(`${c.licoes} lição${c.licoes > 1 ? "ões" : ""} nova${c.licoes > 1 ? "s" : ""}`);
+    $("sonoTexto").textContent = `Enquanto você dormia, revisei a memória: ${partes.join(", ")}.`;
+    $("sonoAviso").hidden = false;
+    $("sonoVer").onclick = () => {
+      const b = addMensagem("assistant", r.texto);
+      b.classList.add("sono");
+    };
+    $("sonoAplicar").onclick = async () => {
+      $("sonoAplicar").disabled = true;
+      $("sonoTexto").textContent = "Juntando as repetidas…";
+      try {
+        const x = await (await fetch("/api/sono/aplicar", { method: "POST" })).json();
+        $("sonoTexto").textContent = `Pronto: ${x.fundidas} fundida(s), ${x.arquivadas} arquivada(s). Nada foi apagado.`;
+        setTimeout(() => { $("sonoAviso").hidden = true; }, 5000);
+        mostrarStats(await (await fetch("/api/status")).json());
+      } catch { $("sonoTexto").textContent = "Não consegui aplicar agora."; $("sonoAplicar").disabled = false; }
+    };
+    $("sonoDispensar").onclick = async () => {
+      $("sonoAviso").hidden = true;
+      fetch("/api/sono/dispensar", { method: "POST" }).catch(() => {});
+    };
+  } catch { /* enfeite */ }
+}
+
+function trocarVoz() {
+  if (!window.LiviaVoz) return;
+  const novo = LiviaVoz.motor() === "neural" ? "sistema" : "neural";
+  LiviaVoz.definirMotor(novo);
+  pintarBotaoVoz();
+}
+function pintarBotaoVoz() {
+  const b = $("btnVoz");
+  if (b && window.LiviaVoz) b.textContent = LiviaVoz.motor() === "neural" ? "voz: neural" : "voz: aparelho";
 }
 
 function descer() {
@@ -1133,6 +1276,12 @@ async function enviar() {
           carregarConversas();
           // Comandos como /ideia e /promover mexem no céu sem evento próprio.
           if (window.Nebulosa) Nebulosa.recarregar();
+          // Falou com ela? Ela responde falando. Digitou? Fica no texto.
+          if (window.LiviaVoz?.ultimaFoiVoz) {
+            LiviaVoz.ultimaFoiVoz = false;
+            const b = bolha.querySelector(".falar");
+            if (b) LiviaVoz.falar(corpo.innerText, b);
+          }
         } else if (evt.type === "error") {
           corpo.innerHTML = `<div class="error">${escapar(evt.message)}</div>`;
         }
@@ -1959,7 +2108,19 @@ async function registrarApp() {
 }
 
 /* ---------- início ---------- */
+// Microfone: o que você disser cai no campo, pra revisar antes de enviar.
+if (window.LiviaVoz) {
+  LiviaVoz.ligarMicrofone($("mic"), (texto) => {
+    const input = $("input");
+    input.value = (input.value.trim() ? input.value.trimEnd() + " " : "") + texto;
+    input.dispatchEvent(new Event("input"));
+    input.focus();
+  });
+  pintarBotaoVoz();
+}
+
 $("input").addEventListener("keydown", (e) => {
+  if (e.key.length === 1 && window.LiviaVoz) LiviaVoz.ultimaFoiVoz = false;
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); }
 });
 $("input").addEventListener("input", (e) => {
@@ -1991,6 +2152,8 @@ $("input").addEventListener("input", (e) => {
     aplicarIdentidade(s.name);
     mostrarStats(s);
     atualizarBadges();
+    if (s.voz && window.LiviaVoz?.temMicrofone()) $("mic").hidden = false;
+    verSono();
     if (!s.has_key) {
       // "sem chave" deixou de ser a única forma de estar sem provedor: com o
       // Ollama ligado a Livia funciona sem chave nenhuma, então o aviso
@@ -2012,10 +2175,11 @@ $("input").addEventListener("input", (e) => {
   $("input").focus();
 })();
 </script>
-<script src="/assets/galaxia.js?v=8"></script>
-<script src="/assets/nebulosa.js?v=8"></script>
+<script src="/assets/voz.js?v=9"></script>
+<script src="/assets/galaxia.js?v=9"></script>
+<script src="/assets/nebulosa.js?v=9"></script>
 <!-- A galáxia 3D (Three.js empacotado). Módulo: carrega depois e avisa a
      Nebulosa com o evento "cosmos-pronto". Ver web/cosmos/README.md. -->
-<script type="module" src="/assets/cosmos.js?v=8"></script>
+<script type="module" src="/assets/cosmos.js?v=9"></script>
 </body>
 </html>

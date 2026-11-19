@@ -32,7 +32,7 @@
  * chama respondWith, e o navegador faz o de sempre.
  */
 
-const VERSAO = "livia-v8";
+const VERSAO = "livia-v9";
 const CASCA = `${VERSAO}-casca`;
 const DADOS = `${VERSAO}-dados`;
 
@@ -47,6 +47,7 @@ const ARQUIVOS_DA_CASCA = [
   "/assets/nebulosa.css",
   "/assets/galaxia.js",
   "/assets/cosmos.js",
+  "/assets/voz.js",
 ];
 
 // GETs cujo conteúdo vale guardar para ler sem servidor. São leituras do que

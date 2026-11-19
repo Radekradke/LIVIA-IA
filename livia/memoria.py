@@ -644,7 +644,41 @@ async def guardar(
 DIAS_PARA_OBSOLETA = 180
 
 
-async def manutencao(*, aplicar: bool = False) -> dict[str, object]:
+async def fundir(antiga: Doc, nova: Doc, *, colecao: str = "memories") -> bool:
+    """Junta o texto de duas memórias quase iguais na mais nova.
+
+    Superar sozinho tinha um custo escondido: a antiga podia ter um detalhe
+    que a nova não tem ("usa Postgres" + "usa Postgres 16 na Neon"), e o
+    detalhe sumia do prompt. Aqui um modelo escreve uma versão que contém as
+    duas — e, se o modelo não responder, fica só o comportamento antigo
+    (a nova vale, a antiga é superada). Fusão nunca é condição pra faxina.
+    """
+    from . import brain
+
+    esquema = {"type": "object", "properties": {
+        "descricao": {"type": "string"}, "corpo": {"type": "string"},
+    }, "required": ["descricao"]}
+    sistema = (
+        "Você junta duas anotações da memória de longo prazo do André que dizem quase a mesma "
+        "coisa. Escreva UMA versão que preserve todo detalhe concreto das duas (nomes, números, "
+        "versões, datas). Se elas se contradisserem, a NOVA é a verdade atual. Português, "
+        "direto, sem inventar nada. 'descricao': uma ou duas frases; 'corpo': detalhes, se houver."
+    )
+    usuario = (f"ANTIGA ({antiga.name}):\n{antiga.description}\n{antiga.body}\n\n"
+               f"NOVA ({nova.name}):\n{nova.description}\n{nova.body}")
+    try:
+        r = await brain.structured(sistema, usuario[:12000], esquema)
+    except Exception as exc:  # fusão é bônus; a faxina segue sem ela
+        log.info("[memoria] fusão de %s em %s não rolou: %s", antiga.name, nova.name, exc)
+        return False
+    if not isinstance(r, dict) or not str(r.get("descricao") or "").strip():
+        return False
+    COLECOES[colecao].save(nova.name, str(r["descricao"]).strip(), str(r.get("corpo") or "").strip(),
+                           kind=nova.kind, extra={"merged_from": antiga.name})
+    return True
+
+
+async def manutencao(*, aplicar: bool = False, fundir_textos: bool = False) -> dict[str, object]:
     """Faxina da memória: duplicatas, conflitos, esquecidas.
 
     Roda por comando, não em thread de fundo. Uma tarefa periódica frágil que
@@ -658,7 +692,7 @@ async def manutencao(*, aplicar: bool = False) -> dict[str, object]:
 
     relatorio: dict[str, object] = {
         "duplicatas": [], "obsoletas": [], "conflitos": [],
-        "arquivadas": 0, "aplicado": aplicar,
+        "arquivadas": 0, "fundidas": 0, "aplicado": aplicar,
     }
 
     sincronizar("memories")
@@ -685,6 +719,8 @@ async def manutencao(*, aplicar: bool = False) -> dict[str, object]:
             if aplicar:
                 # A mais recente prevalece; a outra vira superada, não some.
                 antiga, nova = _mais_antiga(doc, achado.doc)
+                if fundir_textos and await fundir(antiga, nova):
+                    relatorio["fundidas"] = int(relatorio["fundidas"]) + 1
                 substituir(antiga.name, nova.name)
 
     limite = datetime.now(timezone.utc)
