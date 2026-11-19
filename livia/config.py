@@ -157,6 +157,13 @@ PASSWORD = os.getenv("LIVIA_PASSWORD", "").strip()
 # Gere com:  python -c "import secrets; print(secrets.token_urlsafe(32))"
 MCP_TOKEN = os.getenv("LIVIA_MCP_TOKEN", "").strip()
 
+# Voz que a Livia usa pra falar (Edge-TTS: as vozes neurais do Microsoft
+# Edge, de graça, sem chave). Acesso NÃO oficial: pode parar sem aviso, e o
+# texto passa pela Microsoft. Se falhar, o navegador usa a voz do aparelho.
+# LIVIA_VOZ_EDGE=0 desliga e deixa só as vozes do navegador.
+VOZ_EDGE = os.getenv("LIVIA_VOZ_EDGE", "1").strip() != "0"
+VOZES_EDGE = {"francisca": "pt-BR-FranciscaNeural", "thalita": "pt-BR-ThalitaMultilingualNeural"}
+
 # Sono da memória: de madrugada a Livia revisa a memória (repetidas,
 # esquecidas) e deixa um relatório esperando. NÃO aplica nada sozinha — você
 # aplica com um toque. LIVIA_SONO=0 desliga. Hora no fuso do Brasil.

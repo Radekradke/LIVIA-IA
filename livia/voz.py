@@ -82,3 +82,46 @@ async def transcrever(audio: bytes, tipo: str = "audio/webm") -> str:
     if not texto:
         raise VozError("Não entendi nada no áudio — tava mudo?")
     return texto
+
+
+# --------------------------------------------------------------------------
+# Texto → voz (Edge-TTS)
+# --------------------------------------------------------------------------
+
+LIMITE_FALA = 1500  # caracteres por pedido; o navegador manda frase a frase
+
+
+def fala_disponivel() -> bool:
+    if not config.VOZ_EDGE:
+        return False
+    try:
+        import edge_tts  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+async def falar(texto: str, voz: str = "francisca", velocidade: int = 4):
+    """Gera a fala e devolve os pedaços de mp3 conforme chegam.
+
+    Streaming de verdade: o primeiro áudio sai antes de a frase inteira
+    ficar pronta, então o navegador começa a tocar quase na hora.
+    """
+    if not fala_disponivel():
+        raise VozError("Voz Edge desligada ou não instalada.")
+    texto = (texto or "").strip()[:LIMITE_FALA]
+    if not texto:
+        raise VozError("Nada pra falar.")
+    import edge_tts
+
+    nome = config.VOZES_EDGE.get(voz, config.VOZES_EDGE["francisca"])
+    velocidade = max(-30, min(30, int(velocidade)))
+    comunicar = edge_tts.Communicate(texto, nome, rate=f"{velocidade:+d}%",
+                                     connect_timeout=8, receive_timeout=30)
+    try:
+        async for pedaco in comunicar.stream():
+            if pedaco.get("type") == "audio" and pedaco.get("data"):
+                yield pedaco["data"]
+    except Exception as exc:  # rede, bloqueio da Microsoft, mudança de protocolo
+        log.warning("[voz] edge-tts falhou: %s", exc.__class__.__name__)
+        raise VozError("A voz da Microsoft não respondeu.") from exc

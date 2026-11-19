@@ -146,6 +146,63 @@ void main() {
   gl_FragColor = vec4(cor, 1.0);
 }`;
 
+// ─────────────────────────────── fumaça ───────────────────────────────
+// Fiapos de poeira cósmica no plano do disco. Ruído "dobrado" (ridged) vira
+// filamento; um domain-warp lento faz os fiapos se enrolarem e escorrerem.
+// Rotação rígida, de propósito: rotação diferencial enrolaria o ruído cada
+// vez mais com o passar das horas (o mesmo problema que a galáxia teve).
+const FUMACA_VERT = /* glsl */ `
+varying vec2 vP;
+void main() {
+  vP = position.xy;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const FUMACA_FRAG = /* glsl */ `
+precision highp float;
+uniform float uTempo;
+uniform float uSemente;
+uniform float uForca;
+uniform float uClaro;
+varying vec2 vP;
+
+float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float ruido(vec2 p) {
+  vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5; mat2 g = mat2(0.8, 0.6, -0.6, 0.8);
+  for (int k = 0; k < OITAVAS; k++) { v += a * ruido(p); p = g * p * 2.07 + 11.3; a *= 0.5; }
+  return v;
+}
+mat2 giro(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
+
+void main() {
+  vec2 p = vP * 1.15;                  // r = 1 na borda da galáxia
+  float r = length(p);
+  float t = uTempo;
+  vec2 q = giro(t * 0.006 + uSemente) * p;
+  // um leve torcer espiral fixo, pra fumaça acompanhar os braços
+  q = giro(1.4 * log(r + 0.08)) * q;
+  q *= 2.4;
+  vec2 w = vec2(fbm(q + vec2(t * 0.014, uSemente)), fbm(q + vec2(5.2, 1.3) - t * 0.011));
+  float n = fbm(q * 1.35 + 2.4 * w + uSemente * 3.0);
+  float fio = pow(1.0 - abs(2.0 * n - 1.0), 7.0);       // filamentos finos
+  float veu = smoothstep(0.55, 0.95, n);                 // e um véu ralo em volta
+  // manchas grandes: a fumaça aparece em trechos, não cobre o disco todo
+  float mancha = smoothstep(0.42, 0.72, fbm(p * 1.6 + vec2(uSemente * 2.1, -t * 0.004)));
+  float dens = (fio * 0.8 + veu * 0.2) * mancha;
+  // some no miolo (o bojo já é claro) e antes da borda
+  float mascara = smoothstep(1.02, 0.35, r) * smoothstep(0.04, 0.22, r);
+
+  vec3 cor = mix(vec3(0.46, 0.42, 0.88), vec3(0.34, 0.62, 0.80), smoothstep(0.3, 0.8, w.x));
+  cor = mix(cor, vec3(0.78, 0.52, 0.76), smoothstep(0.62, 0.92, n) * 0.35);
+  float a = dens * mascara * uForca;
+  if (uClaro > 0.5) { cor = vec3(0.30, 0.32, 0.62); a *= 0.45; }
+  gl_FragColor = vec4(cor, a);
+}`;
+
 // ─────────────────────────────── partículas ───────────────────────────────
 
 const ESTRELA_FRAG = /* glsl */ `
@@ -448,6 +505,25 @@ function criar(canvas) {
   grupo.add(nuvens);
   const galaxia = new THREE.Points(gerarGalaxia(modesta ? 32000 : 70000), materialPontos(GALAXIA_VERT, uGal));
   grupo.add(galaxia);
+
+  // Fumaça: duas lâminas no plano do disco, um pouco acima e abaixo, com
+  // sementes diferentes — a diferença de altura dá profundidade quando a
+  // galáxia inclina. Em aparelho modesto, uma lâmina e menos oitavas.
+  const placa = new THREE.PlaneGeometry(2, 2);
+  const fumacas = (modesta ? [[0, 0.09, 1.3]] : [[0.035, 0.075, 1.3], [-0.03, 0.05, 7.9]]).map(([z, forca, semente]) => {
+    const m = new THREE.Mesh(placa, new THREE.ShaderMaterial({
+      vertexShader: FUMACA_VERT,
+      fragmentShader: FUMACA_FRAG.replace("OITAVAS", modesta ? "4" : "5"),
+      uniforms: { uTempo: uGas.uTempo, uClaro: uGas.uClaro, uSemente: { value: semente }, uForca: { value: forca } },
+      transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    }));
+    m.userData.z = z;
+    m.rotation.x = Math.PI / 2;          // o disco da galáxia é o plano xz
+    m.renderOrder = -1;
+    m.frustumCulled = false;
+    grupo.add(m);
+    return m;
+  });
   cena.add(grupo);
 
   const uPo = { uAlvo: { value: new THREE.Vector3() }, uDist: { value: 1000 } };
@@ -487,7 +563,7 @@ function criar(canvas) {
     if (claro === claroAtual) return;
     claroAtual = claro;
     uGas.uClaro.value = claro;
-    for (const p of [fundo, nuvens, galaxia, poeira]) {
+    for (const p of [fundo, nuvens, galaxia, poeira, ...fumacas]) {
       p.material.blending = claro ? THREE.NormalBlending : THREE.AdditiveBlending;
       p.material.needsUpdate = true;
     }
@@ -526,6 +602,11 @@ function criar(canvas) {
     uGas.uCam.value.set(x, y, s);
     uGas.uBorda.value = estado.borda;
     uGal.uBorda.value = estado.borda * 1.5;
+    for (const f of fumacas) {
+      const raio = estado.borda * 1.5;
+      f.scale.set(raio, raio, 1);
+      f.position.y = f.userData.z * raio;  // um pouco acima/abaixo do disco
+    }
     uPo.uAlvo.value.set(alvoX, alvoY, 0);
     uPo.uDist.value = dist;
 

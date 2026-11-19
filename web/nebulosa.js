@@ -136,7 +136,13 @@
             <input type="range" id="opacGalRange" min="0" max="100" step="5" aria-label="Opacidade da galáxia de fundo">
             <b id="opacGalVal"></b>
           </div>
-          <button id="opacGalBtn" title="Opacidade da galáxia de fundo" aria-expanded="false">◐</button>
+          <button id="opacGalBtn" class="opac-btn" title="Transparência da galáxia de fundo" aria-expanded="false" aria-label="Transparência da galáxia de fundo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+              <ellipse cx="12" cy="12" rx="9.5" ry="4.2" transform="rotate(-20 12 12)"/>
+              <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/>
+              <path d="M5.5 16.5c2.2-.6 3.6-1.8 4.4-3.6M18.5 7.5c-2.2.6-3.6 1.8-4.4 3.6" opacity=".7"/>
+            </svg><span>galáxia</span>
+          </button>
           <button data-zoom="-1" title="afastar">−</button>
           <button data-zoom="0" title="enquadrar tudo">◎</button>
           <button data-zoom="1" title="aproximar">+</button>
@@ -1615,6 +1621,7 @@
         <span class="chip">${GLIFO[i.estagio]} ${esc(i.estagio_nome)}</span>
         ${i.origem && i.origem.startsWith("livia") ? `<span class="chip livia">${i.origem === "livia:ponte" ? "nó-ponte" : "veio da conversa"}</span>` : ""}
         <button class="neb-btn" id="gvPino" title="Ancorada não se move na gravidade e puxa as parecidas">${i.ancorada ? "📌 ancorada" : "ancorar"}</button>
+        <button class="x lixeira" id="gvLixo" title="apagar esta ideia (Delete)" aria-label="Apagar esta ideia">🗑</button>
         <button class="x" id="gvFechar" title="fechar (Esc)">×</button>
       </div>
       <div class="gaveta-corpo">
@@ -1748,6 +1755,7 @@
       aviso(`Clique na ideia que tem a ver com #${i.id}.`, { rotulo: "cancelar", fazer: () => { N.ligarDe = null; ceu.style.cursor = ""; } });
     };
     g("#gvApagar").onclick = () => apagarIdeia(i.id, false);
+    g("#gvLixo").onclick = () => apagarIdeia(i.id, false);
     g("#gvConversar").onclick = () => falarComLivia(`Sobre a ideia #${i.id} «${i.titulo}»: `, false);
     if (g("#gvEntrevista")) g("#gvEntrevista").onclick = () => falarComLivia(
       `Me entrevista pra levar a ideia #${i.id} «${i.titulo}» para ${nomeEstagio(destino)}. ` +
@@ -1990,6 +1998,11 @@
     if (digitando || e.metaKey || e.altKey) return;
     if (e.ctrlKey && e.key.toLowerCase() === "z" && N.vista === "ceu") { e.preventDefault(); desfazer(); return; }
     if (e.ctrlKey) return;
+    // Delete (ou Backspace no Mac) apaga a ideia aberta na gaveta — com a
+    // mesma confirmação do botão, porque apagar não tem volta.
+    if ((e.key === "Delete" || e.key === "Backspace") && N.sel && gaveta.classList.contains("aberta")) {
+      e.preventDefault(); apagarIdeia(N.sel, false); return;
+    }
     if (e.key === "n" || e.key === "N") { e.preventDefault(); rascunhoRapido(centroTela()); }
     else if (e.key === "g" || e.key === "G") { e.preventDefault(); gravidade(); }
   });

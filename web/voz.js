@@ -1,7 +1,11 @@
-/* Voz da Livia: ouvir (microfone → Whisper no Groq) e falar (voz do aparelho
- * ou voz neural Piper rodando no próprio navegador).
+/* Voz da Livia: ouvir (microfone → Whisper no Groq) e falar.
  *
- * Por que dois motores pra falar:
+ * Motores pra falar, na ordem em que ela tenta:
+ *  - "francisca" / "thalita" (padrão): vozes neurais do Microsoft Edge,
+ *    geradas pelo servidor da Livia (Edge-TTS). As mais naturais em pt-BR,
+ *    de graça — mas é acesso não oficial: se falhar, cai pra voz do aparelho.
+ *
+ * E os dois que rodam no próprio navegador:
  *  - "sistema" é a voz pt-BR que o aparelho já tem (no iPhone, a Luciana).
  *    Zero download, funciona em qualquer coisa, inclusive iPhone antigo.
  *  - "neural" é o Piper (voz pt_BR "faber"), rodando 100% aqui: o texto vira
@@ -31,8 +35,13 @@
   const temMicrofone = () => Boolean(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
   const temFala = () => "speechSynthesis" in window;
 
+  const MOTORES = ["francisca", "thalita", "sistema", "neural"];
   function motor() {
-    try { return localStorage.getItem(CHAVE_MOTOR) || "sistema"; } catch { return "sistema"; }
+    let m = "francisca";
+    try { m = localStorage.getItem(CHAVE_MOTOR) || "francisca"; } catch { /* modo privado */ }
+    if (!MOTORES.includes(m)) m = "francisca";
+    if ((m === "francisca" || m === "thalita") && window.LiviaVoz && window.LiviaVoz.edgeDisponivel === false) m = "sistema";
+    return m;
   }
   function definirMotor(m) {
     try { localStorage.setItem(CHAVE_MOTOR, m); } catch { /* modo privado */ }
@@ -105,6 +114,7 @@
       e.preventDefault();
       if (ocupado) return;
       if (!estado.ouvindo) {
+        destravar();
         try { await comecarAOuvir(); pintar("ouvindo"); }
         catch (err) {
           pintar("");
@@ -219,10 +229,71 @@
     aoAcabar();
   }
 
+  // Um tocador só, destravado num toque do André e reaproveitado: o Safari do
+  // iPhone barra play() que não nasce de um gesto, e o áudio da Edge chega
+  // depois de uma ida à rede — quando o "gesto" já passou.
+  const SILENCIO = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+  let tocador = null;
+  function destravar() {
+    if (!tocador) tocador = new Audio();
+    if (tocador.dataset?.destravado) return;
+    try {
+      tocador.src = SILENCIO;
+      const p = tocador.play();
+      if (p && p.then) p.then(() => { tocador.dataset.destravado = "1"; }).catch(() => {});
+    } catch { /* sem áudio aqui */ }
+  }
+
+  function tocar(blob) {
+    return new Promise((resolve) => {
+      if (!tocador) tocador = new Audio();
+      const url = URL.createObjectURL(blob);
+      tocador.onended = tocador.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+      tocador.src = url;
+      estado.audio = tocador;
+      tocador.play().catch(() => resolve());
+    });
+  }
+
+  async function sintetizarEdge(texto, voz) {
+    const r = await fetch("/api/voz/falar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texto, voz }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `voz ${r.status}`);
+    const blob = await r.blob();
+    if (!blob.size) throw new Error("áudio vazio");
+    return blob;
+  }
+
+  // Busca a frase seguinte enquanto a atual toca. Se a Microsoft falhar no
+  // meio, o resto sai na voz do aparelho — a resposta não fica pela metade.
+  async function falarEdge(partes, voz, aoAcabar) {
+    let proximo = sintetizarEdge(partes[0], voz);
+    for (let i = 0; i < partes.length; i++) {
+      if (estado.cancelado) break;
+      let blob;
+      try { blob = await proximo; }
+      catch (err) {
+        if (i === 0) throw err;
+        if (temFala()) { falarSistema(partes.slice(i), aoAcabar); return; }
+        break;
+      }
+      if (i + 1 < partes.length) { proximo = sintetizarEdge(partes[i + 1], voz); proximo.catch(() => {}); }
+      if (estado.cancelado) break;
+      await tocar(blob);
+    }
+    aoAcabar();
+  }
+
   function pararDeFalar() {
     estado.cancelado = true;
     if (temFala()) speechSynthesis.cancel();
-    if (estado.audio) { estado.audio.pause(); estado.audio = null; }
+    if (estado.audio) {
+      estado.audio.pause();
+      if (estado.audio === tocador && tocador.onended) tocador.onended();  // solta quem esperava o fim
+      estado.audio = null;
+    }
     if (estado.falando) { estado.falando.dataset.fase = ""; estado.falando = null; }
   }
 
@@ -237,7 +308,25 @@
     if (botao) botao.dataset.fase = "falando";
     const fim = () => { if (estado.falando === botao) { if (botao) botao.dataset.fase = ""; estado.falando = null; } };
 
-    if (motor() === "neural") {
+    const m = motor();
+    if (m === "francisca" || m === "thalita") {
+      destravar();
+      try {
+        if (botao) botao.dataset.fase = "carregando";
+        await falarEdge(partes, m, fim);
+        return;
+      } catch (err) {
+        console.warn("[voz] Edge falhou, usando a do aparelho:", err);
+        if (!estado.avisouEdge) { avisar("A voz da Microsoft não respondeu agora — usei a voz do aparelho."); estado.avisouEdge = true; }
+        if (estado.cancelado) return;
+        if (botao) botao.dataset.fase = "falando";
+      }
+      if (!temFala()) { fim(); return; }
+      falarSistema(partes, fim);
+      return;
+    }
+
+    if (m === "neural") {
       try {
         if (botao) botao.dataset.fase = "carregando";
         await falarNeural(partes, fim, (pct) => { if (botao) botao.title = `Baixando a voz… ${pct}%`; });
@@ -256,7 +345,8 @@
   // ───────────────────────────── utilidades ─────────────────────────────
 
   function avisar(texto) {
-    if (window.Nebulosa?.aviso) { window.Nebulosa.aviso(texto); return; }
+    // O balão da Nebulosa só serve quando o céu está à vista; no chat, o nosso.
+    if (window.Nebulosa?.aviso && document.body.classList.contains("modo-nebulosa")) { window.Nebulosa.aviso(texto); return; }
     let el = document.getElementById("vozAviso");
     if (!el) {
       el = document.createElement("div");
@@ -273,7 +363,7 @@
 
   window.LiviaVoz = {
     temMicrofone, temFala, ligarMicrofone, falar, pararDeFalar,
-    motor, definirMotor,
+    motor, definirMotor, motores: MOTORES, edgeDisponivel: undefined,
     get ultimaFoiVoz() { return estado.ultimaFoiVoz; },
     set ultimaFoiVoz(v) { estado.ultimaFoiVoz = Boolean(v); },
     _textoFalavel: textoFalavel, _frases: frases,

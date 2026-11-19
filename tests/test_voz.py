@@ -67,3 +67,57 @@ async def test_ollama_desligado_nao_prende_os_vetores(monkeypatch):
     with pytest.raises(Exception):
         await embeddings._ollama(["oi"], embeddings.DOCUMENTO)
     assert time.monotonic() - inicio < 12
+
+
+# ── texto → voz (Edge-TTS, simulado) ──────────────────────────────────────
+
+
+class _EdgeFalso:
+    pedidos: list = []
+    quebrar = False
+
+    def __init__(self, texto, voz, rate="+0%", **kw):
+        _EdgeFalso.pedidos.append((texto, voz, rate))
+
+    async def stream(self):
+        if _EdgeFalso.quebrar:
+            raise ConnectionError("403 da Microsoft")
+        yield {"type": "WordBoundary"}
+        yield {"type": "audio", "data": b"ID3mp3-1"}
+        yield {"type": "audio", "data": b"mp3-2"}
+
+
+@pytest.fixture
+def edge(monkeypatch):
+    import sys
+    import types as tipos
+
+    falso = tipos.ModuleType("edge_tts")
+    falso.Communicate = _EdgeFalso
+    monkeypatch.setitem(sys.modules, "edge_tts", falso)
+    monkeypatch.setattr(config, "VOZ_EDGE", True)
+    _EdgeFalso.pedidos, _EdgeFalso.quebrar = [], False
+    return _EdgeFalso
+
+
+async def test_falar_usa_a_voz_escolhida_e_so_devolve_audio(edge):
+    pedacos = [p async for p in voz.falar("Oi André", "thalita", 4)]
+    assert pedacos == [b"ID3mp3-1", b"mp3-2"]
+    assert edge.pedidos == [("Oi André", "pt-BR-ThalitaMultilingualNeural", "+4%")]
+
+
+async def test_voz_desconhecida_cai_na_francisca(edge):
+    [p async for p in voz.falar("oi", "inventada")]
+    assert edge.pedidos[0][1] == "pt-BR-FranciscaNeural"
+
+
+def test_rota_falar_entrega_mp3_ou_502_limpo(edge):
+    with TestClient(app, base_url="https://testserver") as c:
+        assert c.post("/api/entrar", json={"senha": config.PASSWORD}).status_code == 200
+        r = c.post("/api/voz/falar", json={"texto": "oi", "voz": "francisca"})
+        assert r.status_code == 200 and r.headers["content-type"] == "audio/mpeg"
+        assert r.content == b"ID3mp3-1mp3-2"
+        edge.quebrar = True                           # Microsoft bloqueou o IP
+        r = c.post("/api/voz/falar", json={"texto": "oi"})
+        assert r.status_code == 502                   # o navegador cai pra voz do aparelho
+        assert c.get("/api/status").json()["voz_edge"] is True
