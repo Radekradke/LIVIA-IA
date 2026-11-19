@@ -32,6 +32,9 @@ from . import (
     knowledge_router, learner, memoria, nebulosa, persona, router, saude, web,
 )
 from . import nebulosa_rotas
+from .mcp_livia import RotaMCP
+
+ROTA_MCP = RotaMCP()
 from .store import COLECOES, memory, skills
 
 log = logging.getLogger("livia.server")
@@ -49,6 +52,7 @@ AJUDA = """\
 - `/licoes` — o que ela concluiu sozinha a partir das experiências.
 - `/porque` — por que ela lembrou do que lembrou na última resposta.
 - `/manutencao-memoria` — faxina: duplicatas, conflitos, memória esquecida.
+- `/sono` — a revisão da memória que ela faz de madrugada (`/sono aplicar` junta as repetidas).
 - `/ajuda` — mostra isto.
 
 {nebulosa}
@@ -188,6 +192,19 @@ async def _handle_command(text: str, conversa: int = 0) -> str | None:
 
     if command == "/porque":
         return _explicar_ultima(conversa)
+
+    if command == "/sono":
+        from . import sono
+
+        arg = argument.lower().strip()
+        if arg in ("aplicar", "aplica", "sim", "vai"):
+            r = (await sono.aplicar())["resultado"]
+            return (f"🌙 Pronto: {r['fundidas']} par(es) fundido(s) num texto só, "
+                    f"{r['arquivadas']} memória(s) esquecida(s) arquivada(s). Nada foi apagado.")
+        if arg in ("dispensar", "nao", "não", "depois"):
+            sono.dispensar()
+            return "Beleza, deixei a memória como estava."
+        return sono.texto(sono.pendente() or await sono.revisar())
 
     if command in ("/manutencao-memoria", "/manutencao"):
         aplicar = argument.lower() in ("aplicar", "aplica", "sim", "vai")
@@ -845,6 +862,41 @@ async def apagar_livro(request: Request) -> Response:
     return JSONResponse({"ok": ok})
 
 
+async def sono_estado(request: Request) -> Response:
+    from . import sono
+
+    dados = sono.pendente()
+    return JSONResponse({"pendente": bool(dados), "contagem": (dados or {}).get("contagem"),
+                         "quando": (dados or {}).get("quando"),
+                         "texto": sono.texto(dados) if dados else ""})
+
+
+async def sono_decidir(request: Request) -> Response:
+    from . import sono
+
+    acao = request.path_params["acao"]
+    if acao == "aplicar":
+        return JSONResponse((await sono.aplicar())["resultado"])
+    if acao == "dispensar":
+        sono.dispensar()
+        return JSONResponse({"ok": True})
+    if acao == "revisar":
+        dados = await sono.revisar()
+        return JSONResponse({"contagem": dados["contagem"], "texto": sono.texto(dados)})
+    return JSONResponse({"error": "ação desconhecida"}, status_code=404)
+
+
+async def transcrever_voz(request: Request) -> Response:
+    """Áudio do microfone (corpo cru) → texto. Não guarda o áudio."""
+    from . import voz
+
+    try:
+        texto = await voz.transcrever(await request.body(), request.headers.get("content-type", ""))
+    except voz.VozError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return JSONResponse({"texto": texto})
+
+
 async def enviar_livro(request: Request) -> Response:
     """Recebe o arquivo e relata o progresso enquanto processa.
 
@@ -1047,6 +1099,7 @@ async def status(request: Request) -> Response:
             "local_only": config.LOCAL_ONLY,
             "semantic": config.SEMANTIC_MEMORY and embeddings.disponivel(),
             "candidatas": len(experiencia.candidatas()),
+            "voz": bool(config.GROQ_API_KEY),
             **context.stats(),
         }
     )
@@ -1063,6 +1116,7 @@ _ASSETS = {
     "nebulosa.css": "text/css",
     "galaxia.js": "application/javascript",
     "cosmos.js": "application/javascript",
+    "voz.js": "application/javascript",
 }
 
 
@@ -1160,6 +1214,8 @@ async def icone(request: Request) -> Response:
     """
     permitidos = {
         "livia.svg": "image/svg+xml",
+        "abertura-828x1792.png": "image/png",
+        "abertura-1242x2688.png": "image/png",
         "icone-192.png": "image/png",
         "icone-512.png": "image/png",
         "icone-192-mask.png": "image/png",
@@ -1377,7 +1433,9 @@ LIVRES = {"/entrar", "/api/entrar", "/saude", "/manifest.webmanifest", "/sw.js"}
 
 
 def _livre(caminho: str) -> bool:
-    return caminho in LIVRES or caminho.startswith("/icones/")
+    # /mcp tem trava própria (token Bearer, conferido em RotaMCP): um cliente
+    # MCP não tem cookie de sessão, então a tela de senha não serve pra ele.
+    return caminho in LIVRES or caminho.startswith("/icones/") or caminho == "/mcp"
 
 
 _LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
@@ -1518,6 +1576,10 @@ routes = [
     Route("/api/conhecimento/{slug:str}/reconstruir", knowledge_reconstruir,
           methods=["POST"]),
     *nebulosa_rotas.routes,
+    Route("/api/voz", transcrever_voz, methods=["POST"]),
+    Route("/api/sono", sono_estado),
+    Route("/api/sono/{acao:str}", sono_decidir, methods=["POST"]),
+    Route("/mcp", ROTA_MCP, methods=["GET", "POST", "DELETE"]),
 ]
 
 @asynccontextmanager
@@ -1543,7 +1605,19 @@ async def lifespan(_app: Starlette) -> AsyncIterator[None]:
     except Exception:
         pass
 
-    yield
+    # A revisão da madrugada. Só analisa; aplicar é com o André.
+    tarefa_sono = None
+    if config.SONO_ENABLED:
+        from . import sono
+
+        tarefa_sono = asyncio.create_task(sono.ciclo())
+
+    try:
+        async with ROTA_MCP.vida():
+            yield
+    finally:
+        if tarefa_sono:
+            tarefa_sono.cancel()
 
 
 app = Starlette(

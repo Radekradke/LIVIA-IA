@@ -800,3 +800,38 @@ body:not(.modo-lado) .divisor { display: none; }
 .opac-galaxia input { width: 110px; accent-color: var(--brilho); }
 .opac-galaxia b { min-width: 34px; text-align: right; font-weight: 500; color: var(--texto-suave); }
 #opacGalBtn[aria-expanded="true"] { color: var(--creme); border-color: var(--brilho); }
+
+/* Faísca por voz */
+.neb-btn.mic-faisca[data-fase="ouvindo"] { color: #fff; border-color: #e0707f; background: rgba(224,112,127,.22); }
+.neb-btn.mic-faisca[hidden] { display: none; }
+
+
+/* ─────────────── celular (iPhone XR = 414 pontos) ───────────────
+   Fica no FIM do arquivo de propósito: a regra de 1080px lá de cima perdia
+   para a .neb-topo declarada depois dela, e o título ia parar embaixo da
+   barra flutuante Conversa | Nebulosa. */
+@media (max-width: 1080px) {
+  .neb-topo { padding-top: calc(58px + env(safe-area-inset-top)); }
+  .ceu-zoom { bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .gaveta-corpo { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 640px) {
+  .neb-topo { gap: 8px 10px; padding-left: 12px; padding-right: 12px; padding-bottom: 8px; }
+  .neb-marca h2 { font-size: 18px; }
+  .neb-marca small { display: none; }
+  .neb-vistas { margin-left: auto; }
+  .neb-vistas button { padding: 6px 8px; }
+  /* As ações viram uma faixa que rola de lado, em vez de vazar da tela. */
+  .neb-acoes {
+    width: 100%; margin-left: 0; overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+  }
+  .neb-acoes::-webkit-scrollbar { display: none; }
+  .neb-acoes > * { flex: none; }
+  .neb-btn { padding: 8px 12px; }
+  .trilha { display: grid; grid-template-columns: 1fr 1fr; }
+  .gaveta { width: 100%; }
+  .opac-galaxia input { width: 80px; }
+  .livia-sugere { top: 8px; }
+}
+.trilha > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

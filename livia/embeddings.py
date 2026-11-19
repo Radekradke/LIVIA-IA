@@ -146,7 +146,12 @@ async def _ollama(textos: list[str], tarefa: str) -> list[list[float]]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(config.OLLAMA_TIMEOUT)) as c:
+        # Conectar tem prazo curto; gerar, não. Com o Ollama noutra máquina
+        # (o PC, via Tailscale) e ela desligada, o pacote some no ar e a
+        # conexão só desistiria no timeout inteiro — minutos por mensagem
+        # antes de cair pro Gemini.
+        async with httpx.AsyncClient(timeout=httpx.Timeout(
+                config.OLLAMA_TIMEOUT, connect=5.0, pool=5.0)) as c:
             resposta = await c.post(url, json=corpo)
             if resposta.status_code == 404 and not _fala_de_modelo(resposta.text):
                 # 404 aqui é ambíguo: pode ser "esta rota não existe nesta

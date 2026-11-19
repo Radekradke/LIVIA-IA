@@ -323,6 +323,7 @@
         <button class="neb-btn icone ${N.arquivadas ? "ligado" : ""}" id="nbArq" title="${N.arquivadas ? "esconder" : "mostrar"} as arquivadas">◌</button>
         <button class="neb-btn icone" id="nbDesfazer" title="Desfazer o último pulso de gravidade (Ctrl+Z)">↶</button>
         <button class="neb-btn" id="nbSistema" title="Novo sistema solar: uma categoria para as ideias orbitarem">☉ Sistema</button>
+        <button class="neb-btn mic-faisca" id="nbVoz" hidden title="Faísca por voz: toque, fale a ideia, toque de novo">🎙</button>
         <button class="neb-btn" id="nbNova" title="Nova faísca no centro (N)">＋ Faísca</button>
         <button class="neb-btn gema ${N.fisica ? "puxando" : ""}" id="nbGrav">Gravidade <kbd>G</kbd></button>`;
       $n("#nbIntensidade").oninput = (e) => {
@@ -333,6 +334,28 @@
       $n("#nbDesfazer").onclick = desfazer;
       $n("#nbNova").onclick = () => rascunhoRapido(centroTela());
       $n("#nbSistema").onclick = novoSistema;
+      // Faísca por voz: o que você falar vira ideia direto no centro do céu.
+      // É captura, não redação — editar depois é um clique.
+      if (window.LiviaVoz?.temMicrofone()) {
+        fetch("/api/status").then((r) => r.json()).then((st) => {
+          if (!st.voz) return;
+          const b = $n("#nbVoz");
+          b.hidden = false;
+          LiviaVoz.ligarMicrofone(b, async (texto) => {
+            LiviaVoz.ultimaFoiVoz = false;   // aqui é captura, não conversa
+            const c = centroTela();
+            try {
+              const { ideia } = await api("/api/nebulosa/ideias", {
+                method: "POST", body: { conteudo: texto, x: Math.round(c.x), y: Math.round(c.y), origem: "voz" },
+              });
+              N.pos.set(ideia.id, { x: c.x, y: c.y, vx: 0, vy: 0 });
+              await recarregar();
+              pulsar([ideia.id]);
+              aviso(`🎙 Faísca <b>#${ideia.id}</b> anotada: “${esc(texto.slice(0, 80))}${texto.length > 80 ? "…" : ""}”`);
+            } catch (err) { falha(err); }
+          }, { aoMudar: (fase) => { b.textContent = fase === "ouvindo" ? "● ouvindo" : fase === "pensando" ? "…" : "🎙"; } });
+        }).catch(() => {});
+      }
       $n("#nbGrav").onclick = gravidade;
       if (ponte) $n("#nbPonte").onclick = criarPonte;
     } else if (N.vista === "esteira") {
@@ -799,7 +822,7 @@
   let gesto = null;
 
   ceu.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || pinca) return;   // segundo dedo: quem manda é a pinça
     const estrela = e.target.closest(".astro");
     const constel = e.target.closest(".constelacao");
     const sol = e.target.closest(".sol, .sol-nome");
@@ -821,6 +844,46 @@
       ceu.classList.add("panning");
     }
   });
+
+  // Pinça com dois dedos (celular). Acompanha os toques por fora dos outros
+  // gestos: quando o segundo dedo encosta, o arrasto de um dedo é abandonado
+  // e a câmera passa a seguir a distância e o ponto médio dos dois.
+  const toques = new Map();
+  let pinca = null;
+  const medio = () => {
+    const [a, b] = [...toques.values()];
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 };
+  };
+  ceu.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") return;
+    toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (toques.size === 2) {
+      if (gesto && gesto.tipo === "estrela") {
+        const p = N.pos.get(gesto.id);
+        if (p) p.arrastando = false;
+        gesto.el?.classList.remove("arrastando");
+      }
+      gesto = null;
+      marcarAlvo(null);
+      pinca = medio();
+    }
+  }, true);
+  ceu.addEventListener("pointermove", (e) => {
+    if (!toques.has(e.pointerId)) return;
+    toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!pinca || toques.size !== 2) return;
+    const agora = medio();
+    N.cam.x += agora.x - pinca.x;
+    N.cam.y += agora.y - pinca.y;
+    zoomEm(agora.d / pinca.d, agora.x, agora.y);
+    pinca = agora;
+  }, true);
+  const soltarToque = (e) => {
+    toques.delete(e.pointerId);
+    if (toques.size < 2) pinca = null;
+  };
+  ceu.addEventListener("pointerup", soltarToque, true);
+  ceu.addEventListener("pointercancel", soltarToque, true);
 
   ceu.addEventListener("pointermove", (e) => {
     if (!gesto) return;
@@ -1941,7 +2004,7 @@
 
   // ───────────────────────── início ─────────────────────────
 
-  window.Nebulosa = { evento, recarregar, abrir: mostrar, modo, gravidade };
+  window.Nebulosa = { evento, recarregar, abrir: mostrar, modo, gravidade, aviso: (t) => aviso(esc(t)) };
 
   const inicial = localStorage.getItem("livia-modo") || (window.innerWidth >= 1280 ? "lado" : "conversa");
   centrar();

@@ -453,9 +453,24 @@ Ele **só relata**. Para ela mexer de verdade:
 /manutencao-memoria aplicar
 ```
 
-Não roda em thread de fundo de propósito: uma tarefa periódica frágil que
+Não aplica em thread de fundo de propósito: uma tarefa periódica frágil que
 reescreve memória sem ninguém olhando é o tipo de coisa que, quando erra,
 ninguém descobre a tempo.
+
+### O sono da memória
+
+De madrugada (03:30, horário de Brasília) ela faz essa mesma revisão **só
+olhando**, e de manhã aparece uma faixa em cima do campo de mensagem:
+*"Enquanto você dormia, revisei a memória: 2 repetidas pra juntar, 1
+esquecida pra arquivar"*. Você toca em **aplicar** ou dispensa.
+
+Ao aplicar, as memórias repetidas são **fundidas**: um modelo escreve uma
+versão que guarda o detalhe das duas ("usa Postgres" + "Postgres 16 na Neon"
+→ uma memória só, com os dois). Sem modelo disponível, cai no comportamento
+antigo: a mais nova vale e a antiga fica como superada. Nada é apagado.
+
+`/sono` mostra a revisão (ou faz uma na hora), `/sono aplicar` aplica.
+Desliga com `LIVIA_SONO=0`; a hora muda com `LIVIA_SONO_HORA=04:00`.
 
 ### Por que você lembrou disso?
 
@@ -568,6 +583,7 @@ significado, e com o mesmo cache por hash da memória.
 | `/promover <nº>` | Sobe a ideia, ou diz o que falta responder |
 | `/padroes` | O que o seu funil revela sobre o seu jeito de tocar ideia |
 | `/sistemas` | As categorias (sistemas solares) e as ideias que orbitam cada uma |
+| `/sono` | A revisão da memória feita de madrugada (`/sono aplicar` junta as repetidas) |
 | `/ajuda` | Mostra os comandos |
 
 ### Sistemas solares
@@ -651,6 +667,82 @@ arquivo binário na única cópia da memória de alguém.
 Abra a Livia no Chrome ou Edge e clique no ícone de instalar na barra de
 endereço. Ela vira um aplicativo de janela própria, com ícone na barra de
 tarefas — sem abas, sem barra de endereço.
+
+### No iPhone
+
+Tem que ser pelo **Safari** (no iPhone, só ele instala app de site):
+
+1. Abra o endereço da Livia no Safari e entre com a senha.
+2. Toque em **Compartilhar** (o quadrado com a seta) › **Adicionar à Tela de Início**.
+3. Abra pelo ícone novo. Ela abre em tela cheia, com tela de abertura própria,
+   respeitando o notch e a barrinha de baixo.
+
+No celular: pinça com dois dedos dá zoom no céu, a barra de ações da Nebulosa
+rola de lado, e o microfone pede permissão na primeira vez (se negar sem
+querer: Ajustes › Safari › Microfone). A galáxia roda numa versão mais leve em
+celular.
+
+### Ollama em outro computador (o PC que fica ligado)
+
+A VM não aguenta rodar modelo, mas pode usar o Ollama de um PC pela rede do
+Tailscale. No `.env` da VM:
+
+```
+LIVIA_OLLAMA=1
+LIVIA_OLLAMA_BASE_URL=http://100.x.y.z:11434   # IP do PC no Tailscale
+LIVIA_EMBED_PROVIDER=gemini                     # vetores SEMPRE no Gemini
+```
+
+A última linha é a que importa. Vetor do Ollama e vetor do Gemini não se
+comparam; deixando no automático, cada vez que o PC desligasse e ligasse a
+memória inteira seria re-vetorizada no outro provedor. Fixando o Gemini pros
+vetores, o PC cuida só da conversa — e, desligado, a Livia desiste dele em
+5 segundos e responde pelo Groq.
+
+## Voz
+
+**Falar com ela.** O microfone ao lado do "Enviar" grava, manda pro Whisper do
+Groq (mesma `GROQ_API_KEY`, plano grátis) e coloca o texto no campo pra você
+revisar. O áudio não é guardado em lugar nenhum. Na Nebulosa, o 🎙 da barra
+de ações transforma o que você falar direto numa faísca.
+
+**Ela falando.** O 🔊 em cada resposta lê em voz alta. Se você mandou a
+mensagem por voz, ela já responde falando. Duas vozes, trocadas no rodapé da
+barra lateral:
+
+- **aparelho** (padrão): a voz pt-BR que o sistema já tem. Sem download.
+- **neural**: o Piper (voz `faber`), rodando 100% no navegador. Baixa uns 80 MB
+  na primeira vez e guarda. Se falhar, volta pra voz do aparelho sozinha.
+
+O Kokoro, que é o modelo de voz da moda, ficou de fora de propósito: a versão
+de navegador dele só pronuncia inglês.
+
+## MCP: a Livia dentro do Claude Code, Gemini CLI, Cursor…
+
+A Livia é um servidor MCP. Qualquer cliente MCP passa a enxergar as mesmas
+ferramentas do chat (Nebulosa inteira, relatórios, documentos) mais
+`buscar_memoria` e `lembrar`. O caso principal: você trabalha numa ideia no
+Claude Code e **ele mesmo registra o relatório** na ideia, com a IA certa
+(a Livia descobre pelo nome do cliente).
+
+1. Gere um token e ponha no `.env` (sem ele, a porta `/mcp` nem existe):
+   ```
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   LIVIA_MCP_TOKEN=<o que saiu>
+   ```
+2. Ligue no cliente:
+   - **Claude Code**
+     ```
+     claude mcp add --transport http livia https://SEU-ENDERECO/mcp --header "Authorization: Bearer SEU_TOKEN"
+     ```
+   - **Gemini CLI** (`~/.gemini/settings.json`)
+     ```json
+     { "mcpServers": { "livia": { "httpUrl": "https://SEU-ENDERECO/mcp",
+         "headers": { "Authorization": "Bearer SEU_TOKEN" } } } }
+     ```
+   - **Na mesma máquina**, sem rede nem token: `python -m livia.mcp_livia` (stdio).
+
+O token é separado da senha de propósito: dá pra trocar um sem derrubar o outro.
 
 ### O que "offline" significa aqui — e o que não significa
 

@@ -146,6 +146,19 @@ PORT = int(os.getenv("PORT") or os.getenv("LIVIA_PORT") or 8100)
 # escutar fora de 127.0.0.1 (ver run.py). Obrigatória para expor na internet.
 PASSWORD = os.getenv("LIVIA_PASSWORD", "").strip()
 
+# MCP: deixa Claude Code, Gemini CLI, Cursor & cia usarem a Livia como
+# ferramenta (memória, Nebulosa, relatórios). Desligado sem token — é uma
+# porta de escrita na sua memória, então ela só existe se você criar a chave.
+# Gere com:  python -c "import secrets; print(secrets.token_urlsafe(32))"
+MCP_TOKEN = os.getenv("LIVIA_MCP_TOKEN", "").strip()
+
+# Sono da memória: de madrugada a Livia revisa a memória (repetidas,
+# esquecidas) e deixa um relatório esperando. NÃO aplica nada sozinha — você
+# aplica com um toque. LIVIA_SONO=0 desliga. Hora no fuso do Brasil.
+SONO_ENABLED = os.getenv("LIVIA_SONO", "1").strip() != "0"
+SONO_HORA = os.getenv("LIVIA_SONO_HORA", "03:30").strip()
+FUSO_HORAS = float(os.getenv("LIVIA_FUSO", "-3").strip() or -3)  # Brasil não tem mais horário de verão
+
 # HTTPS não é mais configurado à mão: o servidor detecta pelo próprio pedido
 # (ver _via_https em server.py). Marcar isso errado causava loop de login —
 # entra, é redirecionado, cai na tela de senha de novo, sem mensagem nenhuma.
